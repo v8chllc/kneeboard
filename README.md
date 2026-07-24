@@ -1,87 +1,57 @@
 # kneeboard
 
-A web-based pre-flight planning companion that integrates with [SimBrief](https://www.simbrief.com/).
+Kneeboard is a web-based waypoint-entry tracker for home flight simulation. It
+loads the latest SimBrief LIDO Operational Flight Plan (OFP), converts eligible
+route fixes into keypad-ready coordinates, and helps a pilot manage the repeating
+1–9 memory slots of a CIVA or Litton inertial navigation system.
 
-Named after the aviation *kneeboard* — the small board strapped to a pilot's leg holding notes, charts, and checklists during flight.
+The MVP is designed around the CIVA/Delco Carousel IV-A and the three Litton
+LTN-72 units modeled in the iniBuilds Lockheed L-1011 TriStar. It is not intended
+for real-world navigation.
 
 ## Status
 
-Early planning. No code yet. This README captures the scope and integration decisions made so far so the project can be picked up cleanly in a future session.
+Planning is substantially complete. No application code exists yet. The
+documents below are the project handoff and the source of truth for future
+implementation planning.
 
-## Scope
+## Documentation
 
-- **Purpose:** Pre-flight planning companion. Import a SimBrief Operational Flight Plan (OFP), render a structured briefing view, allow annotations, and produce printable pre-flight material.
-- **Not in scope (for now):** In-flight / live cockpit display, multi-user accounts, public hosting.
-- **Audience:** Single user, running locally.
+- [Product decisions](docs/product-decisions.md) — audience, MVP experience,
+  screens, data shown, failure behavior, and explicit non-goals.
+- [Tracker behavior](docs/tracker-behavior.md) — waypoint eligibility,
+  coordinate formatting, slot sequencing, state transitions, passing semantics,
+  and page construction.
+- [Technical decisions](docs/technical-decisions.md) — stack, integration,
+  persistence, authentication, security, deployment, testing, and operations.
+- [Planning status](docs/planning-status.md) — deferred work and the few
+  implementation choices that remain open.
 
-## Stack
+## MVP at a glance
 
-- Next.js (App Router) + React + TypeScript
-- SimBrief data fetched server-side (see below)
+1. A user signs in through an email magic link.
+2. The user configures a numeric SimBrief Pilot ID.
+3. An explicit **Load latest OFP** action fetches and validates a detailed LIDO
+   navlog.
+4. A new, persistent tracker is created for every successful load, even when the
+   source OFP has not changed.
+5. The tracker displays all primary-route navlog points while assigning eligible
+   fixes to repeating INS memory slots 1–9.
+6. The user records each fix as saved, then passed, or terminally skips a queued
+   or pending fix.
 
-## SimBrief integration
+## Selected stack
 
-**Decision: use the public fetcher endpoint, server-side. No OAuth.**
+- Next.js App Router, React, and TypeScript
+- Tailwind CSS with dependency-light custom components
+- Zod for runtime boundary validation
+- Neon Postgres with Drizzle ORM and committed Drizzle Kit migrations
+- Better Auth magic links delivered by Resend
+- Vercel hosting at `kneeboard.v8ch.com`
+- Vitest unit tests and a lean manual Playwright end-to-end suite
+- `pnpm`, with Node.js LTS and tool versions pinned by mise
 
-SimBrief's ecosystem exposes three integration surfaces, and only one is a fit for this project:
+## Safety
 
-| Surface | What it is | Fit for kneeboard? |
-| --- | --- | --- |
-| `xml.fetcher.php` endpoint | Public URL that returns the user's most recent OFP as XML (or JSON with `&json=1`). Keyed by SimBrief `username` or `pilot_id`. No auth. | **Yes — this is what we'll use.** |
-| SimBrief "Application API" | Form-embed + PHP-include model for Virtual Airline sites that need to *generate* plans on a pilot's behalf. Requires emailing `dev@navigraph.com` for an API key. Not OAuth, not REST. | No — designed for plan *generation*, not reading. |
-| Navigraph OIDC API | Real OAuth 2.1 + PKCE at `identity.api.navigraph.com`. Vends charts and FMS data. Requires per-user Navigraph subscription. | No — does not return OFPs. Revisit only if chart integration is added later. |
-
-### Fetcher endpoint usage
-
-```
-GET https://www.simbrief.com/api/xml.fetcher.php?username={username}&json=1
-GET https://www.simbrief.com/api/xml.fetcher.php?userid={pilot_id}&json=1
-```
-
-Optional `&static_id={id}` pins a specific OFP; otherwise the endpoint always returns the pilot's *latest* plan (which changes silently when they regenerate on simbrief.com).
-
-Docs: https://developers.navigraph.com/docs/simbrief/fetching-ofp-data
-
-### Integration constraints
-
-- **CORS:** The fetcher endpoint publishes no CORS headers. Client-side `fetch()` from the browser is blocked. Proxy through a Next.js server route handler.
-- **Rate limits:** None published. Community norm is no more than one call every few seconds. Cache aggressively.
-- **Schema:** No formal JSON Schema or OpenAPI spec. The XML tree is the schema-of-record. TypeScript types will be defined from a sample OFP.
-- **JSON quirks:** JSON output mirrors the XML tree; some numeric fields come back as strings, and empty sections come back as empty strings rather than nulls. Validate defensively.
-
-### OFP payload (high-level)
-
-- General: origin, destination, airline, flight number, callsign, scheduled times, ETE
-- Aircraft: type, registration, ICAO equipment, transponder, PBN, custom airframe weights
-- Route: full ATC route string plus a decoded per-waypoint navlog (fix, lat/lon, altitude, track, wind, ISA dev, fuel remaining, time)
-- Fuel: taxi, trip, contingency, alternate, final reserve, extra, tankering, block, min at destination
-- Weights and balance: ZFW, TOW, LDW, payload, pax count, cargo
-- Weather: METAR + TAF for origin, destination, alternates; enroute wind/temp
-- NOTAMs (when requested at plan time)
-- Alternates: up to 4 primary + takeoff/enroute/ETOPS, each with route and runway
-- Files: PDF OFP URL, plain-text OFP, downloadable simulator flight plan files (PMDG, X-Plane, etc.)
-- Text blocks: dispatcher remarks, custom remarks, ATC flight plan string
-
-## Reference implementations
-
-Open-source projects consuming the same endpoint, worth cribbing from:
-
-- [FlyByWire A32NX](https://github.com/flybywiresim/aircraft) — best-in-class TypeScript parser (search the repo for `simbrief`).
-- [PilotsDeck](https://github.com/Fragtality/PilotsDeck) — simple single-user fetch pattern in Lua.
-
-## Next steps
-
-1. Write a short scope doc: what does the briefing view actually show, and what can be annotated? This drives every remaining decision.
-2. Scaffold Next.js + TypeScript + a styling choice (Tailwind is the low-friction default).
-3. Implement `GET /api/simbrief/latest` as a route handler proxying the fetcher endpoint. Store `username` in local config.
-4. First vertical slice: fetch one OFP, render a handful of key fields (route, fuel summary, weather).
-5. Iterate on the briefing view from there.
-
-## References
-
-- Fetcher endpoint docs: https://developers.navigraph.com/docs/simbrief/fetching-ofp-data
-- Application API (not used here): https://developers.navigraph.com/docs/simbrief/using-the-api
-- Navigraph OIDC (not used here): https://developers.navigraph.com/docs/authentication/overview
-- Restrictions / ToS: https://developers.navigraph.com/docs/general/restrictions
-- Sample OFP XML: http://www.simbrief.com/api/demo.php
-- Forum canonical thread: https://forum.navigraph.com/t/the-simbrief-api/5298
+Kneeboard is for home flight simulation only. It must not be represented as an
+approved navigation tool or used for real-world flight operations.

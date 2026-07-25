@@ -11,12 +11,18 @@ Alternate routing and ETOPS diversion routing are not included.
 Every point in the selected navlog is displayed, including points that cannot
 receive an INS slot.
 
+The origin airport is not one of those points. Each navlog row's data describes
+the leg preceding it, and no leg precedes the origin, so the OFP navlog begins at
+the first departure or enroute fix. The tracker synthesizes a leading origin row
+from the OFP's separate origin data. That row is display-only: it is never
+slot-eligible, and it has no `DIS` because no preceding leg exists.
+
 ## Displayed data
 
 Each navlog row shows:
 
 - identifier;
-- latitude and longitude in the OFP's LIDO format;
+- latitude and longitude in LIDO reference format;
 - `DIS`; and
 - `RDIS`.
 
@@ -26,10 +32,17 @@ greater visual prominence than the LIDO reference values.
 In a LIDO navlog:
 
 - `DIS` is the distance of the leg from the preceding navlog point into the
-  current row.
+  current row. The synthesized origin row has no `DIS`.
 - `RDIS` is the remaining route distance from the current row to the
   destination.
 - Distances are nautical miles.
+
+The OFP supplies leg distance directly but has no remaining-distance field, so
+`RDIS` is derived by summing the leg distances of all rows after the current one.
+This yields zero at the destination by construction and depends on no data
+outside the navlog itself. The OFP's own route-distance total is a cross-check
+only; its great-circle air distance is a different measurement and must not be
+used.
 
 ## Slot eligibility
 
@@ -43,8 +56,10 @@ Eligible points:
 Always excluded from slot assignment:
 
 - origin, destination, and other airport points; and
-- computed or informational points such as top of climb, top of descent, or FIR
-  boundary markers.
+- computed or informational points such as top of climb and top of descent.
+
+The second category is deliberately open-ended. Classification must treat an
+unrecognized computed point as ineligible rather than granting it a slot.
 
 Excluded points remain visible and read-only. They have no memory slot and omit
 keypad-ready coordinates so the interface does not suggest that they should be
@@ -61,6 +76,11 @@ slots and pages. The controls lock permanently for that tracker after its first
 Save action.
 
 ## Coordinate presentation
+
+The OFP supplies each position as signed decimal degrees, where negative
+latitude is south and negative longitude is west. It does not supply a
+preformatted coordinate string. Both displayed representations are therefore
+derived from that single source.
 
 Eligible fixes display both representations together:
 
@@ -83,8 +103,8 @@ When source coordinates have greater precision, conversion rounds to the nearest
 tenth of a minute. Conversion must correctly carry `60.0` minutes into the next
 degree and preserve the correct hemisphere at boundary cases.
 
-Keypad values are derived, read-only data. The MVP provides no coordinate-edit
-override.
+Both displayed representations are derived, read-only data. The MVP provides no
+coordinate-edit override.
 
 ## Memory slots
 

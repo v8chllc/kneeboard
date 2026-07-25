@@ -102,6 +102,16 @@ shared domain implementation.
   committed.
 - Use `uv run scripts/fetch_simbrief_ofp.py <pilot-id>` to capture the latest
   generated OFP during development.
+- The endpoint returns only the most recent OFP. Verify a generated route covers
+  its scenario before fetching, and record each capture in
+  `.local/simbrief/manifest.md`.
+- Consult `docs/simbrief-navlog-findings.md` before writing parsing or
+  classification code. It records observed payload structure, the evidence
+  behind each classification rule, and the gaps between the payload and
+  `docs/tracker-behavior.md`.
+- Treat the payload as loosely typed at the boundary. SimBrief collapses
+  single-element arrays into bare objects and quotes some numeric values, so
+  normalize both shapes rather than assuming consistency.
 - Sanitize representative OFPs before moving them into tracked fixtures.
 - Automated tests must use fixed sanitized fixtures and must never contact live
   SimBrief, Resend, or production infrastructure.

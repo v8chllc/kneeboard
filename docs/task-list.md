@@ -15,16 +15,28 @@ generation because the Pilot ID endpoint returns only the latest generated OFP:
 uv run scripts/fetch_simbrief_ofp.py <pilot-id>
 ```
 
-- [ ] Generate and fetch a normal domestic OFP.
-  - Suggested starting pair: KORD–KATL.
+Inspect the generated route in SimBrief before fetching. Because the endpoint
+returns only the most recent OFP, a scenario that fails its coverage
+requirement has to be regenerated and refetched from scratch. Confirm that the
+route string actually contains what the scenario is meant to prove — a named
+procedure, a coordinate-defined fix, or a sufficient eligible-fix count — rather
+than discovering the gap after the capture.
+
+- [x] Generate and fetch a normal domestic OFP.
+  - Suggested starting pair: KATL–KORD.
+  - Depart from an airport that publishes a named SID. KORD departures are
+    radar vectors to the initial route fix, so a KORD departure yields no SID
+    fixes and cannot cover the SID inclusion control.
   - Cover named enroute fixes, SID and STAR fixes, airports, computed points
     such as top of climb and top of descent, `DIS`, `RDIS`, and normal flight
     metadata.
-- [ ] Generate and fetch a long multi-page OFP.
+- [x] Generate and fetch a long multi-page OFP.
   - Suggested starting pair: KLAX–KJFK.
   - Confirm the primary route contains more than 18 eligible fixes so the
     fixture covers repeated slots 1–9 and at least three pages.
-- [ ] Generate and fetch an oceanic OFP.
+  - Prefer RNAV routing. It produces a denser fix count than VOR-to-VOR
+    routing, which makes the eligible-fix threshold easier to clear.
+- [x] Generate and fetch an oceanic OFP.
   - Suggested starting pair: KBOS–EGLL.
   - Confirm the generated navlog includes coordinate-defined oceanic fixes. If
     it contains only named oceanic points, adjust the route to include accepted
@@ -46,9 +58,14 @@ uv run scripts/fetch_simbrief_ofp.py <pilot-id>
   - Inspect how absent airline and flight-number values are represented.
   - Record any required product decision about display fallbacks.
 - [ ] Record the scenario associated with each timestamped raw download.
+  - Keep the record in `.local/simbrief/manifest.md` alongside the downloads.
+    The manifest is ignored by Git because it names raw payload files.
 - [ ] Inspect the returned JSON and document the exact normalized field mapping
       for airports, computed points, SID fixes, STAR fixes, named enroute fixes,
       and coordinate-defined fixes.
+  - Findings from the accepted captures are recorded in
+    [SimBrief navlog findings](simbrief-navlog-findings.md). Extend that
+    document as later scenarios are captured.
 - [ ] Sanitize selected payloads into deterministic, tracked test fixtures.
   - Remove personal and account-related data.
   - Do not commit unreviewed files from `.local/simbrief/`.

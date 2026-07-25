@@ -28,6 +28,9 @@ choices before building the domain foundation.
   and page construction.
 - [Technical decisions](docs/technical-decisions.md) — stack, integration,
   persistence, authentication, security, deployment, testing, and operations.
+- [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
+  payload structure, classification evidence, and gaps against documented
+  tracker behavior.
 - [Planning status](docs/planning-status.md) — deferred work and the few
   implementation choices that remain open.
 - [Project task list](docs/task-list.md) — representative SimBrief fixture

@@ -1,0 +1,48 @@
+# Dependencies
+/node_modules/
+/.pnpm-store/
+
+# Next.js build output
+/.next/
+/out/
+/build/
+
+# Test output
+/coverage/
+/playwright-report/
+/test-results/
+/blob-report/
+
+# TypeScript and tool caches
+*.tsbuildinfo
+next-env.d.ts
+/.turbo/
+/.cache/
+.eslintcache
+
+# Environment files and secrets
+.env*
+!.env.example
+*.pem
+
+# Vercel project state
+/.vercel/
+
+# Local mise overrides
+mise.local.toml
+.mise.local.toml
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/
+*.swp
+*~

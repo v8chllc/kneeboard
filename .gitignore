@@ -32,6 +32,9 @@ next-env.d.ts
 mise.local.toml
 .mise.local.toml
 
+# Local development data
+/.local/
+
 # Logs
 *.log
 npm-debug.log*

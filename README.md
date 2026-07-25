@@ -51,6 +51,23 @@ implementation planning.
 - Vitest unit tests and a lean manual Playwright end-to-end suite
 - `pnpm`, with Node.js LTS and tool versions pinned by mise
 
+## Development tools
+
+### Fetch a SimBrief OFP
+
+After generating an OFP in SimBrief with the LIDO plan format and detailed
+navlog enabled, fetch its JSON payload by passing the account's numeric Pilot ID:
+
+```bash
+uv run scripts/fetch_simbrief_ofp.py <pilot-id>
+```
+
+The script retrieves the account's latest generated OFP and saves the response
+under `.local/simbrief/` with a UTC timestamped filename. This directory is
+ignored by Git because raw OFPs can contain personal and account-related data.
+Do not move an unreviewed payload into a tracked fixture directory. Sanitize any
+payload selected for test coverage before committing it.
+
 ## Safety
 
 Kneeboard is for home flight simulation only. It must not be represented as an

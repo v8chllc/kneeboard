@@ -11,9 +11,13 @@ for real-world navigation.
 
 ## Status
 
-Planning is substantially complete. No application code exists yet. The
-documents below are the project handoff and the source of truth for future
-implementation planning.
+Product, domain, and technical planning is substantially complete. The web
+application has not been scaffolded yet, but initial development tooling and an
+ordered implementation task list are in place.
+
+The next milestone is to capture and sanitize representative SimBrief OFPs,
+confirm the normalized field mapping, and resolve the remaining implementation
+choices before building the domain foundation.
 
 ## Documentation
 
@@ -26,6 +30,8 @@ implementation planning.
   persistence, authentication, security, deployment, testing, and operations.
 - [Planning status](docs/planning-status.md) — deferred work and the few
   implementation choices that remain open.
+- [Project task list](docs/task-list.md) — representative SimBrief fixture
+  scenarios and the ordered path from domain development through MVP release.
 
 ## MVP at a glance
 

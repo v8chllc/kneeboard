@@ -1,0 +1,45 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "not-a-unix-timestamp"
+  },
+  "general": {
+    "flight_number": "TST903",
+    "icao_airline": "TST",
+    "sid_ident": "",
+    "star_ident": "",
+    "route_distance": "minus-one"
+  },
+  "origin": {
+    "icao_code": "TSTE",
+    "pos_lat": "north",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "TSTF",
+    "pos_lat": "30.500000",
+    "pos_long": "west"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "BROKEN",
+        "type": "wpt",
+        "is_sid_star": "2",
+        "via_airway": "DCT",
+        "pos_lat": "91.000000",
+        "pos_long": "-181.000000",
+        "distance": "NaN"
+      },
+      {
+        "ident": "TSTF",
+        "type": "apt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000",
+        "distance": "1"
+      }
+    ]
+  }
+}

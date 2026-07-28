@@ -1,0 +1,153 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": 1767225702
+  },
+  "general": {
+    "flight_number": "TST902",
+    "icao_airline": "TST",
+    "sid_ident": "SID1",
+    "star_ident": "STAR1",
+    "route_distance": 14
+  },
+  "origin": {
+    "icao_code": "TSTC",
+    "pos_lat": 12,
+    "pos_long": "-170.000000"
+  },
+  "destination": {
+    "icao_code": "TSTD",
+    "pos_lat": "14.000000",
+    "pos_long": -170
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "FIX01",
+        "type": "wpt",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 12.1,
+        "pos_long": "-170.100000",
+        "distance": 1
+      },
+      {
+        "ident": "FIX02",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "12.200000",
+        "pos_long": -170.2,
+        "distance": "1"
+      },
+      {
+        "ident": "FIX03",
+        "type": "wpt",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 12.3,
+        "pos_long": -170.3,
+        "distance": 1
+      },
+      {
+        "ident": "FIX04",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "12.400000",
+        "pos_long": "-170.400000",
+        "distance": "1"
+      },
+      {
+        "ident": "FIX05",
+        "type": "wpt",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 12.5,
+        "pos_long": "-170.500000",
+        "distance": 1
+      },
+      {
+        "ident": "FIX06",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "12.600000",
+        "pos_long": -170.6,
+        "distance": "1"
+      },
+      {
+        "ident": "FIX07",
+        "type": "wpt",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 12.7,
+        "pos_long": -170.7,
+        "distance": 1
+      },
+      {
+        "ident": "FIX08",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "12.800000",
+        "pos_long": "-170.800000",
+        "distance": "1"
+      },
+      {
+        "ident": "REPEAT",
+        "type": "wpt",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 12.9,
+        "pos_long": -170.9,
+        "distance": 1
+      },
+      {
+        "ident": "ETP",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "SID1",
+        "pos_lat": "12.950000",
+        "pos_long": "-170.950000",
+        "distance": "1"
+      },
+      {
+        "ident": "REPEAT",
+        "type": "wpt",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 12.9999,
+        "pos_long": -179.9999,
+        "distance": 1
+      },
+      {
+        "ident": "AMBIG",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "UNKNOWN1",
+        "pos_lat": "13.100000",
+        "pos_long": "-171.100000",
+        "distance": "1"
+      },
+      {
+        "ident": "MYSTERY",
+        "type": "unknown",
+        "is_sid_star": 0,
+        "via_airway": "DCT",
+        "pos_lat": 13.2,
+        "pos_long": -171.2,
+        "distance": 1
+      },
+      {
+        "ident": "TSTD",
+        "type": "apt",
+        "is_sid_star": "1",
+        "via_airway": "STAR1",
+        "pos_lat": "14.000000",
+        "pos_long": -170,
+        "distance": "1"
+      }
+    ]
+  }
+}

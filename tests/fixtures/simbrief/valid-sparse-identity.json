@@ -1,0 +1,273 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225605"
+  },
+  "general": {
+    "flight_number": "N101SB",
+    "icao_airline": "",
+    "sid_ident": "NIKKL1",
+    "star_ident": "LIKES4",
+    "route_distance": "348"
+  },
+  "origin": {
+    "icao_code": "KONT",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "KAFW",
+    "pos_lat": "33.375000",
+    "pos_long": "-103.375000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "PDZ",
+        "type": "vor",
+        "is_sid_star": "1",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.125000",
+        "pos_long": "-100.125000",
+        "distance": "10"
+      },
+      {
+        "ident": "WERLE",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.250000",
+        "pos_long": "-100.250000",
+        "distance": "11"
+      },
+      {
+        "ident": "ARNEE",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.375000",
+        "pos_long": "-100.375000",
+        "distance": "12"
+      },
+      {
+        "ident": "NIKKL",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000",
+        "distance": "13"
+      },
+      {
+        "ident": "HEMET",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.625000",
+        "pos_long": "-100.625000",
+        "distance": "14"
+      },
+      {
+        "ident": "TOC",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.750000",
+        "pos_long": "-100.750000",
+        "distance": "15"
+      },
+      {
+        "ident": "TRM",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "NIKKL1",
+        "pos_lat": "30.875000",
+        "pos_long": "-100.875000",
+        "distance": "16"
+      },
+      {
+        "ident": "CNERY",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "31.000000",
+        "pos_long": "-101.000000",
+        "distance": "10"
+      },
+      {
+        "ident": "BLH",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "31.125000",
+        "pos_long": "-101.125000",
+        "distance": "11"
+      },
+      {
+        "ident": "SALOM",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "31.250000",
+        "pos_long": "-101.250000",
+        "distance": "12"
+      },
+      {
+        "ident": "KOFFA",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "31.375000",
+        "pos_long": "-101.375000",
+        "distance": "13"
+      },
+      {
+        "ident": "GBN",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "31.500000",
+        "pos_long": "-101.500000",
+        "distance": "14"
+      },
+      {
+        "ident": "TFD",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "31.625000",
+        "pos_long": "-101.625000",
+        "distance": "15"
+      },
+      {
+        "ident": "TOTEC",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "31.750000",
+        "pos_long": "-101.750000",
+        "distance": "16"
+      },
+      {
+        "ident": "ITEMM",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "31.875000",
+        "pos_long": "-101.875000",
+        "distance": "10"
+      },
+      {
+        "ident": "SSO",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "32.000000",
+        "pos_long": "-102.000000",
+        "distance": "11"
+      },
+      {
+        "ident": "ALIBY",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "32.125000",
+        "pos_long": "-102.125000",
+        "distance": "12"
+      },
+      {
+        "ident": "ELP",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "32.250000",
+        "pos_long": "-102.250000",
+        "distance": "13"
+      },
+      {
+        "ident": "LINZY",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "32.375000",
+        "pos_long": "-102.375000",
+        "distance": "14"
+      },
+      {
+        "ident": "INK",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J50",
+        "pos_lat": "32.500000",
+        "pos_long": "-102.500000",
+        "distance": "15"
+      },
+      {
+        "ident": "GEEKY",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.625000",
+        "pos_long": "-102.625000",
+        "distance": "16"
+      },
+      {
+        "ident": "TOD",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "LIKES4",
+        "pos_lat": "32.750000",
+        "pos_long": "-102.750000",
+        "distance": "10"
+      },
+      {
+        "ident": "LYMPY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LIKES4",
+        "pos_lat": "32.875000",
+        "pos_long": "-102.875000",
+        "distance": "11"
+      },
+      {
+        "ident": "BRRUS",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LIKES4",
+        "pos_lat": "33.000000",
+        "pos_long": "-103.000000",
+        "distance": "12"
+      },
+      {
+        "ident": "SLUGG",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LIKES4",
+        "pos_lat": "33.125000",
+        "pos_long": "-103.125000",
+        "distance": "13"
+      },
+      {
+        "ident": "LIKES",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LIKES4",
+        "pos_lat": "33.250000",
+        "pos_long": "-103.250000",
+        "distance": "14"
+      },
+      {
+        "ident": "KAFW",
+        "type": "apt",
+        "is_sid_star": "1",
+        "via_airway": "LIKES4",
+        "pos_lat": "33.375000",
+        "pos_long": "-103.375000",
+        "distance": "15"
+      }
+    ]
+  },
+  "aircraft": {
+    "reg": "N101SB"
+  }
+}

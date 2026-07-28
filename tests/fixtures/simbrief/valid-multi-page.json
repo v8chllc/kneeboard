@@ -1,0 +1,405 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225602"
+  },
+  "general": {
+    "flight_number": "TST102",
+    "icao_airline": "TST",
+    "sid_ident": "OSHNN1",
+    "star_ident": "PUCKY1",
+    "route_distance": "546"
+  },
+  "origin": {
+    "icao_code": "KLAX",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "KJFK",
+    "pos_lat": "35.250000",
+    "pos_long": "-105.250000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "DLREY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.125000",
+        "pos_long": "-100.125000",
+        "distance": "10"
+      },
+      {
+        "ident": "ENNEY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.250000",
+        "pos_long": "-100.250000",
+        "distance": "11"
+      },
+      {
+        "ident": "NAANC",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.375000",
+        "pos_long": "-100.375000",
+        "distance": "12"
+      },
+      {
+        "ident": "HAYNK",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000",
+        "distance": "13"
+      },
+      {
+        "ident": "PEVEE",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.625000",
+        "pos_long": "-100.625000",
+        "distance": "14"
+      },
+      {
+        "ident": "HOLTZ",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.750000",
+        "pos_long": "-100.750000",
+        "distance": "15"
+      },
+      {
+        "ident": "OSHNN",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "30.875000",
+        "pos_long": "-100.875000",
+        "distance": "16"
+      },
+      {
+        "ident": "CAHIL",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.000000",
+        "pos_long": "-101.000000",
+        "distance": "10"
+      },
+      {
+        "ident": "ZOOMM",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.125000",
+        "pos_long": "-101.125000",
+        "distance": "11"
+      },
+      {
+        "ident": "SEBBY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.250000",
+        "pos_long": "-101.250000",
+        "distance": "12"
+      },
+      {
+        "ident": "PLAYY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.375000",
+        "pos_long": "-101.375000",
+        "distance": "13"
+      },
+      {
+        "ident": "ARCUS",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.500000",
+        "pos_long": "-101.500000",
+        "distance": "14"
+      },
+      {
+        "ident": "YELAH",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.625000",
+        "pos_long": "-101.625000",
+        "distance": "15"
+      },
+      {
+        "ident": "TOC",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.750000",
+        "pos_long": "-101.750000",
+        "distance": "16"
+      },
+      {
+        "ident": "WYZEE",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "OSHNN1",
+        "pos_lat": "31.875000",
+        "pos_long": "-101.875000",
+        "distance": "10"
+      },
+      {
+        "ident": "BEALE",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "OSHNN1",
+        "pos_lat": "32.000000",
+        "pos_long": "-102.000000",
+        "distance": "11"
+      },
+      {
+        "ident": "BAWER",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.125000",
+        "pos_long": "-102.125000",
+        "distance": "12"
+      },
+      {
+        "ident": "LARVE",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.250000",
+        "pos_long": "-102.250000",
+        "distance": "13"
+      },
+      {
+        "ident": "EKR",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.375000",
+        "pos_long": "-102.375000",
+        "distance": "14"
+      },
+      {
+        "ident": "MOCTU",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.500000",
+        "pos_long": "-102.500000",
+        "distance": "15"
+      },
+      {
+        "ident": "HANKI",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.625000",
+        "pos_long": "-102.625000",
+        "distance": "16"
+      },
+      {
+        "ident": "ONL",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.750000",
+        "pos_long": "-102.750000",
+        "distance": "10"
+      },
+      {
+        "ident": "KP78E",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "32.875000",
+        "pos_long": "-102.875000",
+        "distance": "11"
+      },
+      {
+        "ident": "KG81K",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "33.000000",
+        "pos_long": "-103.000000",
+        "distance": "12"
+      },
+      {
+        "ident": "ADALE",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "33.125000",
+        "pos_long": "-103.125000",
+        "distance": "13"
+      },
+      {
+        "ident": "VIO",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J34",
+        "pos_lat": "33.250000",
+        "pos_long": "-103.250000",
+        "distance": "14"
+      },
+      {
+        "ident": "DAFLU",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "33.375000",
+        "pos_long": "-103.375000",
+        "distance": "15"
+      },
+      {
+        "ident": "BROKK",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J70",
+        "pos_lat": "33.500000",
+        "pos_long": "-103.500000",
+        "distance": "16"
+      },
+      {
+        "ident": "BEWEL",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "J70",
+        "pos_lat": "33.625000",
+        "pos_long": "-103.625000",
+        "distance": "10"
+      },
+      {
+        "ident": "JHW",
+        "type": "vor",
+        "is_sid_star": "0",
+        "via_airway": "J70",
+        "pos_lat": "33.750000",
+        "pos_long": "-103.750000",
+        "distance": "11"
+      },
+      {
+        "ident": "HOXIE",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q476",
+        "pos_lat": "33.875000",
+        "pos_long": "-103.875000",
+        "distance": "12"
+      },
+      {
+        "ident": "DMACK",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q476",
+        "pos_lat": "34.000000",
+        "pos_long": "-104.000000",
+        "distance": "13"
+      },
+      {
+        "ident": "STENT",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q476",
+        "pos_lat": "34.125000",
+        "pos_long": "-104.125000",
+        "distance": "14"
+      },
+      {
+        "ident": "MAGIO",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q476",
+        "pos_lat": "34.250000",
+        "pos_long": "-104.250000",
+        "distance": "15"
+      },
+      {
+        "ident": "TOD",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "Q476",
+        "pos_lat": "34.375000",
+        "pos_long": "-104.375000",
+        "distance": "16"
+      },
+      {
+        "ident": "WLKES",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q476",
+        "pos_lat": "34.500000",
+        "pos_long": "-104.500000",
+        "distance": "10"
+      },
+      {
+        "ident": "JENNO",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "PUCKY1",
+        "pos_lat": "34.625000",
+        "pos_long": "-104.625000",
+        "distance": "11"
+      },
+      {
+        "ident": "HARTY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "PUCKY1",
+        "pos_lat": "34.750000",
+        "pos_long": "-104.750000",
+        "distance": "12"
+      },
+      {
+        "ident": "NWTON",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "PUCKY1",
+        "pos_lat": "34.875000",
+        "pos_long": "-104.875000",
+        "distance": "13"
+      },
+      {
+        "ident": "PUCKY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "PUCKY1",
+        "pos_lat": "35.000000",
+        "pos_long": "-105.000000",
+        "distance": "14"
+      },
+      {
+        "ident": "VADDR",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "PUCKY1",
+        "pos_lat": "35.125000",
+        "pos_long": "-105.125000",
+        "distance": "15"
+      },
+      {
+        "ident": "KJFK",
+        "type": "apt",
+        "is_sid_star": "1",
+        "via_airway": "PUCKY1",
+        "pos_lat": "35.250000",
+        "pos_long": "-105.250000",
+        "distance": "16"
+      }
+    ]
+  }
+}

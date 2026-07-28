@@ -1,0 +1,117 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225701"
+  },
+  "general": {
+    "flight_number": "TST901",
+    "icao_airline": "TST",
+    "sid_ident": "",
+    "star_ident": "",
+    "route_distance": "100"
+  },
+  "origin": {
+    "icao_code": "TSTA",
+    "pos_lat": "10.000000",
+    "pos_long": "20.000000"
+  },
+  "destination": {
+    "icao_code": "TSTB",
+    "pos_lat": "11.000000",
+    "pos_long": "21.000000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "FIX01",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.100000",
+        "pos_long": "20.100000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX02",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.200000",
+        "pos_long": "20.200000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX03",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.300000",
+        "pos_long": "20.300000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX04",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.400000",
+        "pos_long": "20.400000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX05",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.500000",
+        "pos_long": "20.500000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX06",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.600000",
+        "pos_long": "20.600000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX07",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.700000",
+        "pos_long": "20.700000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX08",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.800000",
+        "pos_long": "20.800000",
+        "distance": "10"
+      },
+      {
+        "ident": "FIX09",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "10.900000",
+        "pos_long": "20.900000",
+        "distance": "10"
+      },
+      {
+        "ident": "TSTB",
+        "type": "apt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "11.000000",
+        "pos_long": "21.000000",
+        "distance": "10"
+      }
+    ]
+  }
+}

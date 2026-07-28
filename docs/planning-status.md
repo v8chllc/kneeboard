@@ -12,6 +12,10 @@ planning.
 - CIVA/Delco Carousel IV-A and iniBuilds L-1011 Litton LTN-72 context
 - LIDO detailed navlog only
 - Primary route only
+- SimBrief's `general.flight_number` displayed unchanged, including its
+  simulator-registration substitution when no airline or flight number is set
+- Fail-closed waypoint classification: coordinate-pattern `ltlg` allowlisting
+  and exact flagged `via_airway` matches to dedicated SID or STAR identifiers
 - Synthesized display-only origin row, because the OFP navlog omits the origin
 - `RDIS` derived by summing the leg distances of all following rows
 - No FIR boundary rows; FIR data is present in the payload but unused by MVP
@@ -100,18 +104,6 @@ These are intentionally not filled in by assumption:
    - Fixtures must remain sanitized and deterministic.
 6. **Exact package and tool versions**
    - Resolve current stable compatible versions when scaffolding, then pin them.
-7. **Normalized SimBrief field mapping**
-   - Observed structure is recorded in [SimBrief navlog
-     findings](simbrief-navlog-findings.md) from three accepted captures.
-   - Field locations and type values are now evidenced. Confirm them against the
-     remaining captures and the sanitized fixtures.
-   - Confirm the recommended slot-eligibility rule for `ltlg` fixes: an
-     identifier matching a coordinate pattern is eligible, and everything else
-     of that type is a computed point. The recommendation is an allowlist
-     because it fails safe.
-   - Confirm the SID and STAR rule: `is_sid_star == 1` combined with a
-     `via_airway` match, since `via_airway` describes the preceding leg and
-     appears on fixes outside the procedure.
 
 ## Implementation-plan boundaries
 

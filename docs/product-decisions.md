@@ -44,6 +44,12 @@ Each recent item shows:
 - origin and destination; and
 - OFP generation time.
 
+The displayed flight number is SimBrief's normalized `general.flight_number`
+value as supplied. When SimBrief substitutes the simulator aircraft registration
+because the user entered no airline or flight number, Kneeboard displays that
+substituted value unchanged. The MVP does not normalize `aircraft.reg` solely to
+detect or relabel this case.
+
 Selecting a recent item opens that tracker. Older trackers remain stored but are
 not listed or searchable in the MVP.
 

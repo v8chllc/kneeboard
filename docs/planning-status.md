@@ -19,7 +19,10 @@ planning.
 - Synthesized display-only origin row, because the OFP navlog omits the origin
 - `RDIS` derived by summing the leg distances of all following rows
 - No FIR boundary rows; FIR data is present in the payload but unused by MVP
-- Repeating INS slots 1–9
+- Repeating INS slots 1–9 with deferred release, so the most recently passed fix
+  keeps its slot as the active-leg FROM waypoint
+- A sliding window representing current INS unit contents, drawn inline over the
+  always-visible complete navlog
 - Read-only coordinate and distance reference data
 - Explicit Save, Pass, and Skip workflow
 - Persistent, private trackers and recent-load home screen
@@ -31,6 +34,11 @@ planning.
 - Tailwind CSS and custom components
 - Zod boundary validation
 - Pure transition engine with persisted snapshots
+- Aggregate persistence: indexed `ofp_load` metadata, a separate `ofp_raw`
+  payload table, and a `tracker` row holding navlog, snapshot, and version
+- 16-digit Pilot ID input cap as an application limit
+- 30-second per-account cooldown on the Load endpoint alongside per-action
+  idempotency
 - Server-confirmed UI mutations
 - Optimistic concurrency
 - Stable account-protected tracker URLs
@@ -59,6 +67,8 @@ planning.
 - Weather, NOTAM, fuel, weight, or printable views
 - Free-form waypoint notes
 - Per-unit INS tracking
+- Non-contiguous active legs, such as a direct-to that bypasses intermediate
+  slots, and the slot-state representation they would require
 - Alternate and ETOPS routing
 - Restoring skipped waypoints
 - Undo
@@ -77,33 +87,20 @@ planning.
 
 ## Open implementation-planning decisions
 
-These are intentionally not filled in by assumption:
+These are intentionally not filled in by assumption. Each depends on work that
+has not happened yet, so each is resolved during the step that makes it
+concrete rather than in advance.
 
-1. **Persistence shape**
-   - Choose aggregate JSON snapshots or normalized waypoint rows.
-   - Current recommendation: immutable navlog and mutable tracker-state
-     aggregates, with indexed relational metadata and raw OFP storage separated
-     from frequently updated state where useful.
-2. **Pilot ID defensive length**
-   - SimBrief documents numeric Pilot IDs but no maximum.
-   - Storage as a string and digits-only validation are decided.
-   - Select a generous application input cap without presenting it as a
-     SimBrief rule.
-3. **No-saved active-page fallback**
-   - Page 1 is active before the first Save.
-   - The earliest saved-unpassed waypoint otherwise determines the active page.
-   - Define the fallback after all saved waypoints are passed while later
-     pending fixes remain.
-4. **SimBrief request protection**
-   - Per-action idempotency is decided.
-   - Decide whether the authenticated Load endpoint also needs a small
-     per-account cooldown beyond disabling duplicate UI submissions.
-5. **Test infrastructure**
+1. **Test infrastructure**
    - Choose how manual Playwright tests capture magic links and isolate their
      database.
    - Fixtures must remain sanitized and deterministic.
-6. **Exact package and tool versions**
+   - Resolved in section 9 of [the task list](task-list.md), because the
+     mechanism depends on how Better Auth and Resend are wired in section 7.
+2. **Exact package and tool versions**
    - Resolve current stable compatible versions when scaffolding, then pin them.
+   - Resolved in section 5 of [the task list](task-list.md), because versions
+     are pinned as they are installed.
 
 ## Implementation-plan boundaries
 

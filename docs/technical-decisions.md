@@ -57,6 +57,17 @@ Decisions:
 - Store the complete raw JSON payload privately for every successful load.
 - Also normalize the small set of fields required by the tracker.
 
+Pilot ID input is capped at 16 digits and validated as `^\d{1,16}$`. Leading
+zeros are preserved and the value is stored as a string. The cap is a Kneeboard
+input limit, not a documented SimBrief rule; real IDs are currently six digits.
+
+The authenticated Load endpoint enforces a 30-second per-account cooldown in
+addition to per-action idempotency, recorded as a `last_load_at` value on
+account settings and checked server-side. Replaying an existing idempotency key
+bypasses the cooldown and returns the existing tracker without contacting
+SimBrief. A cooldown rejection is a distinct, non-failing response that reports
+the remaining wait rather than creating a failed load.
+
 SimBrief publishes no formal JSON Schema. Its JSON mirrors XML and may represent
 numbers as strings and empty sections as empty strings.
 
@@ -115,11 +126,25 @@ Every tracker mutation uses optimistic concurrency:
 
 The MVP does not merge concurrent changes.
 
-The exact physical representation of normalized waypoints and mutable state
-(aggregate JSON snapshots versus relational waypoint rows) remains an
-implementation-planning decision. The favored direction is an aggregate because
-the tracker is read and transitioned as one domain object, with metadata kept in
-ordinary indexed columns.
+Normalized waypoints and mutable state are persisted as aggregates rather than
+relational waypoint rows, because the tracker is read and transitioned as one
+domain object. A single-row compare-and-swap update is then atomic without a
+multi-row transaction, and no slot, page, or sliding-window rule is expressed in
+SQL.
+
+The physical shape is:
+
+- `ofp_load` — indexed metadata only: account, idempotency key, flight number,
+  origin, destination, OFP generation time, and load time. This table alone
+  satisfies the 10-most-recent-loads query.
+- `ofp_raw` — a separate table keyed by load, holding the complete raw SimBrief
+  payload so that large blobs are never touched by metadata queries.
+- `tracker` — account, load, immutable normalized navlog, mutable snapshot,
+  integer version, and UTC timestamps.
+
+The navlog and the snapshot share the `tracker` row. At roughly a hundred
+waypoints the pair is tens of kilobytes, and Postgres rewrites the row on update
+regardless, so separating them would add a join without reducing write cost.
 
 ## Authentication and account isolation
 

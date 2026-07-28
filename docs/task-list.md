@@ -43,33 +43,33 @@ than discovering the gap after the capture.
     coordinate entries.
   - Retain alternate or ETOPS data in the raw payload so parsing can prove that
     only the primary route is selected.
-- [ ] Generate and fetch a southern/eastern hemisphere OFP.
+- [x] Generate and fetch a southern/eastern hemisphere OFP.
   - Suggested starting pair: YSSY–NZAA.
   - Use it with the North American fixtures to cover all latitude and longitude
     hemispheres.
-- [ ] Generate and fetch a LIDO OFP with detailed navlog disabled.
+- [x] Generate and fetch a LIDO OFP with detailed navlog disabled.
   - Use any short route.
   - Preserve it as a rejection fixture for incomplete OFPs.
-- [ ] Generate and fetch a non-LIDO OFP with detailed navlog enabled.
+- [x] Generate and fetch a non-LIDO OFP with detailed navlog enabled.
   - Reuse the normal domestic route where practical.
   - Preserve it as a rejection fixture for unsupported plan formats.
-- [ ] Optionally generate and fetch a valid OFP with minimal optional identity
+- [x] Optionally generate and fetch a valid OFP with minimal optional identity
       fields.
   - Inspect how absent airline and flight-number values are represented.
   - Record any required product decision about display fallbacks.
-- [ ] Record the scenario associated with each timestamped raw download.
+- [x] Record the scenario associated with each timestamped raw download.
   - Keep the record in `.local/simbrief/manifest.md` alongside the downloads.
     The manifest is ignored by Git because it names raw payload files.
-- [ ] Inspect the returned JSON and document the exact normalized field mapping
+- [x] Inspect the returned JSON and document the exact normalized field mapping
       for airports, computed points, SID fixes, STAR fixes, named enroute fixes,
       and coordinate-defined fixes.
   - Findings from the accepted captures are recorded in
     [SimBrief navlog findings](simbrief-navlog-findings.md). Extend that
     document as later scenarios are captured.
-- [ ] Sanitize selected payloads into deterministic, tracked test fixtures.
+- [x] Sanitize selected payloads into deterministic, tracked test fixtures.
   - Remove personal and account-related data.
   - Do not commit unreviewed files from `.local/simbrief/`.
-- [ ] Derive synthetic fixture variants for cases that should not be forced
+- [x] Derive synthetic fixture variants for cases that should not be forced
       through SimBrief:
   - exactly 9 and 10 eligible fixes;
   - page boundaries with excluded points;
@@ -78,6 +78,8 @@ than discovering the gap after the capture.
   - empty sections and missing required fields; and
   - repeated identifiers and other classification ambiguities found during
     inspection.
+  - The deterministic variants and their expected acceptance outcomes are
+    catalogued in [`tests/fixtures/simbrief`](../tests/fixtures/simbrief/README.md).
 
 ## 2. Resolve implementation-planning decisions
 

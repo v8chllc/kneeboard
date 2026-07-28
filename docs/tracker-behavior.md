@@ -61,6 +61,22 @@ Always excluded from slot assignment:
 The second category is deliberately open-ended. Classification must treat an
 unrecognized computed point as ineligible rather than granting it a slot.
 
+Classification follows this fail-closed order after boundary fields have been
+validated and normalized:
+
+1. A row with source type `apt` is an airport and is ineligible.
+2. A row with source type `ltlg` is eligible only when its identifier matches
+   the anchored coordinate pattern `^\d{2}[NS]\d{3}[EW]$`. Every other `ltlg`
+   row is computed or informational and is ineligible.
+3. A `wpt` or `vor` row is a SID or STAR fix only when its normalized
+   `is_sid_star` flag is true and its inbound `via_airway` exactly matches one
+   of the OFP's dedicated `sid_ident` or `star_ident` values. Airport and `ltlg`
+   classification takes precedence because those rows may also carry the flag.
+4. A flagged `wpt` or `vor` row that does not match exactly one dedicated
+   procedure identifier is ambiguous and ineligible.
+5. Every remaining `wpt` or `vor` row is a named enroute fix and is eligible.
+6. An unrecognized source type is ineligible.
+
 Excluded points remain visible and read-only. They have no memory slot and omit
 keypad-ready coordinates so the interface does not suggest that they should be
 entered.

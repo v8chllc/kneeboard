@@ -1,0 +1,24 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225606"
+  },
+  "general": {
+    "flight_number": "TST105",
+    "icao_airline": "TST",
+    "sid_ident": {},
+    "star_ident": {},
+    "route_distance": "0"
+  },
+  "origin": {
+    "icao_code": "KBOS",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "KTPA",
+    "pos_lat": "30.250000",
+    "pos_long": "-100.250000"
+  },
+  "navlog": {}
+}

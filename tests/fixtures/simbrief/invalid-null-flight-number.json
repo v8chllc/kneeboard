@@ -1,0 +1,34 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225706"
+  },
+  "general": {
+    "flight_number": null,
+    "icao_airline": "TST",
+    "sid_ident": "",
+    "star_ident": "",
+    "route_distance": "1"
+  },
+  "origin": {
+    "icao_code": "TSTI",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "TSTJ",
+    "pos_lat": "30.500000",
+    "pos_long": "-100.500000"
+  },
+  "navlog": {
+    "fix": {
+      "ident": "TSTJ",
+      "type": "apt",
+      "is_sid_star": "0",
+      "via_airway": "DCT",
+      "pos_lat": "30.500000",
+      "pos_long": "-100.500000",
+      "distance": "1"
+    }
+  }
+}

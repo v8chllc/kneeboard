@@ -1,0 +1,135 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225604"
+  },
+  "general": {
+    "flight_number": "TST104",
+    "icao_airline": "TST",
+    "sid_ident": "SY4",
+    "star_ident": "ARAD7C",
+    "route_distance": "151"
+  },
+  "origin": {
+    "icao_code": "YSSY",
+    "pos_lat": "-30.000000",
+    "pos_long": "150.000000"
+  },
+  "destination": {
+    "icao_code": "NZAA",
+    "pos_lat": "-31.500000",
+    "pos_long": "151.500000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "EVONN",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "SY4",
+        "pos_lat": "-30.125000",
+        "pos_long": "150.125000",
+        "distance": "10"
+      },
+      {
+        "ident": "TOC",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "L521",
+        "pos_lat": "-30.250000",
+        "pos_long": "150.250000",
+        "distance": "11"
+      },
+      {
+        "ident": "GEROS",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "L521",
+        "pos_lat": "-30.375000",
+        "pos_long": "150.375000",
+        "distance": "12"
+      },
+      {
+        "ident": "REPUD",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "L521",
+        "pos_lat": "-30.500000",
+        "pos_long": "150.500000",
+        "distance": "13"
+      },
+      {
+        "ident": "LEGAN",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "L521",
+        "pos_lat": "-30.625000",
+        "pos_long": "150.625000",
+        "distance": "14"
+      },
+      {
+        "ident": "LUNBI",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "L521",
+        "pos_lat": "-30.750000",
+        "pos_long": "150.750000",
+        "distance": "15"
+      },
+      {
+        "ident": "TOD",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "ARAD7C",
+        "pos_lat": "-30.875000",
+        "pos_long": "150.875000",
+        "distance": "16"
+      },
+      {
+        "ident": "ARADI",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "ARAD7C",
+        "pos_lat": "-31.000000",
+        "pos_long": "151.000000",
+        "distance": "10"
+      },
+      {
+        "ident": "GEWNY",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "ARAD7C",
+        "pos_lat": "-31.125000",
+        "pos_long": "151.125000",
+        "distance": "11"
+      },
+      {
+        "ident": "DOMRI",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "ARAD7C",
+        "pos_lat": "-31.250000",
+        "pos_long": "151.250000",
+        "distance": "12"
+      },
+      {
+        "ident": "KIDAG",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "ARAD7C",
+        "pos_lat": "-31.375000",
+        "pos_long": "151.375000",
+        "distance": "13"
+      },
+      {
+        "ident": "NZAA",
+        "type": "apt",
+        "is_sid_star": "1",
+        "via_airway": "ARAD7C",
+        "pos_lat": "-31.500000",
+        "pos_long": "151.500000",
+        "distance": "14"
+      }
+    ]
+  }
+}

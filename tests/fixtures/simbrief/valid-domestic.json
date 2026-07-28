@@ -1,0 +1,243 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225601"
+  },
+  "general": {
+    "flight_number": "TST101",
+    "icao_airline": "TST",
+    "sid_ident": "VARNM2",
+    "star_ident": "VEECK5",
+    "route_distance": "306"
+  },
+  "origin": {
+    "icao_code": "KATL",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "KORD",
+    "pos_lat": "33.000000",
+    "pos_long": "-103.000000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "MPASS",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VARNM2",
+        "pos_lat": "30.125000",
+        "pos_long": "-100.125000",
+        "distance": "10"
+      },
+      {
+        "ident": "ZELAN",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VARNM2",
+        "pos_lat": "30.250000",
+        "pos_long": "-100.250000",
+        "distance": "11"
+      },
+      {
+        "ident": "WURLD",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VARNM2",
+        "pos_lat": "30.375000",
+        "pos_long": "-100.375000",
+        "distance": "12"
+      },
+      {
+        "ident": "VARNM",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VARNM2",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000",
+        "distance": "13"
+      },
+      {
+        "ident": "TOC",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "VARNM2",
+        "pos_lat": "30.625000",
+        "pos_long": "-100.625000",
+        "distance": "14"
+      },
+      {
+        "ident": "GLAZR",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "VARNM2",
+        "pos_lat": "30.750000",
+        "pos_long": "-100.750000",
+        "distance": "15"
+      },
+      {
+        "ident": "JEDER",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q118",
+        "pos_lat": "30.875000",
+        "pos_long": "-100.875000",
+        "distance": "16"
+      },
+      {
+        "ident": "HELUB",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q118",
+        "pos_lat": "31.000000",
+        "pos_long": "-101.000000",
+        "distance": "10"
+      },
+      {
+        "ident": "VOSTK",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q118",
+        "pos_lat": "31.125000",
+        "pos_long": "-101.125000",
+        "distance": "11"
+      },
+      {
+        "ident": "ROYYZ",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q118",
+        "pos_lat": "31.250000",
+        "pos_long": "-101.250000",
+        "distance": "12"
+      },
+      {
+        "ident": "HEVAN",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q118",
+        "pos_lat": "31.375000",
+        "pos_long": "-101.375000",
+        "distance": "13"
+      },
+      {
+        "ident": "BONNT",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "31.500000",
+        "pos_long": "-101.500000",
+        "distance": "14"
+      },
+      {
+        "ident": "NYLEN",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "31.625000",
+        "pos_long": "-101.625000",
+        "distance": "15"
+      },
+      {
+        "ident": "VEECK",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "31.750000",
+        "pos_long": "-101.750000",
+        "distance": "16"
+      },
+      {
+        "ident": "TOD",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "31.875000",
+        "pos_long": "-101.875000",
+        "distance": "10"
+      },
+      {
+        "ident": "BOONE",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.000000",
+        "pos_long": "-102.000000",
+        "distance": "11"
+      },
+      {
+        "ident": "HANNI",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.125000",
+        "pos_long": "-102.125000",
+        "distance": "12"
+      },
+      {
+        "ident": "CLUSO",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.250000",
+        "pos_long": "-102.250000",
+        "distance": "13"
+      },
+      {
+        "ident": "KAYTO",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.375000",
+        "pos_long": "-102.375000",
+        "distance": "14"
+      },
+      {
+        "ident": "PINKK",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.500000",
+        "pos_long": "-102.500000",
+        "distance": "15"
+      },
+      {
+        "ident": "MONKZ",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.625000",
+        "pos_long": "-102.625000",
+        "distance": "16"
+      },
+      {
+        "ident": "JORJO",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.750000",
+        "pos_long": "-102.750000",
+        "distance": "10"
+      },
+      {
+        "ident": "POSSM",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "32.875000",
+        "pos_long": "-102.875000",
+        "distance": "11"
+      },
+      {
+        "ident": "KORD",
+        "type": "apt",
+        "is_sid_star": "1",
+        "via_airway": "VEECK5",
+        "pos_lat": "33.000000",
+        "pos_long": "-103.000000",
+        "distance": "12"
+      }
+    ]
+  }
+}

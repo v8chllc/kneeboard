@@ -1,0 +1,278 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225603"
+  },
+  "general": {
+    "flight_number": "TST103",
+    "icao_airline": "TST",
+    "sid_ident": "LBSTA8",
+    "star_ident": "NUGR2H",
+    "route_distance": "348"
+  },
+  "origin": {
+    "icao_code": "KBOS",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "EGLL",
+    "pos_lat": "33.375000",
+    "pos_long": "-103.375000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "TASKT",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LBSTA8",
+        "pos_lat": "30.125000",
+        "pos_long": "-100.125000",
+        "distance": "10"
+      },
+      {
+        "ident": "BOATT",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LBSTA8",
+        "pos_lat": "30.250000",
+        "pos_long": "-100.250000",
+        "distance": "11"
+      },
+      {
+        "ident": "HEARR",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LBSTA8",
+        "pos_lat": "30.375000",
+        "pos_long": "-100.375000",
+        "distance": "12"
+      },
+      {
+        "ident": "SHAUN",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "LBSTA8",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000",
+        "distance": "13"
+      },
+      {
+        "ident": "LBSTA",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "LBSTA8",
+        "pos_lat": "30.625000",
+        "pos_long": "-100.625000",
+        "distance": "14"
+      },
+      {
+        "ident": "TOC",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.750000",
+        "pos_long": "-100.750000",
+        "distance": "15"
+      },
+      {
+        "ident": "EBONY",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.875000",
+        "pos_long": "-100.875000",
+        "distance": "16"
+      },
+      {
+        "ident": "TUDEP",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "N567B",
+        "pos_lat": "31.000000",
+        "pos_long": "-101.000000",
+        "distance": "10"
+      },
+      {
+        "ident": "52N050W",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "NATW",
+        "pos_lat": "52.000000",
+        "pos_long": "-50.000000",
+        "distance": "11"
+      },
+      {
+        "ident": "55N040W",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "NATW",
+        "pos_lat": "55.000000",
+        "pos_long": "-40.000000",
+        "distance": "12"
+      },
+      {
+        "ident": "56N030W",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "NATW",
+        "pos_lat": "56.000000",
+        "pos_long": "-30.000000",
+        "distance": "13"
+      },
+      {
+        "ident": "55N020W",
+        "type": "ltlg",
+        "is_sid_star": "0",
+        "via_airway": "NATW",
+        "pos_lat": "55.000000",
+        "pos_long": "-20.000000",
+        "distance": "14"
+      },
+      {
+        "ident": "RESNO",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "NATW",
+        "pos_lat": "31.625000",
+        "pos_long": "-101.625000",
+        "distance": "15"
+      },
+      {
+        "ident": "NETKI",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "NATW",
+        "pos_lat": "31.750000",
+        "pos_long": "-101.750000",
+        "distance": "16"
+      },
+      {
+        "ident": "BOFUM",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "31.875000",
+        "pos_long": "-101.875000",
+        "distance": "10"
+      },
+      {
+        "ident": "BAKOX",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q37",
+        "pos_lat": "32.000000",
+        "pos_long": "-102.000000",
+        "distance": "11"
+      },
+      {
+        "ident": "BAVUD",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q37",
+        "pos_lat": "32.125000",
+        "pos_long": "-102.125000",
+        "distance": "12"
+      },
+      {
+        "ident": "DONAX",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q37",
+        "pos_lat": "32.250000",
+        "pos_long": "-102.250000",
+        "distance": "13"
+      },
+      {
+        "ident": "MALUD",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q37",
+        "pos_lat": "32.375000",
+        "pos_long": "-102.375000",
+        "distance": "14"
+      },
+      {
+        "ident": "VOLFI",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q38",
+        "pos_lat": "32.500000",
+        "pos_long": "-102.500000",
+        "distance": "15"
+      },
+      {
+        "ident": "NUGRA",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "Q38",
+        "pos_lat": "32.625000",
+        "pos_long": "-102.625000",
+        "distance": "16"
+      },
+      {
+        "ident": "TOD",
+        "type": "ltlg",
+        "is_sid_star": "1",
+        "via_airway": "NUGR2H",
+        "pos_lat": "32.750000",
+        "pos_long": "-102.750000",
+        "distance": "10"
+      },
+      {
+        "ident": "TOBID",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NUGR2H",
+        "pos_lat": "32.875000",
+        "pos_long": "-102.875000",
+        "distance": "11"
+      },
+      {
+        "ident": "SOPIT",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NUGR2H",
+        "pos_lat": "33.000000",
+        "pos_long": "-103.000000",
+        "distance": "12"
+      },
+      {
+        "ident": "WEZKO",
+        "type": "wpt",
+        "is_sid_star": "1",
+        "via_airway": "NUGR2H",
+        "pos_lat": "33.125000",
+        "pos_long": "-103.125000",
+        "distance": "13"
+      },
+      {
+        "ident": "BNN",
+        "type": "vor",
+        "is_sid_star": "1",
+        "via_airway": "NUGR2H",
+        "pos_lat": "33.250000",
+        "pos_long": "-103.250000",
+        "distance": "14"
+      },
+      {
+        "ident": "EGLL",
+        "type": "apt",
+        "is_sid_star": "1",
+        "via_airway": "NUGR2H",
+        "pos_lat": "33.375000",
+        "pos_long": "-103.375000",
+        "distance": "15"
+      }
+    ]
+  },
+  "alternate_navlog": {
+    "fix": {
+      "ident": "SANITIZED-ALTERNATE-DECOY"
+    }
+  },
+  "etops": {
+    "marker": "SANITIZED-ETOPS-DECOY"
+  }
+}

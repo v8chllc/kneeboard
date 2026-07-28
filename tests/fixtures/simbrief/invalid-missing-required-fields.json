@@ -1,0 +1,30 @@
+{
+  "params": {
+    "ofp_layout": "LIDO"
+  },
+  "general": {
+    "icao_airline": "TST",
+    "sid_ident": "",
+    "star_ident": ""
+  },
+  "origin": {
+    "icao_code": "TSTG",
+    "pos_lat": "30.000000"
+  },
+  "destination": {
+    "icao_code": "TSTH",
+    "pos_long": "-100.500000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "TSTH",
+        "type": "apt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000"
+      }
+    ]
+  }
+}

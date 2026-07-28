@@ -11,13 +11,38 @@ for real-world navigation.
 
 ## Status
 
-Product, domain, and technical planning is substantially complete. The web
-application has not been scaffolded yet, but initial development tooling and an
-ordered implementation task list are in place.
+Planning is complete through the display model. Representative SimBrief OFPs
+have been captured, mapped, and sanitized into tracked fixtures; the
+implementation-planning decisions are resolved; and the tracker display model
+has been validated against a static wireframe. The web application has not been
+scaffolded yet.
 
-The next milestone is to capture and sanitize representative SimBrief OFPs,
-confirm the normalized field mapping, and resolve the remaining implementation
-choices before building the domain foundation.
+The next milestone is the framework-independent domain layer: types and typed
+commands, coordinate conversion, waypoint classification, slot and page
+assignment, and the pure transition engine with unit tests.
+
+## About this repository
+
+Kneeboard is built in the open as a demonstration of engineering process, so the
+planning documents are deliberate artifacts rather than scratch notes.
+
+- The decision documents record the reasoning behind each choice, not only the
+  choice itself. Where a model proved wrong, the correction and its rationale
+  are documented rather than quietly replaced. The replacement of the original
+  "active page" concept with the sliding window is one such case, caught while
+  the cost was a document rather than a transition engine and its test suite.
+- The deferred list in [Planning status](docs/planning-status.md) is scope
+  discipline rather than a backlog. Each entry is something consciously
+  excluded from the MVP, recorded so that it stays excluded until it is chosen
+  deliberately.
+- Test fixtures contain no real account data. Raw SimBrief payloads never enter
+  version control, and every tracked fixture is produced by an allowlisting
+  sanitizer that rebuilds the document from a small set of approved fields with
+  synthetic coordinates, distances, and flight identities. Only public aviation
+  reference data — airport codes, published procedure identifiers, and waypoint
+  names — is retained.
+- `.remember/` holds working session notes kept alongside the documents. They
+  record how decisions were reached, including revisions and false starts.
 
 ## Documentation
 
@@ -31,10 +56,14 @@ choices before building the domain foundation.
 - [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
   payload structure, classification evidence, and gaps against documented
   tracker behavior.
-- [Planning status](docs/planning-status.md) — deferred work and the few
-  implementation choices that remain open.
+- [Planning status](docs/planning-status.md) — confirmed direction, deferred
+  work, and the few implementation choices that remain open.
 - [Project task list](docs/task-list.md) — representative SimBrief fixture
   scenarios and the ordered path from domain development through MVP release.
+- [Tracker wireframe](docs/prototypes/tracker-wireframe.html) — a throwaway
+  static drawing of the navlog, waypoint states, and sliding window across six
+  fixture-derived scenarios. Open it in a browser; it is a reference artifact
+  and is not carried into application code.
 
 ## MVP at a glance
 

@@ -1,10 +1,18 @@
 # Memory
 
-<!-- This file is read by Codex at the start of every session.         -->
-<!-- Use $remember to record entries, or edit directly.                  -->
-<!-- Types: entity | decision | error | context | preference | todo      -->
+<!-- This file is read by Claude at the start of every session.        -->
+<!-- Use /remember to record entries, or edit directly.                 -->
+<!-- Types: entity | decision | error | context | preference | todo     -->
 
 ## entity
+
+<!-- entity -->
+Entity: tracker-wireframe.html
+Type: Module
+Location: docs/prototypes/tracker-wireframe.html
+Purpose: Static reference drawing of the navlog, waypoint states, and sliding window across six fixture-derived scenarios
+Dependencies: none
+Notes: Throwaway. Plain HTML and CSS, no JavaScript or build step. Rows are transcribed from tests/fixtures/simbrief and were verified programmatically against the fixture JSON. Not carried into application code
 
 ## decision
 
@@ -36,13 +44,19 @@ Decision: Add a 30-second per-account cooldown to the authenticated OFP load end
 Date: 2026-07-28
 Rationale: Per-action idempotency and a disabled button stop double-submits but not repeated deliberate clicks, each of which is a new action that would hit SimBrief. A last_load_at column checked server-side needs no new dependency and sits well below the real workflow cadence of generating in SimBrief then loading. Idempotency-key replays bypass the cooldown and return the existing tracker; a cooldown rejection reports remaining wait and does not create a failed load
 
+<!-- decision -->
+Decision: Validate the tracker display model with a throwaway static wireframe before writing domain code
+Date: 2026-07-28
+Rationale: Two domain-model corrections in one session came from visual reasoning — that pages cannot track unit contents, and that passing a fix cannot free its slot. Both would have been expensive to discover after the transition engine and its tests existed. The wireframe needs no domain code, so the cheapest moment to look at the model is before anything depends on it
+Do not reverse: The wireframe is a reference drawing under docs/prototypes and is deliberately not carried into application code
+
 ## context
 
 <!-- context -->
 Status: Steps 1 through 3 of docs/task-list.md complete; next is step 4, the framework-independent domain layer
-In progress: Nothing in code. The wireframe at docs/prototypes/tracker-wireframe.html is reviewed and accepted, and its display decisions are recorded under "Row display" in docs/product-decisions.md
-Blocked: Nothing. The two remaining planning-status items, test infrastructure and version pinning, are deliberately deferred to the steps that need them. Phone layout refinement is deferred to the responsive work in section 9
-Next: Build domain types, coordinate conversion, classification, slot and page assignment, and the pure transition engine with Vitest coverage
+In progress: Nothing in code. Planning docs through step 3 are committed and pushed to origin/main at b24c5ac
+Blocked: Repository is being transferred from a personal GitHub account to a business organization account. Re-clone before further work; the current local checkout points at the old remote. After transfer, main is protected and code work moves to feature branches and pull requests
+Next: Confirm the authoritative clone path, then build domain types, coordinate conversion, classification, slot and page assignment, and the pure transition engine with Vitest coverage
 Updated: 2026-07-28
 
 ## error
@@ -62,7 +76,23 @@ Work item:
 <!-- todo -->
 Todo: Resolve the remaining open implementation-planning decisions in docs/planning-status.md
 Source: docs/task-list.md section 2
+Status: done
+Next action: None. Persistence shape, Pilot ID cap, and load protection were decided on 2026-07-28. Test infrastructure and version pinning were moved into task-list sections 9 and 5, which resolve them
+Created: 2026-07-28
+Work item:
+
+<!-- todo -->
+Todo: Re-clone the repository after the transfer to the business organization account
+Source: user
 Status: open
-Next action: Decide persistence shape, Pilot ID length cap, and SimBrief load protection. Defer test infrastructure and version pinning to their own steps. The active-page decision was resolved on 2026-07-28 by replacing it with the sliding window
+Next action: Confirm the new remote and the authoritative local path, then verify main is protected and that the feature-branch plus pull-request flow works via gh
+Created: 2026-07-28
+Work item:
+
+<!-- todo -->
+Todo: Decide the domain layer's location before writing section 4 code
+Source: conversation
+Status: open
+Next action: Choose whether the framework-independent domain layer gets its own directory and package.json now, or waits to be slotted into the Next.js tree during scaffolding in section 5
 Created: 2026-07-28
 Work item:

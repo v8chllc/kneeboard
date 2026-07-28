@@ -83,20 +83,57 @@ than discovering the gap after the capture.
 
 ## 2. Resolve implementation-planning decisions
 
-- [ ] Confirm relational indexed metadata with immutable navlog data and a
+- [x] Confirm relational indexed metadata with immutable navlog data and a
       mutable aggregate JSON tracker snapshot.
-- [ ] Select a generous defensive Pilot ID length cap and document it as an
+- [x] Select a generous defensive Pilot ID length cap and document it as an
       application limit rather than a SimBrief rule.
-- [ ] Confirm that when no saved waypoint remains, the active page falls back
-      to the page containing the earliest pending waypoint.
-- [ ] Select a small per-account cooldown for the authenticated OFP load
+- [x] Define the sliding window representing INS unit contents, replacing the
+      active-page concept and its no-saved fallback.
+- [x] Select a small per-account cooldown for the authenticated OFP load
       endpoint in addition to per-action idempotency.
-- [ ] Define a test-only magic-link capture mechanism and an isolated Playwright
-      database strategy.
-- [ ] Resolve and pin current compatible package and tool versions during
-      scaffolding.
 
-## 3. Build the domain foundation
+Two decisions in [Planning status](planning-status.md) are deliberately left
+open because they cannot be resolved before the work that makes them concrete.
+Package and tool versions are pinned as they are installed in section 5, and the
+Playwright test mechanism depends on how Better Auth and Resend are wired in
+section 7. Both are carried as items in those sections.
+
+## 3. Validate the tracker display model
+
+Build a throwaway static wireframe before writing domain code, so the sliding
+window and waypoint state encoding are validated visually while nothing depends
+on them yet.
+
+- [x] Build `docs/prototypes/tracker-wireframe.html` as plain HTML and CSS with
+      no JavaScript, no build step, and no dependencies.
+- [x] Transcribe rows from the sanitized fixtures rather than inventing routes.
+      Use `valid-domestic.json`, `valid-ten-boundary-cases.json`, and
+      `valid-exactly-nine.json`.
+- [x] Render these scenarios:
+  - fresh load, before the first Save;
+  - mid-cruise, with the window bracketing saved and passed fixes and exactly
+    one pending fix;
+  - the same tracker after the next Save, proving the window moves on Save and
+    not on Pass;
+  - a skip that renumbers slots, rebuilds pages, and leaves the window
+    bracketing a skipped row;
+  - a page boundary where an excluded point after slot 9 belongs to the
+    preceding page, including coordinate rollover; and
+  - a navlog of nine or fewer eligible fixes, where nothing is ever queued.
+- [x] Resolve the display questions it exists to answer: distinguishing queued,
+      pending, saved, passed, skipped, and ineligible rows without relying on
+      color alone; how the window bracket is drawn across excluded and skipped
+      rows and across page divisions; whether queued fixes show slot numbers;
+      how page divisions are presented; and behavior at phone width.
+  - Phone layout is the one unresolved question. The two-line reflow is
+    directionally right but needs refinement, deferred to the responsive work in
+    section 9.
+- [x] Record the resolved display decisions in the governing documents. The
+      wireframe is a reference drawing and is not carried into application code.
+  - Recorded under "Row display" in
+    [Product decisions](product-decisions.md).
+
+## 4. Build the domain foundation
 
 - [ ] Define framework-independent domain types and typed commands.
 - [ ] Implement coordinate conversion and formatting.
@@ -104,19 +141,23 @@ than discovering the gap after the capture.
 - [ ] Implement repeating slot assignment and page construction.
 - [ ] Implement the pure Save, Pass, and Skip transition engine.
 - [ ] Add Vitest coverage for valid transitions, invalid commands, cascading
-      Pass, Skip recalculation, procedure controls, active-page movement,
-      coordinate boundaries, and deterministic replay of snapshot plus command.
+      Pass, Skip recalculation, procedure controls, deferred slot release,
+      sliding window movement, coordinate boundaries, and deterministic replay
+      of snapshot plus command.
 
-## 4. Scaffold the application
+## 5. Scaffold the application
 
 - [ ] Scaffold Next.js App Router, React, and TypeScript.
 - [ ] Configure Tailwind CSS and the initial dark, high-contrast theme.
 - [ ] Configure linting and TypeScript checks.
 - [ ] Add `mise.toml` with pinned Node.js and `pnpm` versions.
+- [ ] Resolve and pin current compatible package and tool versions as they are
+      installed, then record the resolution in
+      [Planning status](planning-status.md).
 - [ ] Configure Vitest.
 - [ ] Add GitHub Actions for linting, type checks, and Vitest.
 
-## 5. Add persistence
+## 6. Add persistence
 
 - [ ] Configure Neon Postgres, Drizzle ORM, and Drizzle Kit.
 - [ ] Define account settings, OFP load metadata, raw OFP, immutable normalized
@@ -128,7 +169,7 @@ than discovering the gap after the capture.
 - [ ] Implement per-action OFP-load idempotency.
 - [ ] Document migration, rollback, and validation procedures.
 
-## 6. Establish authentication and account isolation
+## 7. Establish authentication and account isolation
 
 - [ ] Configure Better Auth database-backed magic links.
 - [ ] Configure Resend delivery.
@@ -140,7 +181,7 @@ than discovering the gap after the capture.
 - [ ] Verify logs exclude raw OFPs, coordinates, Pilot IDs, email addresses,
       sessions, and magic-link tokens.
 
-## 7. Deliver the first vertical slice
+## 8. Deliver the first vertical slice
 
 - [ ] Sign in through an email magic link.
 - [ ] Configure and persist a numeric SimBrief Pilot ID.
@@ -151,13 +192,18 @@ than discovering the gap after the capture.
 - [ ] Complete the essential Save, Pass, cascading Pass, and Skip workflow.
 - [ ] Return server-confirmed state and handle stale snapshot versions.
 
-## 8. Finish MVP readiness
+## 9. Finish MVP readiness
 
 - [ ] Build the recent-load home screen.
-- [ ] Complete responsive desktop, tablet, and phone layouts.
+- [ ] Complete responsive desktop, tablet, and phone layouts. The wireframe's
+      two-line phone reflow is a starting point that still needs refinement.
 - [ ] Verify keyboard operation, visible focus, touch targets, contrast, and
       non-color status indicators.
 - [ ] Add privacy-conscious structured server logging.
+- [ ] Define a test-only magic-link capture mechanism and an isolated Playwright
+      database strategy, then record the resolution in
+      [Planning status](planning-status.md). Fixtures must remain sanitized and
+      deterministic, and tests must never contact live services.
 - [ ] Create the manual Playwright journeys for authentication and setup, valid
       OFP loading, and the essential tracker workflow.
 - [ ] Run the manual Playwright pre-release suite.

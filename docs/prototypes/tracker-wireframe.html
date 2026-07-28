@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kneeboard tracker wireframe</title>
+<style>
+  :root {
+    --bg: #0b0e13;
+    --panel: #141922;
+    --line: #2a3340;
+    --text: #e8edf4;
+    --dim: #8b97a8;
+    --dimmer: #5d6878;
+    --accent: #7fd1ff;
+    --rail: #7fd1ff;
+    --warn: #ffb454;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 1.5rem 1rem 5rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  main { max-width: 1180px; margin: 0 auto; }
+
+  h1 { font-size: 1.35rem; margin: 0 0 .35rem; letter-spacing: .01em; }
+  h2 {
+    font-size: 1.05rem;
+    margin: 3rem 0 .35rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+  h2:first-of-type { border-top: 0; }
+  h3 { font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 1.5rem 0 .5rem; }
+
+  p { margin: .4rem 0; }
+  .note { color: var(--dim); font-size: .88rem; max-width: 78ch; }
+  .note b { color: var(--text); font-weight: 600; }
+
+  .safety {
+    margin: 1rem 0 2rem;
+    padding: .6rem .8rem;
+    border: 1px solid var(--warn);
+    border-radius: 4px;
+    color: var(--warn);
+    font-size: .85rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+
+  /* ---------- tracker panel ---------- */
+
+  .tracker {
+    margin: .9rem 0 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .hdr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1.5rem;
+    padding: .7rem .9rem;
+    border-bottom: 1px solid var(--line);
+    font-size: .84rem;
+  }
+  .hdr .fn { font-weight: 700; font-size: 1rem; letter-spacing: .04em; }
+  .hdr .rt { color: var(--text); letter-spacing: .06em; }
+  .hdr .ts { color: var(--dim); font-variant-numeric: tabular-nums; }
+
+  /* ---------- rows ---------- */
+
+  .rows { padding: .25rem 0 .5rem; }
+
+  .pg {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin: .5rem 0 .15rem;
+    padding: 0 .9rem 0 2.1rem;
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dimmer);
+  }
+  .pg::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .r {
+    display: grid;
+    grid-template-columns: 1.6rem 6.2rem 3.6rem 2.2rem 5.4rem 1fr 11rem 3.2rem 3.6rem;
+    align-items: center;
+    gap: 0 .6rem;
+    padding: .28rem .9rem .28rem 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* bracket rail */
+  .r > i { display: block; align-self: stretch; min-height: 1.9rem; position: relative; }
+  .r.win > i::before {
+    content: "";
+    position: absolute;
+    left: .85rem; top: 0; bottom: 0;
+    border-left: 3px solid var(--rail);
+  }
+  .r.wtop > i::after,
+  .r.wbot > i::after {
+    content: "";
+    position: absolute;
+    left: .85rem;
+    width: .5rem;
+    border-top: 3px solid var(--rail);
+  }
+  .r.wtop > i::after { top: 0; }
+  .r.wbot > i::after { bottom: 0; }
+
+  .id { font-weight: 700; letter-spacing: .06em; }
+  .ty { font-size: .72rem; letter-spacing: .06em; color: var(--dim); }
+
+  .sl {
+    justify-self: start;
+    min-width: 1.55rem;
+    text-align: center;
+    padding: .05rem 0;
+    font-size: .82rem;
+    font-weight: 700;
+    border: 1px solid var(--dimmer);
+    border-radius: 3px;
+    color: var(--dim);
+  }
+  .sl.on { border-color: var(--text); color: var(--bg); background: var(--text); }
+  .sl.none { border: 0; background: none; color: var(--dimmer); font-weight: 400; }
+
+  .st { font-size: .7rem; letter-spacing: .09em; font-weight: 700; }
+  .kp { font-weight: 700; letter-spacing: .07em; font-size: .95rem; white-space: nowrap; }
+  .lido { color: var(--dim); font-size: .8rem; white-space: nowrap; }
+  .d { text-align: right; color: var(--dim); font-size: .84rem; }
+
+  /* state encodings — glyph + label + weight, never color alone */
+  .st::before { display: inline-block; width: 1.15rem; }
+
+  .que .id { color: var(--dim); font-weight: 600; }
+  .que .kp { color: var(--dim); font-weight: 400; }
+  .que .st { color: var(--dimmer); }
+  .que .st::before { content: "\00B7"; }
+
+  .pen { background: rgba(127, 209, 255, .07); }
+  .pen .id { color: var(--accent); }
+  .pen .st { color: var(--accent); }
+  .pen .st::before { content: "\25B8"; }
+  .pen .kp { color: var(--accent); }
+
+  .sav .st::before { content: "\2713"; }
+  .sav .st { color: var(--text); }
+
+  .pas .id, .pas .kp { color: var(--dim); }
+  .pas .kp { font-weight: 400; }
+  .pas .st { color: var(--dim); }
+  .pas .st::before { content: "\2713\2713"; letter-spacing: -.15em; }
+
+  .skp .id { color: var(--dimmer); text-decoration: line-through; }
+  .skp .st { color: var(--dimmer); }
+  .skp .st::before { content: "\2715"; }
+  .skp .lido, .skp .d { color: var(--dimmer); }
+
+  .exc .id { color: var(--dim); font-weight: 600; font-style: italic; }
+  .exc .st { color: var(--dimmer); }
+  .exc .st::before { content: "\2013"; }
+  .exc .lido, .exc .d { color: var(--dimmer); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.4rem;
+    margin: .8rem 0 0;
+    padding: .7rem .9rem;
+    border: 1px dashed var(--line);
+    border-radius: 5px;
+    font-size: .8rem;
+    color: var(--dim);
+  }
+  .legend b { color: var(--text); font-weight: 700; }
+
+  .q { margin: .6rem 0 0; padding-left: 1.1rem; color: var(--dim); font-size: .88rem; max-width: 78ch; }
+  .q li { margin: .2rem 0; }
+
+  /* ---------- phone ---------- */
+
+  @media (max-width: 760px) {
+    .r {
+      grid-template-columns: 1.6rem 5.6rem 2.1rem 1fr 3.4rem;
+      grid-template-areas:
+        "rail id slot kp dis"
+        "rail ty st lido rdis";
+      padding-top: .4rem;
+      padding-bottom: .4rem;
+    }
+    .r > i { grid-area: rail; }
+    .id { grid-area: id; }
+    .ty { grid-area: ty; }
+    .sl { grid-area: slot; }
+    .st { grid-area: st; }
+    .kp { grid-area: kp; }
+    .lido { grid-area: lido; font-size: .74rem; }
+    .d.dis { grid-area: dis; }
+    .d.rdis { grid-area: rdis; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Kneeboard tracker wireframe</h1>
+<p class="note">
+  Static reference drawing for the tracker display model. No JavaScript, no build step,
+  not carried into application code. Rows are transcribed from the sanitized fixtures in
+  <b>tests/fixtures/simbrief</b>; identifiers, coordinates, and distances are fixture values.
+  Coordinates and <b>RDIS</b> are derived by hand using the rules in
+  <b>docs/tracker-behavior.md</b>.
+</p>
+
+<div class="safety">Home flight simulation only. Not for real-world navigation.</div>
+
+<div class="legend">
+  <span><b>&middot; QUEUED</b> awaiting a free slot</span>
+  <span><b>&#9656; PENDING</b> enter into the INS now</span>
+  <span><b>&#10003; SAVED</b> entered</span>
+  <span><b>&#10003;&#10003; PASSED</b> off the active sequence</span>
+  <span><b>&#10005; SKIPPED</b> terminal, no slot</span>
+  <span><b>&ndash;</b> not slot-eligible</span>
+  <span><b>&#9475;</b> rail marks INS unit contents</span>
+</div>
+
+<!-- ============================================================ 1 -->
+<h2>1 &middot; Fresh load, before the first Save</h2>
+<p class="note">
+  <b>valid-domestic.json</b> &middot; 21 eligible fixes across three pages. All nine slots
+  are unwritten, so the first nine fixes are pending at once. No rail is drawn because
+  the unit holds no data yet.
+</p>
+
+<div class="tracker">
+  <div class="hdr">
+    <span class="fn">TST101</span>
+    <span class="rt">KATL &rarr; KORD</span>
+    <span class="ts">OFP 01 JAN 2026 0000Z</span>
+    <span class="ts">LOADED 01 JAN 2026 0015Z</span>
+  </div>
+  <div class="rows">
+    <div class="pg">Page 1</div>
+    <div class="r exc"><i></i><span class="id">KATL</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">ORIGIN</span><span class="kp"></span><span class="lido">N30&deg;00.0' W100&deg;00.0'</span><span class="d dis">&ndash;</span><span class="d rdis">306</span></div>
+    <div class="r pen"><i></i><span class="id">MPASS</span><span class="ty">SID</span><span class="sl on">1</span><span class="st">PENDING</span><span class="kp">N 30075<br>W 100075</span><span class="lido">N30&deg;07.5' W100&deg;07.5'</span><span class="d dis">10</span><span class="d rdis">296</span></div>
+    <div class="r pen"><i></i><span class="id">ZELAN</span><span class="ty">SID</span><span class="sl on">2</span><span class="st">PENDING</span><span class="kp">N 30150<br>W 100150</span><span class="lido">N30&deg;15.0' W100&deg;15.0'</span><span class="d dis">11</span><span class="d rdis">285</span></div>
+    <div class="r pen"><i></i><span class="id">WURLD</span><span class="ty">SID</span><span class="sl on">3</span><span class="st">PENDING</span><span class="kp">N 30225<br>W 100225</span><span class="lido">N30&deg;22.5' W100&deg;22.5'</span><span class="d dis">12</span><span class="d rdis">273</span></div>
+    <div class="r pen"><i></i><span class="id">VARNM</span><span class="ty">SID</span><span class="sl on">4</span><span class="st">PENDING</span><span class="kp">N 30300<br>W 100300</span><span class="lido">N30&deg;30.0' W100&deg;30.0'</span><span class="d dis">13</span><span class="d rdis">260</span></div>
+    <div class="r exc"><i></i><span class="id">TOC</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N30&deg;37.5' W100&deg;37.5'</span><span class="d dis">14</span><span class="d rdis">246</span></div>
+    <div class="r pen"><i></i><span class="id">GLAZR</span><span class="ty">ENR</span><span class="sl on">5</span><span class="st">PENDING</span><span class="kp">N 30450<br>W 100450</span><span class="lido">N30&deg;45.0' W100&deg;45.0'</span><span class="d dis">15</span><span class="d rdis">231</span></div>
+    <div class="r pen"><i></i><span class="id">JEDER</span><span class="ty">ENR</span><span class="sl on">6</span><span class="st">PENDING</span><span class="kp">N 30525<br>W 100525</span><span class="lido">N30&deg;52.5' W100&deg;52.5'</span><span class="d dis">16</span><span class="d rdis">215</span></div>
+    <div class="r pen"><i></i><span class="id">HELUB</span><span class="ty">ENR</span><span class="sl on">7</span><span class="st">PENDING</span><span class="kp">N 31000<br>W 101000</span><span class="lido">N31&deg;00.0' W101&deg;00.0'</span><span class="d dis">10</span><span class="d rdis">205</span></div>
+    <div class="r pen"><i></i><span class="id">VOSTK</span><span class="ty">ENR</span><span class="sl on">8</span><span class="st">PENDING</span><span class="kp">N 31075<br>W 101075</span><span class="lido">N31&deg;07.5' W101&deg;07.5'</span><span class="d dis">11</span><span class="d rdis">194</span></div>
+    <div class="r pen"><i></i><span class="id">ROYYZ</span><span class="ty">ENR</span><span class="sl on">9</span><span class="st">PENDING</span><span class="kp">N 31150<br>W 101150</span><span class="lido">N31&deg;15.0' W101&deg;15.0'</span><span class="d dis">12</span><span class="d rdis">182</span></div>
+
+    <div class="pg">Page 2</div>
+    <div class="r que"><i></i><span class="id">HEVAN</span><span class="ty">ENR</span><span class="sl">1</span><span class="st">QUEUED</span><span class="kp">N 31225<br>W 101225</span><span class="lido">N31&deg;22.5' W101&deg;22.5'</span><span class="d dis">13</span><span class="d rdis">169</span></div>
+    <div class="r que"><i></i><span class="id">BONNT</span><span class="ty">ENR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 31300<br>W 101300</span><span class="lido">N31&deg;30.0' W101&deg;30.0'</span><span class="d dis">14</span><span class="d rdis">155</span></div>
+    <div class="r que"><i></i><span class="id">NYLEN</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 31375<br>W 101375</span><span class="lido">N31&deg;37.5' W101&deg;37.5'</span><span class="d dis">15</span><span class="d rdis">140</span></div>
+    <div class="r que"><i></i><span class="id">VEECK</span><span class="ty">STAR</span><span class="sl">4</span><span class="st">QUEUED</span><span class="kp">N 31450<br>W 101450</span><span class="lido">N31&deg;45.0' W101&deg;45.0'</span><span class="d dis">16</span><span class="d rdis">124</span></div>
+    <div class="r exc"><i></i><span class="id">TOD</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N31&deg;52.5' W101&deg;52.5'</span><span class="d dis">10</span><span class="d rdis">114</span></div>
+    <div class="r que"><i></i><span class="id">BOONE</span><span class="ty">STAR</span><span class="sl">5</span><span class="st">QUEUED</span><span class="kp">N 32000<br>W 102000</span><span class="lido">N32&deg;00.0' W102&deg;00.0'</span><span class="d dis">11</span><span class="d rdis">103</span></div>
+    <div class="r que"><i></i><span class="id">HANNI</span><span class="ty">STAR</span><span class="sl">6</span><span class="st">QUEUED</span><span class="kp">N 32075<br>W 102075</span><span class="lido">N32&deg;07.5' W102&deg;07.5'</span><span class="d dis">12</span><span class="d rdis">91</span></div>
+    <div class="r que"><i></i><span class="id">CLUSO</span><span class="ty">STAR</span><span class="sl">7</span><span class="st">QUEUED</span><span class="kp">N 32150<br>W 102150</span><span class="lido">N32&deg;15.0' W102&deg;15.0'</span><span class="d dis">13</span><span class="d rdis">78</span></div>
+    <div class="r que"><i></i><span class="id">KAYTO</span><span class="ty">STAR</span><span class="sl">8</span><span class="st">QUEUED</span><span class="kp">N 32225<br>W 102225</span><span class="lido">N32&deg;22.5' W102&deg;22.5'</span><span class="d dis">14</span><span class="d rdis">64</span></div>
+    <div class="r que"><i></i><span class="id">PINKK</span><span class="ty">STAR</span><span class="sl">9</span><span class="st">QUEUED</span><span class="kp">N 32300<br>W 102300</span><span class="lido">N32&deg;30.0' W102&deg;30.0'</span><span class="d dis">15</span><span class="d rdis">49</span></div>
+
+    <div class="pg">Page 3</div>
+    <div class="r que"><i></i><span class="id">MONKZ</span><span class="ty">STAR</span><span class="sl">1</span><span class="st">QUEUED</span><span class="kp">N 32375<br>W 102375</span><span class="lido">N32&deg;37.5' W102&deg;37.5'</span><span class="d dis">16</span><span class="d rdis">33</span></div>
+    <div class="r que"><i></i><span class="id">JORJO</span><span class="ty">STAR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 32450<br>W 102450</span><span class="lido">N32&deg;45.0' W102&deg;45.0'</span><span class="d dis">10</span><span class="d rdis">23</span></div>
+    <div class="r que"><i></i><span class="id">POSSM</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 32525<br>W 102525</span><span class="lido">N32&deg;52.5' W102&deg;52.5'</span><span class="d dis">11</span><span class="d rdis">12</span></div>
+    <div class="r exc"><i></i><span class="id">KORD</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">DEST</span><span class="kp"></span><span class="lido">N33&deg;00.0' W103&deg;00.0'</span><span class="d dis">12</span><span class="d rdis">0</span></div>
+  </div>
+</div>
+
+<ul class="q">
+  <li>TOC sits between slots 4 and 5 and consumes no slot, so page 1 still ends at slot 9.</li>
+  <li>Queued fixes show their expected slot number, which repeats once per page.</li>
+</ul>
+
+<!-- ============================================================ 2 -->
+<h2>2 &middot; Mid-cruise &mdash; nine saved, first two passed</h2>
+<p class="note">
+  The unit holds MPASS through ROYYZ. MPASS and ZELAN have been passed, but nothing has
+  been overwritten, so the rail still brackets all nine. ZELAN is the most recently passed
+  fix and anchors leg ZELAN&rarr;WURLD, so only slot 1 is free &mdash; <b>exactly one fix is
+  pending</b>.
+</p>
+
+<div class="tracker">
+  <div class="hdr">
+    <span class="fn">TST101</span>
+    <span class="rt">KATL &rarr; KORD</span>
+    <span class="ts">OFP 01 JAN 2026 0000Z</span>
+    <span class="ts">LOADED 01 JAN 2026 0015Z</span>
+  </div>
+  <div class="rows">
+    <div class="pg">Page 1</div>
+    <div class="r exc"><i></i><span class="id">KATL</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">ORIGIN</span><span class="kp"></span><span class="lido">N30&deg;00.0' W100&deg;00.0'</span><span class="d dis">&ndash;</span><span class="d rdis">306</span></div>
+    <div class="r pas win wtop"><i></i><span class="id">MPASS</span><span class="ty">SID</span><span class="sl on">1</span><span class="st">PASSED</span><span class="kp">N 30075<br>W 100075</span><span class="lido">N30&deg;07.5' W100&deg;07.5'</span><span class="d dis">10</span><span class="d rdis">296</span></div>
+    <div class="r pas win"><i></i><span class="id">ZELAN</span><span class="ty">SID</span><span class="sl on">2</span><span class="st">PASSED</span><span class="kp">N 30150<br>W 100150</span><span class="lido">N30&deg;15.0' W100&deg;15.0'</span><span class="d dis">11</span><span class="d rdis">285</span></div>
+    <div class="r sav win"><i></i><span class="id">WURLD</span><span class="ty">SID</span><span class="sl on">3</span><span class="st">SAVED</span><span class="kp">N 30225<br>W 100225</span><span class="lido">N30&deg;22.5' W100&deg;22.5'</span><span class="d dis">12</span><span class="d rdis">273</span></div>
+    <div class="r sav win"><i></i><span class="id">VARNM</span><span class="ty">SID</span><span class="sl on">4</span><span class="st">SAVED</span><span class="kp">N 30300<br>W 100300</span><span class="lido">N30&deg;30.0' W100&deg;30.0'</span><span class="d dis">13</span><span class="d rdis">260</span></div>
+    <div class="r exc win"><i></i><span class="id">TOC</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N30&deg;37.5' W100&deg;37.5'</span><span class="d dis">14</span><span class="d rdis">246</span></div>
+    <div class="r sav win"><i></i><span class="id">GLAZR</span><span class="ty">ENR</span><span class="sl on">5</span><span class="st">SAVED</span><span class="kp">N 30450<br>W 100450</span><span class="lido">N30&deg;45.0' W100&deg;45.0'</span><span class="d dis">15</span><span class="d rdis">231</span></div>
+    <div class="r sav win"><i></i><span class="id">JEDER</span><span class="ty">ENR</span><span class="sl on">6</span><span class="st">SAVED</span><span class="kp">N 30525<br>W 100525</span><span class="lido">N30&deg;52.5' W100&deg;52.5'</span><span class="d dis">16</span><span class="d rdis">215</span></div>
+    <div class="r sav win"><i></i><span class="id">HELUB</span><span class="ty">ENR</span><span class="sl on">7</span><span class="st">SAVED</span><span class="kp">N 31000<br>W 101000</span><span class="lido">N31&deg;00.0' W101&deg;00.0'</span><span class="d dis">10</span><span class="d rdis">205</span></div>
+    <div class="r sav win"><i></i><span class="id">VOSTK</span><span class="ty">ENR</span><span class="sl on">8</span><span class="st">SAVED</span><span class="kp">N 31075<br>W 101075</span><span class="lido">N31&deg;07.5' W101&deg;07.5'</span><span class="d dis">11</span><span class="d rdis">194</span></div>
+    <div class="r sav win wbot"><i></i><span class="id">ROYYZ</span><span class="ty">ENR</span><span class="sl on">9</span><span class="st">SAVED</span><span class="kp">N 31150<br>W 101150</span><span class="lido">N31&deg;15.0' W101&deg;15.0'</span><span class="d dis">12</span><span class="d rdis">182</span></div>
+
+    <div class="pg">Page 2</div>
+    <div class="r pen"><i></i><span class="id">HEVAN</span><span class="ty">ENR</span><span class="sl on">1</span><span class="st">PENDING</span><span class="kp">N 31225<br>W 101225</span><span class="lido">N31&deg;22.5' W101&deg;22.5'</span><span class="d dis">13</span><span class="d rdis">169</span></div>
+    <div class="r que"><i></i><span class="id">BONNT</span><span class="ty">ENR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 31300<br>W 101300</span><span class="lido">N31&deg;30.0' W101&deg;30.0'</span><span class="d dis">14</span><span class="d rdis">155</span></div>
+    <div class="r que"><i></i><span class="id">NYLEN</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 31375<br>W 101375</span><span class="lido">N31&deg;37.5' W101&deg;37.5'</span><span class="d dis">15</span><span class="d rdis">140</span></div>
+    <div class="r que"><i></i><span class="id">VEECK</span><span class="ty">STAR</span><span class="sl">4</span><span class="st">QUEUED</span><span class="kp">N 31450<br>W 101450</span><span class="lido">N31&deg;45.0' W101&deg;45.0'</span><span class="d dis">16</span><span class="d rdis">124</span></div>
+    <div class="r exc"><i></i><span class="id">TOD</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N31&deg;52.5' W101&deg;52.5'</span><span class="d dis">10</span><span class="d rdis">114</span></div>
+    <div class="r que"><i></i><span class="id">BOONE</span><span class="ty">STAR</span><span class="sl">5</span><span class="st">QUEUED</span><span class="kp">N 32000<br>W 102000</span><span class="lido">N32&deg;00.0' W102&deg;00.0'</span><span class="d dis">11</span><span class="d rdis">103</span></div>
+    <div class="r que"><i></i><span class="id">HANNI</span><span class="ty">STAR</span><span class="sl">6</span><span class="st">QUEUED</span><span class="kp">N 32075<br>W 102075</span><span class="lido">N32&deg;07.5' W102&deg;07.5'</span><span class="d dis">12</span><span class="d rdis">91</span></div>
+    <div class="r que"><i></i><span class="id">CLUSO</span><span class="ty">STAR</span><span class="sl">7</span><span class="st">QUEUED</span><span class="kp">N 32150<br>W 102150</span><span class="lido">N32&deg;15.0' W102&deg;15.0'</span><span class="d dis">13</span><span class="d rdis">78</span></div>
+    <div class="r que"><i></i><span class="id">KAYTO</span><span class="ty">STAR</span><span class="sl">8</span><span class="st">QUEUED</span><span class="kp">N 32225<br>W 102225</span><span class="lido">N32&deg;22.5' W102&deg;22.5'</span><span class="d dis">14</span><span class="d rdis">64</span></div>
+    <div class="r que"><i></i><span class="id">PINKK</span><span class="ty">STAR</span><span class="sl">9</span><span class="st">QUEUED</span><span class="kp">N 32300<br>W 102300</span><span class="lido">N32&deg;30.0' W102&deg;30.0'</span><span class="d dis">15</span><span class="d rdis">49</span></div>
+
+    <div class="pg">Page 3</div>
+    <div class="r que"><i></i><span class="id">MONKZ</span><span class="ty">STAR</span><span class="sl">1</span><span class="st">QUEUED</span><span class="kp">N 32375<br>W 102375</span><span class="lido">N32&deg;37.5' W102&deg;37.5'</span><span class="d dis">16</span><span class="d rdis">33</span></div>
+    <div class="r que"><i></i><span class="id">JORJO</span><span class="ty">STAR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 32450<br>W 102450</span><span class="lido">N32&deg;45.0' W102&deg;45.0'</span><span class="d dis">10</span><span class="d rdis">23</span></div>
+    <div class="r que"><i></i><span class="id">POSSM</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 32525<br>W 102525</span><span class="lido">N32&deg;52.5' W102&deg;52.5'</span><span class="d dis">11</span><span class="d rdis">12</span></div>
+    <div class="r exc"><i></i><span class="id">KORD</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">DEST</span><span class="kp"></span><span class="lido">N33&deg;00.0' W103&deg;00.0'</span><span class="d dis">12</span><span class="d rdis">0</span></div>
+  </div>
+</div>
+
+<ul class="q">
+  <li>TOC falls inside the rail without being a member &mdash; it holds no slot.</li>
+  <li>Passing MPASS and ZELAN moved nothing. The rail is unchanged from the moment all nine were saved.</li>
+</ul>
+
+<!-- ============================================================ 3 -->
+<h2>3 &middot; The same tracker after saving HEVAN</h2>
+<p class="note">
+  HEVAN was written into slot 1, overwriting MPASS. The rail moved down one fix, to
+  ZELAN&ndash;HEVAN, and it moved <b>because of the Save, not the Pass</b>. Compare against
+  scenario 2 directly above. No slot is free now, so <b>nothing is pending</b> until
+  WURLD is passed.
+</p>
+
+<div class="tracker">
+  <div class="hdr">
+    <span class="fn">TST101</span>
+    <span class="rt">KATL &rarr; KORD</span>
+    <span class="ts">OFP 01 JAN 2026 0000Z</span>
+    <span class="ts">LOADED 01 JAN 2026 0015Z</span>
+  </div>
+  <div class="rows">
+    <div class="pg">Page 1</div>
+    <div class="r exc"><i></i><span class="id">KATL</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">ORIGIN</span><span class="kp"></span><span class="lido">N30&deg;00.0' W100&deg;00.0'</span><span class="d dis">&ndash;</span><span class="d rdis">306</span></div>
+    <div class="r pas"><i></i><span class="id">MPASS</span><span class="ty">SID</span><span class="sl none">&ndash;</span><span class="st">PASSED</span><span class="kp">N 30075<br>W 100075</span><span class="lido">N30&deg;07.5' W100&deg;07.5'</span><span class="d dis">10</span><span class="d rdis">296</span></div>
+    <div class="r pas win wtop"><i></i><span class="id">ZELAN</span><span class="ty">SID</span><span class="sl on">2</span><span class="st">PASSED</span><span class="kp">N 30150<br>W 100150</span><span class="lido">N30&deg;15.0' W100&deg;15.0'</span><span class="d dis">11</span><span class="d rdis">285</span></div>
+    <div class="r sav win"><i></i><span class="id">WURLD</span><span class="ty">SID</span><span class="sl on">3</span><span class="st">SAVED</span><span class="kp">N 30225<br>W 100225</span><span class="lido">N30&deg;22.5' W100&deg;22.5'</span><span class="d dis">12</span><span class="d rdis">273</span></div>
+    <div class="r sav win"><i></i><span class="id">VARNM</span><span class="ty">SID</span><span class="sl on">4</span><span class="st">SAVED</span><span class="kp">N 30300<br>W 100300</span><span class="lido">N30&deg;30.0' W100&deg;30.0'</span><span class="d dis">13</span><span class="d rdis">260</span></div>
+    <div class="r exc win"><i></i><span class="id">TOC</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N30&deg;37.5' W100&deg;37.5'</span><span class="d dis">14</span><span class="d rdis">246</span></div>
+    <div class="r sav win"><i></i><span class="id">GLAZR</span><span class="ty">ENR</span><span class="sl on">5</span><span class="st">SAVED</span><span class="kp">N 30450<br>W 100450</span><span class="lido">N30&deg;45.0' W100&deg;45.0'</span><span class="d dis">15</span><span class="d rdis">231</span></div>
+    <div class="r sav win"><i></i><span class="id">JEDER</span><span class="ty">ENR</span><span class="sl on">6</span><span class="st">SAVED</span><span class="kp">N 30525<br>W 100525</span><span class="lido">N30&deg;52.5' W100&deg;52.5'</span><span class="d dis">16</span><span class="d rdis">215</span></div>
+    <div class="r sav win"><i></i><span class="id">HELUB</span><span class="ty">ENR</span><span class="sl on">7</span><span class="st">SAVED</span><span class="kp">N 31000<br>W 101000</span><span class="lido">N31&deg;00.0' W101&deg;00.0'</span><span class="d dis">10</span><span class="d rdis">205</span></div>
+    <div class="r sav win"><i></i><span class="id">VOSTK</span><span class="ty">ENR</span><span class="sl on">8</span><span class="st">SAVED</span><span class="kp">N 31075<br>W 101075</span><span class="lido">N31&deg;07.5' W101&deg;07.5'</span><span class="d dis">11</span><span class="d rdis">194</span></div>
+    <div class="r sav win"><i></i><span class="id">ROYYZ</span><span class="ty">ENR</span><span class="sl on">9</span><span class="st">SAVED</span><span class="kp">N 31150<br>W 101150</span><span class="lido">N31&deg;15.0' W101&deg;15.0'</span><span class="d dis">12</span><span class="d rdis">182</span></div>
+
+    <div class="pg">Page 2</div>
+    <div class="r sav win wbot"><i></i><span class="id">HEVAN</span><span class="ty">ENR</span><span class="sl on">1</span><span class="st">SAVED</span><span class="kp">N 31225<br>W 101225</span><span class="lido">N31&deg;22.5' W101&deg;22.5'</span><span class="d dis">13</span><span class="d rdis">169</span></div>
+    <div class="r que"><i></i><span class="id">BONNT</span><span class="ty">ENR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 31300<br>W 101300</span><span class="lido">N31&deg;30.0' W101&deg;30.0'</span><span class="d dis">14</span><span class="d rdis">155</span></div>
+    <div class="r que"><i></i><span class="id">NYLEN</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 31375<br>W 101375</span><span class="lido">N31&deg;37.5' W101&deg;37.5'</span><span class="d dis">15</span><span class="d rdis">140</span></div>
+    <div class="r que"><i></i><span class="id">VEECK</span><span class="ty">STAR</span><span class="sl">4</span><span class="st">QUEUED</span><span class="kp">N 31450<br>W 101450</span><span class="lido">N31&deg;45.0' W101&deg;45.0'</span><span class="d dis">16</span><span class="d rdis">124</span></div>
+    <div class="r exc"><i></i><span class="id">TOD</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N31&deg;52.5' W101&deg;52.5'</span><span class="d dis">10</span><span class="d rdis">114</span></div>
+    <div class="r que"><i></i><span class="id">BOONE</span><span class="ty">STAR</span><span class="sl">5</span><span class="st">QUEUED</span><span class="kp">N 32000<br>W 102000</span><span class="lido">N32&deg;00.0' W102&deg;00.0'</span><span class="d dis">11</span><span class="d rdis">103</span></div>
+    <div class="r que"><i></i><span class="id">HANNI</span><span class="ty">STAR</span><span class="sl">6</span><span class="st">QUEUED</span><span class="kp">N 32075<br>W 102075</span><span class="lido">N32&deg;07.5' W102&deg;07.5'</span><span class="d dis">12</span><span class="d rdis">91</span></div>
+    <div class="r que"><i></i><span class="id">CLUSO</span><span class="ty">STAR</span><span class="sl">7</span><span class="st">QUEUED</span><span class="kp">N 32150<br>W 102150</span><span class="lido">N32&deg;15.0' W102&deg;15.0'</span><span class="d dis">13</span><span class="d rdis">78</span></div>
+    <div class="r que"><i></i><span class="id">KAYTO</span><span class="ty">STAR</span><span class="sl">8</span><span class="st">QUEUED</span><span class="kp">N 32225<br>W 102225</span><span class="lido">N32&deg;22.5' W102&deg;22.5'</span><span class="d dis">14</span><span class="d rdis">64</span></div>
+    <div class="r que"><i></i><span class="id">PINKK</span><span class="ty">STAR</span><span class="sl">9</span><span class="st">QUEUED</span><span class="kp">N 32300<br>W 102300</span><span class="lido">N32&deg;30.0' W102&deg;30.0'</span><span class="d dis">15</span><span class="d rdis">49</span></div>
+
+    <div class="pg">Page 3</div>
+    <div class="r que"><i></i><span class="id">MONKZ</span><span class="ty">STAR</span><span class="sl">1</span><span class="st">QUEUED</span><span class="kp">N 32375<br>W 102375</span><span class="lido">N32&deg;37.5' W102&deg;37.5'</span><span class="d dis">16</span><span class="d rdis">33</span></div>
+    <div class="r que"><i></i><span class="id">JORJO</span><span class="ty">STAR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 32450<br>W 102450</span><span class="lido">N32&deg;45.0' W102&deg;45.0'</span><span class="d dis">10</span><span class="d rdis">23</span></div>
+    <div class="r que"><i></i><span class="id">POSSM</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 32525<br>W 102525</span><span class="lido">N32&deg;52.5' W102&deg;52.5'</span><span class="d dis">11</span><span class="d rdis">12</span></div>
+    <div class="r exc"><i></i><span class="id">KORD</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">DEST</span><span class="kp"></span><span class="lido">N33&deg;00.0' W103&deg;00.0'</span><span class="d dis">12</span><span class="d rdis">0</span></div>
+  </div>
+</div>
+
+<ul class="q">
+  <li>The rail now crosses the page 1 / page 2 division. Page grouping and unit contents are independent.</li>
+  <li>MPASS is still displayed and still passed, but it is outside the rail &mdash; it is no longer in the unit.</li>
+  <li><b>Open question:</b> MPASS shows no slot number here because it was evicted. Should an evicted fix keep showing the slot it once held?</li>
+</ul>
+
+<!-- ============================================================ 4 -->
+<h2>4 &middot; Skip variant &mdash; HEVAN skipped, BONNT saved</h2>
+<p class="note">
+  Taken from scenario 2 instead: the crew judged HEVAN insignificant and skipped it.
+  Renumbering moved BONNT to slot 1, and every later fix shifted with it, which rebuilt
+  the page divisions. Saving BONNT overwrote MPASS. The rail now brackets ZELAN&ndash;BONNT
+  and encloses <b>two</b> non-members: TOC and the skipped HEVAN.
+</p>
+
+<div class="tracker">
+  <div class="hdr">
+    <span class="fn">TST101</span>
+    <span class="rt">KATL &rarr; KORD</span>
+    <span class="ts">OFP 01 JAN 2026 0000Z</span>
+    <span class="ts">LOADED 01 JAN 2026 0015Z</span>
+  </div>
+  <div class="rows">
+    <div class="pg">Page 1</div>
+    <div class="r exc"><i></i><span class="id">KATL</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">ORIGIN</span><span class="kp"></span><span class="lido">N30&deg;00.0' W100&deg;00.0'</span><span class="d dis">&ndash;</span><span class="d rdis">306</span></div>
+    <div class="r pas"><i></i><span class="id">MPASS</span><span class="ty">SID</span><span class="sl none">&ndash;</span><span class="st">PASSED</span><span class="kp">N 30075<br>W 100075</span><span class="lido">N30&deg;07.5' W100&deg;07.5'</span><span class="d dis">10</span><span class="d rdis">296</span></div>
+    <div class="r pas win wtop"><i></i><span class="id">ZELAN</span><span class="ty">SID</span><span class="sl on">2</span><span class="st">PASSED</span><span class="kp">N 30150<br>W 100150</span><span class="lido">N30&deg;15.0' W100&deg;15.0'</span><span class="d dis">11</span><span class="d rdis">285</span></div>
+    <div class="r sav win"><i></i><span class="id">WURLD</span><span class="ty">SID</span><span class="sl on">3</span><span class="st">SAVED</span><span class="kp">N 30225<br>W 100225</span><span class="lido">N30&deg;22.5' W100&deg;22.5'</span><span class="d dis">12</span><span class="d rdis">273</span></div>
+    <div class="r sav win"><i></i><span class="id">VARNM</span><span class="ty">SID</span><span class="sl on">4</span><span class="st">SAVED</span><span class="kp">N 30300<br>W 100300</span><span class="lido">N30&deg;30.0' W100&deg;30.0'</span><span class="d dis">13</span><span class="d rdis">260</span></div>
+    <div class="r exc win"><i></i><span class="id">TOC</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N30&deg;37.5' W100&deg;37.5'</span><span class="d dis">14</span><span class="d rdis">246</span></div>
+    <div class="r sav win"><i></i><span class="id">GLAZR</span><span class="ty">ENR</span><span class="sl on">5</span><span class="st">SAVED</span><span class="kp">N 30450<br>W 100450</span><span class="lido">N30&deg;45.0' W100&deg;45.0'</span><span class="d dis">15</span><span class="d rdis">231</span></div>
+    <div class="r sav win"><i></i><span class="id">JEDER</span><span class="ty">ENR</span><span class="sl on">6</span><span class="st">SAVED</span><span class="kp">N 30525<br>W 100525</span><span class="lido">N30&deg;52.5' W100&deg;52.5'</span><span class="d dis">16</span><span class="d rdis">215</span></div>
+    <div class="r sav win"><i></i><span class="id">HELUB</span><span class="ty">ENR</span><span class="sl on">7</span><span class="st">SAVED</span><span class="kp">N 31000<br>W 101000</span><span class="lido">N31&deg;00.0' W101&deg;00.0'</span><span class="d dis">10</span><span class="d rdis">205</span></div>
+    <div class="r sav win"><i></i><span class="id">VOSTK</span><span class="ty">ENR</span><span class="sl on">8</span><span class="st">SAVED</span><span class="kp">N 31075<br>W 101075</span><span class="lido">N31&deg;07.5' W101&deg;07.5'</span><span class="d dis">11</span><span class="d rdis">194</span></div>
+    <div class="r sav win"><i></i><span class="id">ROYYZ</span><span class="ty">ENR</span><span class="sl on">9</span><span class="st">SAVED</span><span class="kp">N 31150<br>W 101150</span><span class="lido">N31&deg;15.0' W101&deg;15.0'</span><span class="d dis">12</span><span class="d rdis">182</span></div>
+    <div class="r skp win"><i></i><span class="id">HEVAN</span><span class="ty">ENR</span><span class="sl none">&ndash;</span><span class="st">SKIPPED</span><span class="kp"></span><span class="lido">N31&deg;22.5' W101&deg;22.5'</span><span class="d dis">13</span><span class="d rdis">169</span></div>
+
+    <div class="pg">Page 2</div>
+    <div class="r sav win wbot"><i></i><span class="id">BONNT</span><span class="ty">ENR</span><span class="sl on">1</span><span class="st">SAVED</span><span class="kp">N 31300<br>W 101300</span><span class="lido">N31&deg;30.0' W101&deg;30.0'</span><span class="d dis">14</span><span class="d rdis">155</span></div>
+    <div class="r que"><i></i><span class="id">NYLEN</span><span class="ty">STAR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 31375<br>W 101375</span><span class="lido">N31&deg;37.5' W101&deg;37.5'</span><span class="d dis">15</span><span class="d rdis">140</span></div>
+    <div class="r que"><i></i><span class="id">VEECK</span><span class="ty">STAR</span><span class="sl">3</span><span class="st">QUEUED</span><span class="kp">N 31450<br>W 101450</span><span class="lido">N31&deg;45.0' W101&deg;45.0'</span><span class="d dis">16</span><span class="d rdis">124</span></div>
+    <div class="r exc"><i></i><span class="id">TOD</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N31&deg;52.5' W101&deg;52.5'</span><span class="d dis">10</span><span class="d rdis">114</span></div>
+    <div class="r que"><i></i><span class="id">BOONE</span><span class="ty">STAR</span><span class="sl">4</span><span class="st">QUEUED</span><span class="kp">N 32000<br>W 102000</span><span class="lido">N32&deg;00.0' W102&deg;00.0'</span><span class="d dis">11</span><span class="d rdis">103</span></div>
+    <div class="r que"><i></i><span class="id">HANNI</span><span class="ty">STAR</span><span class="sl">5</span><span class="st">QUEUED</span><span class="kp">N 32075<br>W 102075</span><span class="lido">N32&deg;07.5' W102&deg;07.5'</span><span class="d dis">12</span><span class="d rdis">91</span></div>
+    <div class="r que"><i></i><span class="id">CLUSO</span><span class="ty">STAR</span><span class="sl">6</span><span class="st">QUEUED</span><span class="kp">N 32150<br>W 102150</span><span class="lido">N32&deg;15.0' W102&deg;15.0'</span><span class="d dis">13</span><span class="d rdis">78</span></div>
+    <div class="r que"><i></i><span class="id">KAYTO</span><span class="ty">STAR</span><span class="sl">7</span><span class="st">QUEUED</span><span class="kp">N 32225<br>W 102225</span><span class="lido">N32&deg;22.5' W102&deg;22.5'</span><span class="d dis">14</span><span class="d rdis">64</span></div>
+    <div class="r que"><i></i><span class="id">PINKK</span><span class="ty">STAR</span><span class="sl">8</span><span class="st">QUEUED</span><span class="kp">N 32300<br>W 102300</span><span class="lido">N32&deg;30.0' W102&deg;30.0'</span><span class="d dis">15</span><span class="d rdis">49</span></div>
+    <div class="r que"><i></i><span class="id">MONKZ</span><span class="ty">STAR</span><span class="sl">9</span><span class="st">QUEUED</span><span class="kp">N 32375<br>W 102375</span><span class="lido">N32&deg;37.5' W102&deg;37.5'</span><span class="d dis">16</span><span class="d rdis">33</span></div>
+
+    <div class="pg">Page 3</div>
+    <div class="r que"><i></i><span class="id">JORJO</span><span class="ty">STAR</span><span class="sl">1</span><span class="st">QUEUED</span><span class="kp">N 32450<br>W 102450</span><span class="lido">N32&deg;45.0' W102&deg;45.0'</span><span class="d dis">10</span><span class="d rdis">23</span></div>
+    <div class="r que"><i></i><span class="id">POSSM</span><span class="ty">STAR</span><span class="sl">2</span><span class="st">QUEUED</span><span class="kp">N 32525<br>W 102525</span><span class="lido">N32&deg;52.5' W102&deg;52.5'</span><span class="d dis">11</span><span class="d rdis">12</span></div>
+    <div class="r exc"><i></i><span class="id">KORD</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">DEST</span><span class="kp"></span><span class="lido">N33&deg;00.0' W103&deg;00.0'</span><span class="d dis">12</span><span class="d rdis">0</span></div>
+  </div>
+</div>
+
+<ul class="q">
+  <li>The skipped HEVAN moved onto page 1: it consumes no slot, and an excluded row between one page's slot 9 and the next page's slot 1 belongs to the preceding page.</li>
+  <li>MONKZ moved from page 3 to page 2 and every slot number after HEVAN shifted by one. No entered fix was disturbed, because a skip is always later in the route than every saved fix.</li>
+  <li><b>Open question:</b> skipped rows keep their LIDO coordinates but drop keypad values. Is that the right emphasis, or should a skipped row dim further?</li>
+</ul>
+
+<!-- ============================================================ 5 -->
+<h2>5 &middot; Page boundary, rollover, and fail-closed classification</h2>
+<p class="note">
+  <b>valid-ten-boundary-cases.json</b> &middot; ten eligible fixes, so page 2 holds a single
+  slot. ETP sits between page 1's slot 9 and page 2's slot 1 and belongs to page 1. The
+  second REPEAT carries 59.994 minutes up to a whole degree in both axes.
+</p>
+
+<div class="tracker">
+  <div class="hdr">
+    <span class="fn">TST902</span>
+    <span class="rt">TSTC &rarr; TSTD</span>
+    <span class="ts">OFP 01 JAN 2026 0001Z</span>
+    <span class="ts">LOADED 01 JAN 2026 0020Z</span>
+  </div>
+  <div class="rows">
+    <div class="pg">Page 1</div>
+    <div class="r exc"><i></i><span class="id">TSTC</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">ORIGIN</span><span class="kp"></span><span class="lido">N12&deg;00.0' W170&deg;00.0'</span><span class="d dis">&ndash;</span><span class="d rdis">14</span></div>
+    <div class="r pen"><i></i><span class="id">FIX01</span><span class="ty">ENR</span><span class="sl on">1</span><span class="st">PENDING</span><span class="kp">N 12060<br>W 170060</span><span class="lido">N12&deg;06.0' W170&deg;06.0'</span><span class="d dis">1</span><span class="d rdis">13</span></div>
+    <div class="r pen"><i></i><span class="id">FIX02</span><span class="ty">ENR</span><span class="sl on">2</span><span class="st">PENDING</span><span class="kp">N 12120<br>W 170120</span><span class="lido">N12&deg;12.0' W170&deg;12.0'</span><span class="d dis">1</span><span class="d rdis">12</span></div>
+    <div class="r pen"><i></i><span class="id">FIX03</span><span class="ty">ENR</span><span class="sl on">3</span><span class="st">PENDING</span><span class="kp">N 12180<br>W 170180</span><span class="lido">N12&deg;18.0' W170&deg;18.0'</span><span class="d dis">1</span><span class="d rdis">11</span></div>
+    <div class="r pen"><i></i><span class="id">FIX04</span><span class="ty">ENR</span><span class="sl on">4</span><span class="st">PENDING</span><span class="kp">N 12240<br>W 170240</span><span class="lido">N12&deg;24.0' W170&deg;24.0'</span><span class="d dis">1</span><span class="d rdis">10</span></div>
+    <div class="r pen"><i></i><span class="id">FIX05</span><span class="ty">ENR</span><span class="sl on">5</span><span class="st">PENDING</span><span class="kp">N 12300<br>W 170300</span><span class="lido">N12&deg;30.0' W170&deg;30.0'</span><span class="d dis">1</span><span class="d rdis">9</span></div>
+    <div class="r pen"><i></i><span class="id">FIX06</span><span class="ty">ENR</span><span class="sl on">6</span><span class="st">PENDING</span><span class="kp">N 12360<br>W 170360</span><span class="lido">N12&deg;36.0' W170&deg;36.0'</span><span class="d dis">1</span><span class="d rdis">8</span></div>
+    <div class="r pen"><i></i><span class="id">FIX07</span><span class="ty">ENR</span><span class="sl on">7</span><span class="st">PENDING</span><span class="kp">N 12420<br>W 170420</span><span class="lido">N12&deg;42.0' W170&deg;42.0'</span><span class="d dis">1</span><span class="d rdis">7</span></div>
+    <div class="r pen"><i></i><span class="id">FIX08</span><span class="ty">ENR</span><span class="sl on">8</span><span class="st">PENDING</span><span class="kp">N 12480<br>W 170480</span><span class="lido">N12&deg;48.0' W170&deg;48.0'</span><span class="d dis">1</span><span class="d rdis">6</span></div>
+    <div class="r pen"><i></i><span class="id">REPEAT</span><span class="ty">ENR</span><span class="sl on">9</span><span class="st">PENDING</span><span class="kp">N 12540<br>W 170540</span><span class="lido">N12&deg;54.0' W170&deg;54.0'</span><span class="d dis">1</span><span class="d rdis">5</span></div>
+    <div class="r exc"><i></i><span class="id">ETP</span><span class="ty">CPT</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N12&deg;57.0' W170&deg;57.0'</span><span class="d dis">1</span><span class="d rdis">4</span></div>
+
+    <div class="pg">Page 2</div>
+    <div class="r que"><i></i><span class="id">REPEAT</span><span class="ty">ENR</span><span class="sl">1</span><span class="st">QUEUED</span><span class="kp">N 13000<br>W 180000</span><span class="lido">N13&deg;00.0' W180&deg;00.0'</span><span class="d dis">1</span><span class="d rdis">3</span></div>
+    <div class="r exc"><i></i><span class="id">AMBIG</span><span class="ty">AMBIG</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N13&deg;06.0' W171&deg;06.0'</span><span class="d dis">1</span><span class="d rdis">2</span></div>
+    <div class="r exc"><i></i><span class="id">MYSTERY</span><span class="ty">UNK</span><span class="sl none">&ndash;</span><span class="st">NO SLOT</span><span class="kp"></span><span class="lido">N13&deg;12.0' W171&deg;12.0'</span><span class="d dis">1</span><span class="d rdis">1</span></div>
+    <div class="r exc"><i></i><span class="id">TSTD</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">DEST</span><span class="kp"></span><span class="lido">N14&deg;00.0' W170&deg;00.0'</span><span class="d dis">1</span><span class="d rdis">0</span></div>
+  </div>
+</div>
+
+<ul class="q">
+  <li>ETP is a coordinate-type row whose identifier fails the coordinate pattern, so it is computed and ineligible even though its procedure flag is set.</li>
+  <li>AMBIG carries a procedure flag with an airway matching no dedicated SID or STAR, so classification fails closed. MYSTERY has an unrecognized source type.</li>
+  <li>Two distinct fixes share the identifier REPEAT. <b>Open question:</b> does a repeated identifier need any visual disambiguation, or is route position enough?</li>
+</ul>
+
+<!-- ============================================================ 6 -->
+<h2>6 &middot; Nine or fewer eligible fixes</h2>
+<p class="note">
+  <b>valid-exactly-nine.json</b> &middot; eastern longitudes, no SID or STAR. Every fix fits
+  the unit at once, so nothing is ever queued and <b>nothing is ever pending</b> after the
+  ninth Save. Three fixes have been passed and remain in their slots.
+</p>
+
+<div class="tracker">
+  <div class="hdr">
+    <span class="fn">TST901</span>
+    <span class="rt">TSTA &rarr; TSTB</span>
+    <span class="ts">OFP 01 JAN 2026 0001Z</span>
+    <span class="ts">LOADED 01 JAN 2026 0025Z</span>
+  </div>
+  <div class="rows">
+    <div class="pg">Page 1</div>
+    <div class="r exc"><i></i><span class="id">TSTA</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">ORIGIN</span><span class="kp"></span><span class="lido">N10&deg;00.0' E020&deg;00.0'</span><span class="d dis">&ndash;</span><span class="d rdis">100</span></div>
+    <div class="r pas win wtop"><i></i><span class="id">FIX01</span><span class="ty">ENR</span><span class="sl on">1</span><span class="st">PASSED</span><span class="kp">N 10060<br>E 020060</span><span class="lido">N10&deg;06.0' E020&deg;06.0'</span><span class="d dis">10</span><span class="d rdis">90</span></div>
+    <div class="r pas win"><i></i><span class="id">FIX02</span><span class="ty">ENR</span><span class="sl on">2</span><span class="st">PASSED</span><span class="kp">N 10120<br>E 020120</span><span class="lido">N10&deg;12.0' E020&deg;12.0'</span><span class="d dis">10</span><span class="d rdis">80</span></div>
+    <div class="r pas win"><i></i><span class="id">FIX03</span><span class="ty">ENR</span><span class="sl on">3</span><span class="st">PASSED</span><span class="kp">N 10180<br>E 020180</span><span class="lido">N10&deg;18.0' E020&deg;18.0'</span><span class="d dis">10</span><span class="d rdis">70</span></div>
+    <div class="r sav win"><i></i><span class="id">FIX04</span><span class="ty">ENR</span><span class="sl on">4</span><span class="st">SAVED</span><span class="kp">N 10240<br>E 020240</span><span class="lido">N10&deg;24.0' E020&deg;24.0'</span><span class="d dis">10</span><span class="d rdis">60</span></div>
+    <div class="r sav win"><i></i><span class="id">FIX05</span><span class="ty">ENR</span><span class="sl on">5</span><span class="st">SAVED</span><span class="kp">N 10300<br>E 020300</span><span class="lido">N10&deg;30.0' E020&deg;30.0'</span><span class="d dis">10</span><span class="d rdis">50</span></div>
+    <div class="r sav win"><i></i><span class="id">FIX06</span><span class="ty">ENR</span><span class="sl on">6</span><span class="st">SAVED</span><span class="kp">N 10360<br>E 020360</span><span class="lido">N10&deg;36.0' E020&deg;36.0'</span><span class="d dis">10</span><span class="d rdis">40</span></div>
+    <div class="r sav win"><i></i><span class="id">FIX07</span><span class="ty">ENR</span><span class="sl on">7</span><span class="st">SAVED</span><span class="kp">N 10420<br>E 020420</span><span class="lido">N10&deg;42.0' E020&deg;42.0'</span><span class="d dis">10</span><span class="d rdis">30</span></div>
+    <div class="r sav win"><i></i><span class="id">FIX08</span><span class="ty">ENR</span><span class="sl on">8</span><span class="st">SAVED</span><span class="kp">N 10480<br>E 020480</span><span class="lido">N10&deg;48.0' E020&deg;48.0'</span><span class="d dis">10</span><span class="d rdis">20</span></div>
+    <div class="r sav win wbot"><i></i><span class="id">FIX09</span><span class="ty">ENR</span><span class="sl on">9</span><span class="st">SAVED</span><span class="kp">N 10540<br>E 020540</span><span class="lido">N10&deg;54.0' E020&deg;54.0'</span><span class="d dis">10</span><span class="d rdis">10</span></div>
+    <div class="r exc"><i></i><span class="id">TSTB</span><span class="ty">APT</span><span class="sl none">&ndash;</span><span class="st">DEST</span><span class="kp"></span><span class="lido">N11&deg;00.0' E021&deg;00.0'</span><span class="d dis">10</span><span class="d rdis">0</span></div>
+  </div>
+</div>
+
+<ul class="q">
+  <li>FIX01 and FIX02 are passed and their slots are free, but there is nothing queued to promote, so no fix is pending. This is a resting state, not a stuck one.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>Display questions this drawing exists to settle</h2>
+<ul class="q">
+  <li>State encoding uses a glyph, a word, and weight, so nothing depends on color alone. Are six states distinguishable at a glance, or should skipped and ineligible rows read more differently?</li>
+  <li>The rail is one continuous left bracket with end caps, drawn per row so it survives page divisions. Is a bracket the right metaphor, or should members be marked individually?</li>
+  <li>Queued fixes show slot numbers in outline badges and pending or entered slots show filled badges. Does the outline badge read as informative or as noise this far ahead of the aircraft?</li>
+  <li>Page divisions are thin labelled rules inside one continuous list. Enough separation, or too subtle?</li>
+  <li>Keypad coordinates stack on two lines and are omitted entirely for rows that cannot be entered. Correct emphasis against the LIDO reference values?</li>
+  <li>Below 760px the row reflows to two lines and DIS/RDIS move to the right edge. Check that the rail and the keypad values survive that layout.</li>
+</ul>
+
+</main>
+</body>
+</html>

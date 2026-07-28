@@ -14,6 +14,10 @@ Before planning or changing application behavior, read:
 The decision documents are the source of truth. `docs/task-list.md` records
 execution order but does not override product, domain, or technical decisions.
 
+`docs/prototypes/tracker-wireframe.html` is a throwaway reference drawing of the
+navlog, waypoint states, and sliding window. Consult it to understand the
+intended display, but do not carry it into application code.
+
 Application implementation has not begun. Development tooling and planning
 artifacts may already exist, so inspect the repository and working tree before
 assuming a blank slate.
@@ -61,8 +65,10 @@ application timestamps in UTC using aviation-style formatting.
 - Keep indexed relational metadata separate from large raw OFP payloads so
   recent trackers can be queried without deserializing them.
 
-The exact persistence representation remains open until explicitly resolved in
-`docs/planning-status.md`.
+Persistence is aggregate-shaped, not relational waypoint rows: `ofp_load` for
+indexed metadata, a separate `ofp_raw` table for the complete payload, and a
+`tracker` row holding the immutable navlog, the mutable snapshot, and an integer
+version. Do not express slot, page, or sliding-window rules in SQL.
 
 ## Domain Invariants
 
@@ -72,12 +78,24 @@ Consult `docs/tracker-behavior.md` before changing tracker logic. In particular:
   point in original route order.
 - Airports and computed or informational points remain visible but never consume
   INS slots.
-- Eligible fixes use repeating slots 1-9.
+- Eligible fixes use repeating slots 1-9, derived from position in the eligible
+  sequence. Only Skip and the SID/STAR controls renumber; Save and Pass never do.
 - Only the earliest pending fix may be saved.
 - Skip is terminal, applies only to queued or pending fixes, consumes no slot,
   and triggers deterministic recalculation.
+- Slot release is deferred by one Pass. The most recently passed fix is the
+  active leg's FROM waypoint and keeps its slot. A slot is free only when it has
+  never been written or holds a passed fix that is not the most recent one.
 - Passing a saved fix atomically passes every earlier saved-but-unpassed fix,
-  releases all affected slots, promotes queued fixes, and recalculates pages.
+  frees every affected slot except the one holding the newly passed fix,
+  promotes queued fixes into the freed slots, and recalculates pending and
+  queued state. Pass does not rebuild pages.
+- Pending fixes are the next eligible unsaved fixes for which a free slot
+  exists. States with no pending fix are normal, not stuck.
+- The sliding window is the tracker's representation of current INS unit
+  contents: the nine most recently saved fixes, always saved or passed, changing
+  membership only on Save. It is distinct from pages, which are display
+  grouping. There is no "active page"; that concept was replaced.
 - SID and STAR inclusion controls lock permanently after the first Save.
 - Excluded points between a page's slot 9 and the next page's slot 1 belong to
   the preceding page.
@@ -91,8 +109,13 @@ shared domain implementation.
 
 - Fetch SimBrief only on the server after an authenticated user explicitly
   requests a load.
-- Use a numeric Pilot ID stored as a string. Do not add username login,
-  flight-generation APIs, or Navigraph OAuth.
+- Use a numeric Pilot ID stored as a string, capped at 16 digits and validated
+  as `^\d{1,16}$` with leading zeros preserved. The cap is a Kneeboard input
+  limit, not a SimBrief rule. Do not add username login, flight-generation
+  APIs, or Navigraph OAuth.
+- The authenticated Load endpoint enforces a 30-second per-account cooldown
+  alongside per-action idempotency. Idempotency-key replays bypass the cooldown
+  and return the existing tracker without contacting SimBrief.
 - Accept only JSON OFPs using the LIDO layout with a detailed navlog.
 - Validate and normalize only fields required by the tracker; do not attempt to
   model the complete SimBrief payload.
@@ -137,8 +160,9 @@ Follow `docs/task-list.md` and preserve these dependencies:
 ## Testing and Delivery
 
 - Prioritize tests for boundary validation, coordinate conversion, waypoint
-  classification, domain transitions, cascading Pass, slot/page recalculation,
-  concurrency conflicts, and load idempotency.
+  classification, domain transitions, cascading Pass, deferred slot release,
+  sliding window movement, slot and page recalculation on Skip, zero-pending
+  states, concurrency conflicts, and load idempotency.
 - Run relevant lint, type, and test checks for every change and report exactly
   what was and was not verified.
 - Keep Playwright manual for MVP unless the governing documents are changed.

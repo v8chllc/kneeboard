@@ -122,14 +122,16 @@ Follow `docs/task-list.md` and preserve these dependencies:
 
 1. Capture, inspect, map, and sanitize representative SimBrief fixtures.
 2. Resolve the remaining implementation-planning decisions.
-3. Build domain types, parsing, coordinate conversion, transitions, and unit
+3. Validate the tracker display model with a throwaway static wireframe before
+   domain code depends on it.
+4. Build domain types, parsing, coordinate conversion, transitions, and unit
    tests.
-4. Scaffold the application and CI.
-5. Establish authentication and account isolation before introducing private
+5. Scaffold the application and CI.
+6. Establish authentication and account isolation before introducing private
    OFP data flows.
-6. Deliver one authenticated vertical slice from OFP load through a working
+7. Deliver one authenticated vertical slice from OFP load through a working
    tracker.
-7. Complete responsive UI, accessibility, manual E2E coverage, migration
+8. Complete responsive UI, accessibility, manual E2E coverage, migration
    procedures, and production validation.
 
 ## Testing and Delivery

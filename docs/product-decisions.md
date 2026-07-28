@@ -82,10 +82,41 @@ The tracker header shows:
 All timestamps are stored and displayed only in UTC using an aviation-style
 format such as `24 JUL 2026 1842Z`. Browser-local time is not shown.
 
-The body presents waypoint pages described in
-[Tracker behavior](tracker-behavior.md). The active page is visually distinct,
-and the interface automatically navigates when the active page changes. Users
-may still browse other pages manually.
+The body presents the complete navlog in route order, grouped into the waypoint
+pages described in [Tracker behavior](tracker-behavior.md). Every navlog row is
+always shown. Row appearance varies by waypoint state and by slot assignment.
+
+The sliding window is drawn inline as a bracket around the consecutive rows
+currently written into the INS unit. It appears only after the first Save.
+
+### Row display
+
+These decisions were validated against
+[`docs/prototypes/tracker-wireframe.html`](prototypes/tracker-wireframe.html).
+
+- Waypoint state is encoded by a glyph, a written label, and type weight
+  together. Color never carries state on its own, so every state remains
+  distinguishable in grayscale and under color-vision deficiency.
+- The six distinguished row states are queued, pending, saved, passed, skipped,
+  and not slot-eligible.
+- Slot numbers appear on every eligible fix regardless of state. A queued fix
+  shows an outline badge, and a fix holding or having held an active assignment
+  shows a filled badge. The number tells the user which slot a fix will occupy
+  well before it can be entered.
+- A fix that has been evicted from the unit by a later Save drops its slot badge
+  entirely. Its former slot is no longer meaningful.
+- Skipped and slot-ineligible rows show LIDO reference coordinates but never
+  keypad-ready coordinates. Omitting the keypad values is what prevents the
+  interface from implying that such a row can be entered.
+- The sliding window is drawn as one continuous left rail with end caps rather
+  than as per-row markers, because it represents a single range. The rail spans
+  every row between its first and last member, including excluded and skipped
+  rows that are not themselves members, and it crosses page divisions freely.
+- Page divisions are thin labelled rules inside one continuous list. They are
+  deliberately quieter than the rail, because pages are display grouping while
+  the rail is unit state.
+- Repeated waypoint identifiers are distinguished by route position alone and
+  receive no additional visual treatment.
 
 Every tracker has a stable opaque URL. Direct access requires authentication and
 server-side account ownership; knowing an ID never grants access.

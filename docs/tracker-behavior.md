@@ -126,20 +126,53 @@ coordinate-edit override.
 
 Memory slots repeat from 1 through 9.
 
-- At tracker creation, the first nine eligible fixes are `pending` and have
-  active slot assignments 1–9.
+Every eligible fix carries a slot number derived from its position in the
+eligible sequence: `slot = ((eligible index - 1) mod 9) + 1`. The number is
+displayed for every eligible fix regardless of state, so the same slot number
+appears once per page of the route.
+
+Only Skip and the SID/STAR inclusion controls change eligibility, so only those
+operations renumber slots and rebuild pages. Save and Pass never renumber.
+Because Save is route-ordered, every skip occurs later in the route than every
+entered fix, so renumbering can never disturb a fix already entered into the
+unit.
+
+### Slot availability
+
+A slot is `free` when either:
+
+- it has never been written; or
+- it holds a passed fix that is not the most recently passed fix.
+
+The most recently passed fix is the FROM waypoint of the active leg. Its slot
+stays occupied because overwriting it would destroy the active leg. Passing a
+fix therefore does not release its slot immediately; the release is deferred
+until a later fix is passed.
+
+- At tracker creation no slot has been written, so all nine are free and the
+  first nine eligible fixes are `pending`.
 - Later eligible fixes are `queued` and display their expected repeating slot
   number.
 - An excluded or skipped point consumes no slot.
-- A released slot is assigned immediately to the next queued fix.
-- A newly assigned fix becomes `pending`; it does not become `saved`
+- `pending` fixes are the next eligible unsaved fixes for which a free slot
+  exists. A newly promoted fix becomes `pending`; it never becomes `saved`
   automatically.
 - Saving records that the waypoint was entered into all INS units in the
-  aircraft. There is no per-unit status.
+  aircraft. There is no per-unit status. Saving overwrites the free slot and
+  evicts whatever that slot previously held.
 
 Only the earliest pending fix in route order can be saved. This enforces
 route-order entry while still allowing multiple fixes to remain saved and active
 in INS memory.
+
+States with no pending fix are normal, not stuck. They occur whenever every free
+slot has been filled and the next slot cannot be released until another fix is
+passed. In steady cruise exactly one fix is usually pending, lagging one Pass
+behind. A navlog with nine or fewer eligible fixes never queues anything, so it
+has no pending fixes once all of them are saved.
+
+MVP assumes a contiguous active leg. Non-contiguous legs, such as a direct-to
+that bypasses intermediate slots, are deferred.
 
 ## State model
 
@@ -166,8 +199,9 @@ active until passed.
 
 ### Passed
 
-The fix has been removed from the active INS sequence and its slot has been
-released. Passed is terminal.
+The fix has been removed from the active INS sequence. It remains in its slot,
+and therefore inside the sliding window, until a later Save overwrites it. Its
+slot becomes free only once a later fix has been passed. Passed is terminal.
 
 ### Skipped
 
@@ -182,9 +216,14 @@ Passing a saved waypoint atomically:
 
 1. marks that waypoint passed;
 2. marks every earlier saved-but-unpassed waypoint passed;
-3. releases all affected slots;
-4. promotes the next queued fixes immediately; and
-5. recalculates pages and the active page.
+3. frees every affected slot except the one holding the newly passed waypoint,
+   which anchors the active leg;
+4. promotes the next queued fixes into the freed slots immediately; and
+5. recalculates pending and queued state.
+
+A cascade therefore frees several slots at once and can promote several fixes to
+`pending` together, which is what the direct-to case requires. A single Pass
+frees at most one slot.
 
 This is a deliberate operational convention for the simulator workflow.
 “Passed” means removed from the active INS sequence; it does not necessarily mean
@@ -222,17 +261,42 @@ Rules:
 The placement rule in item 3 is important: excluded points at a page boundary
 belong to the preceding slot page.
 
-## Active page
+## Sliding window
 
-- Before any waypoint has been saved, page 1 is active.
-- Once waypoints are saved, the active page is the page containing the earliest
-  saved waypoint that is still awaiting Pass.
-- The UI automatically navigates when the active page changes.
-- Manual browsing does not change tracker state.
+Pages group the route for display. The sliding window is a separate concept: it
+represents the current data state of the INS unit.
 
-The fallback active-page rule for the rare state where no saved waypoint remains
-but later pending waypoints exist should be finalized in implementation
-planning.
+- The window contains exactly the fixes currently written into the unit's nine
+  slots.
+- Its members are always `saved` or `passed`, never `pending` or `queued`.
+- It holds between one and nine members. It grows during initial entry and holds
+  nine members from the first overwrite onward.
+- It is not shown before the first Save, because the unit holds no data yet.
+- Membership changes only on Save. Saving writes a fix into a free slot and
+  evicts that slot's previous occupant. Pass never changes membership.
+
+The window is rendered inline, in navlog sequence rather than slot sequence, as
+a bracket spanning consecutive rows from the oldest resident member to the
+newest. Skipped and slot-ineligible rows may fall inside the bracket without
+being members.
+
+Equivalently, the window is the set of the nine most recently saved fixes.
+
+Manual browsing does not change tracker state.
+
+### Worked example
+
+Nine eligible fixes are saved into slots 1–9, then the first two are passed.
+
+- The window still brackets WP1–WP9. Pass changed no membership.
+- WP2 is the most recently passed fix and anchors leg WP2→WP3, so slot 2 stays
+  occupied. Only slot 1 is free.
+- WP10 is `pending` in slot 1. Nothing else is pending.
+- Saving WP10 overwrites WP1. The window now brackets WP2–WP10.
+
+If instead WP10 is skipped, the eligible sequence renumbers so WP11 takes
+slot 1. Saving WP11 overwrites WP1 and the window brackets WP2–WP11, with the
+skipped WP10 falling inside the bracket while holding no slot.
 
 ## Domain implementation direction
 
@@ -259,11 +323,18 @@ The lean Vitest suite should prioritize:
 - route-order Save enforcement;
 - passing one fix;
 - cascading Pass across several saved fixes;
-- immediate promotion into released slots;
+- deferred slot release, including that passing one fix frees no slot until a
+  later fix is passed;
+- promotion into freed slots, including multiple promotions from one cascade;
+- states with no pending fix, both in cruise and for navlogs of nine or fewer
+  eligible fixes;
 - SID/STAR inclusion and exclusion before first Save;
 - locked procedure controls after first Save;
 - excluded rows before slot 1, after slot 9, and after the final assigned fix;
-- active-page movement;
+- sliding window membership, growth to nine, eviction on Save, and invariance
+  under Pass;
+- sliding window brackets spanning skipped and ineligible rows;
+- slot renumbering on Skip, including that it never disturbs an entered fix;
 - coordinate rounding, degree rollover, and all hemispheres; and
 - deterministic recalculation from the same input snapshot and command.
 

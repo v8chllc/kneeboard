@@ -89,7 +89,9 @@ Before the first waypoint is saved, the user may exclude:
 
 These controls default to including both procedures. Changing them recalculates
 slots and pages. The controls lock permanently for that tracker after its first
-Save action.
+Save action. Each inclusion change is a typed tracker command applied through
+the same pure transition engine and expected-version persistence path as Save,
+Pass, and Skip.
 
 ## Coordinate presentation
 
@@ -309,6 +311,12 @@ deterministic transition engine. The engine:
 - computes cascade effects;
 - recalculates slot assignments and pages; and
 - returns the next complete tracker snapshot.
+
+The domain also exposes a pure Pass preview that returns the exact ordered set
+of fixes a Pass command would mark passed. The cascade-confirmation UI consumes
+that result rather than recreating the cascade rule. The eventual command still
+revalidates against its expected snapshot version, so a preview never grants
+authority to mutate stale state.
 
 The resulting snapshot is persisted atomically. No event stream or visible
 history is retained.

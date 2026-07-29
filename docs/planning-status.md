@@ -32,6 +32,7 @@ planning.
 
 - Next.js App Router, React, and TypeScript
 - Tailwind CSS and custom components
+- Framework-independent domain code under `src/domain/`
 - Zod boundary validation
 - Pure transition engine with persisted snapshots
 - Aggregate persistence: indexed `ofp_load` metadata, a separate `ofp_raw`
@@ -39,6 +40,9 @@ planning.
 - 16-digit Pilot ID input cap as an application limit
 - 30-second per-account cooldown on the Load endpoint alongside per-action
   idempotency
+- Atomic Load-attempt reservation so concurrent requests cannot bypass the
+  cooldown or duplicate an in-progress same-key fetch
+- Shared pure Pass-cascade preview and typed procedure-inclusion commands
 - Server-confirmed UI mutations
 - Optimistic concurrency
 - Stable account-protected tracker URLs
@@ -50,13 +54,17 @@ planning.
 - Drizzle ORM and committed migrations
 - Better Auth magic links
 - Resend email
+- Mailpit for local-only email capture
 - Fail-closed email allowlist
 
 ### Delivery
 
 - `pnpm`
 - Node.js LTS and tools pinned with mise
-- GitHub Actions for lint, types, and Vitest
+- Reproducible fresh-clone local development before domain implementation
+- A local PostgreSQL container with separate development and test databases
+- GitHub Actions using the same lint, type, test, and build commands as local
+  development
 - Manual Playwright pre-release suite
 - Production-only Vercel deployments during soft launch
 - Manual production migrations
@@ -87,32 +95,49 @@ planning.
 
 ## Open implementation-planning decisions
 
-These are intentionally not filled in by assumption. Each depends on work that
-has not happened yet, so each is resolved during the step that makes it
-concrete rather than in advance.
+These are intentionally not filled in by assumption. Package versions and test
+infrastructure are resolved during the work that makes them concrete. Build
+orchestration is resolved in the final pre-build review with the user.
 
 1. **Test infrastructure**
-   - Choose how manual Playwright tests capture magic links and isolate their
+   - Mailpit is the local magic-link inbox. Choose how manual Playwright tests
+     poll, select, and clear messages through its REST API and isolate their
      database.
    - Fixtures must remain sanitized and deterministic.
    - Resolved in section 9 of [the task list](task-list.md), because the
-     mechanism depends on how Better Auth and Resend are wired in section 7.
+     mechanism depends on how persistence, Better Auth, and Mailpit are wired
+     in sections 6 and 7.
 2. **Exact package and tool versions**
    - Resolve current stable compatible versions when scaffolding, then pin them.
-   - Resolved in section 5 of [the task list](task-list.md), because versions
+   - Resolved in section 4 of [the task list](task-list.md), because versions
      are pinned as they are installed.
+3. **Build orchestration**
+   - Review the draft
+     [build execution strategy](build-execution-strategy.md) and decide the
+     primary Codex surface, checkpoint cadence, delegation limits, review
+     gates, status limits, and whether a capped loop is useful after the manual
+     workflow is proven.
+   - Approve a final kickoff prompt that distinguishes a locally verified MVP
+     release candidate from separately authorized production operations.
+   - Resolved in the pre-build execution gate of
+     [the task list](task-list.md), before section 4 begins.
 
 ## Implementation-plan boundaries
 
 The first implementation plan should:
 
 - preserve the MVP boundaries in these documents;
-- begin with the domain types, parser fixtures, and transition tests;
+- begin with a reproducible local application and test foundation, followed by
+  domain types, parser fixtures, and transition tests;
 - establish authentication and account isolation before private data flows;
 - deliver one vertical slice from authenticated OFP load through a working
   tracker;
 - avoid adding deferred infrastructure preemptively; and
 - include data migration, rollback, validation evidence, and manual E2E steps.
+
+Execution also follows the approved
+[build execution strategy](build-execution-strategy.md). Until its open choices
+and final kickoff prompt are approved, the application build has not begun.
 
 If implementation reveals a conflict with these decisions, update the
 documentation deliberately rather than silently changing behavior in code.

@@ -92,11 +92,14 @@ than discovering the gap after the capture.
 - [x] Select a small per-account cooldown for the authenticated OFP load
       endpoint in addition to per-action idempotency.
 
-Two decisions in [Planning status](planning-status.md) are deliberately left
-open because they cannot be resolved before the work that makes them concrete.
-Package and tool versions are pinned as they are installed in section 5, and the
-Playwright test mechanism depends on how Better Auth and Resend are wired in
-section 7. Both are carried as items in those sections.
+Three implementation-planning decisions remain open in
+[Planning status](planning-status.md). Package and tool versions are pinned as
+they are installed in section 4. Mailpit is the local magic-link inbox, while
+the exact Playwright polling, inbox-reset, and database-isolation mechanism
+depends on how Better Auth, Mailpit, and persistence are wired in sections 6
+and 7; that choice is carried in section 9. The build-orchestration choices and
+final kickoff prompt are resolved in the pre-build execution gate below before
+section 4 begins.
 
 ## 3. Validate the tracker display model
 
@@ -133,46 +136,106 @@ on them yet.
   - Recorded under "Row display" in
     [Product decisions](product-decisions.md).
 
-## 4. Build the domain foundation
+## Pre-build execution gate
+
+Do not begin section 4 until this final planning gate is complete. The first
+four items close the repository-audit gaps; the remaining items deliberately
+stay open while the build technique is studied and approved.
+
+- [x] Define atomic OFP-load cooldown and in-progress idempotency semantics,
+      including same-key replay, concurrent different-key actions, failure, and
+      abandoned-reservation behavior.
+- [x] Require typed expected-version commands for procedure inclusion and a
+      shared pure Pass preview for cascade confirmation.
+- [x] Require an application-side SimBrief abort timeout, response-size limit,
+      mocked failure tests, and no live-service calls from automated tests.
+- [x] Refresh curated project memory for the authoritative post-transfer clone,
+      the `src/domain/` decision, and the current pre-build status.
+- [ ] Review and approve the draft
+      [build execution strategy](build-execution-strategy.md).
+- [ ] Decide the primary Codex surface, commit and pull-request cadence,
+      delegation limits, parallel-write policy, mandatory review checkpoints,
+      and status limits for a long-running build.
+- [ ] Decide whether the first build uses interactive bounded goals only or a
+      capped Ralph-style loop after the manual workflow proves reliable.
+- [ ] Write and approve the final kickoff prompt, including the local-release-
+      candidate definition, production-operation boundary, verification
+      evidence, and stop conditions.
+- [ ] Commit the completed planning artifacts, begin from a clean current
+      feature branch, and confirm the pre-build gate is closed.
+
+## 4. Establish the local development foundation
+
+Create a reproducible local environment before domain implementation begins.
+Every later section extends this environment in the same change that introduces
+a new runtime dependency, so the application remains locally runnable and
+testable throughout development.
+
+- [ ] Scaffold Next.js App Router, React, and TypeScript in the repository root,
+      using the `src/` layout.
+- [ ] Establish `src/domain/` as the framework-independent domain location,
+      without adding tracker behavior during scaffolding.
+- [ ] Configure Tailwind CSS and a minimal dark, high-contrast page that keeps
+      the simulation-only warning visible from the first runnable build.
+- [ ] Add `mise.toml` with pinned Node.js and `pnpm` versions.
+- [ ] Resolve and pin current compatible package and tool versions as they are
+      installed, then record the resolution in
+      [Planning status](planning-status.md).
+- [ ] Commit `pnpm-lock.yaml` and configure canonical `dev`, `build`, `start`,
+      `lint`, `typecheck`, `test`, and `test:watch` scripts.
+- [ ] Configure ESLint, TypeScript checks, and Vitest, including a minimal smoke
+      test proving the test command is operational.
+- [ ] Add a non-secret `.env.example`, keep `.env.local` ignored, and document
+      that environment validation grows with each introduced service.
+- [ ] Document the fresh-clone workflow, prerequisites, localhost URL, and
+      canonical commands in `README.md`.
+- [ ] Verify the development server, production build and start, lint, type
+      checks, and tests locally.
+- [ ] Add GitHub Actions that run the same install, lint, type-check, test, and
+      build commands used locally.
+
+## 5. Build the domain foundation
 
 - [ ] Define framework-independent domain types and typed commands.
 - [ ] Implement coordinate conversion and formatting.
 - [ ] Implement waypoint classification and eligibility rules.
 - [ ] Implement repeating slot assignment and page construction.
-- [ ] Implement the pure Save, Pass, and Skip transition engine.
+- [ ] Implement the pure typed-command transition engine for Save, Pass, Skip,
+      and pre-start SID/STAR inclusion changes.
+- [ ] Implement a pure Pass preview that returns the same ordered cascade the
+      Pass command will validate and apply.
 - [ ] Add Vitest coverage for valid transitions, invalid commands, cascading
       Pass, Skip recalculation, procedure controls, deferred slot release,
       sliding window movement, coordinate boundaries, and deterministic replay
       of snapshot plus command.
 
-## 5. Scaffold the application
-
-- [ ] Scaffold Next.js App Router, React, and TypeScript.
-- [ ] Configure Tailwind CSS and the initial dark, high-contrast theme.
-- [ ] Configure linting and TypeScript checks.
-- [ ] Add `mise.toml` with pinned Node.js and `pnpm` versions.
-- [ ] Resolve and pin current compatible package and tool versions as they are
-      installed, then record the resolution in
-      [Planning status](planning-status.md).
-- [ ] Configure Vitest.
-- [ ] Add GitHub Actions for linting, type checks, and Vitest.
-
 ## 6. Add persistence
 
+- [ ] Add a pinned local PostgreSQL container before application persistence
+      depends on a database, with separate development and test databases.
+- [ ] Add and document local commands to start, stop, migrate, and reset the
+      databases without touching production resources.
 - [ ] Configure Neon Postgres, Drizzle ORM, and Drizzle Kit.
 - [ ] Define account settings, OFP load metadata, raw OFP, immutable normalized
       navlog, mutable tracker snapshot, ownership, version, idempotency, and UTC
       timestamp persistence.
 - [ ] Add indexed metadata for the 10 most recent loads per account.
 - [ ] Create and commit database migrations.
+- [ ] Verify committed migrations against an empty local database.
 - [ ] Implement optimistic concurrency for tracker mutations.
-- [ ] Implement per-action OFP-load idempotency.
+- [ ] Implement atomic OFP-load attempt reservation, cooldown enforcement,
+      same-key in-progress handling, and per-action idempotency.
+- [ ] Test simultaneous same-key and different-key load requests, failure
+      cooldown behavior, expired reservations, and the final uniqueness guard.
 - [ ] Document migration, rollback, and validation procedures.
 
 ## 7. Establish authentication and account isolation
 
 - [ ] Configure Better Auth database-backed magic links.
-- [ ] Configure Resend delivery.
+- [ ] Add a pinned Mailpit container for local-only SMTP capture and document
+      the local magic-link inbox workflow.
+- [ ] Configure environment-specific delivery: Mailpit locally and Resend in
+      production, with production failing closed if Resend is not configured.
 - [ ] Implement and test the fail-closed email allowlist.
 - [ ] Enable database-backed authentication rate limiting.
 - [ ] Validate server environment configuration with Zod.
@@ -186,6 +249,9 @@ on them yet.
 - [ ] Sign in through an email magic link.
 - [ ] Configure and persist a numeric SimBrief Pilot ID.
 - [ ] Load the latest OFP through an explicit authenticated action.
+- [ ] Bound the SimBrief client with a documented abort timeout and response-size
+      limit, and test timeout, oversize, non-success, and invalid-JSON responses
+      through a mocked transport.
 - [ ] Validate and normalize a detailed LIDO navlog.
 - [ ] Create a private persistent tracker for every successful explicit load.
 - [ ] Display the tracker at a stable account-protected URL.
@@ -200,8 +266,9 @@ on them yet.
 - [ ] Verify keyboard operation, visible focus, touch targets, contrast, and
       non-color status indicators.
 - [ ] Add privacy-conscious structured server logging.
-- [ ] Define a test-only magic-link capture mechanism and an isolated Playwright
-      database strategy, then record the resolution in
+- [ ] Define how Playwright polls, reads, and clears the Mailpit inbox through
+      its REST API and establish an isolated Playwright database strategy, then
+      record the resolution in
       [Planning status](planning-status.md). Fixtures must remain sanitized and
       deterministic, and tests must never contact live services.
 - [ ] Create the manual Playwright journeys for authentication and setup, valid
@@ -219,5 +286,6 @@ on them yet.
 - [Tracker behavior](tracker-behavior.md)
 - [Technical decisions](technical-decisions.md)
 - [Planning status](planning-status.md)
+- [Build execution strategy](build-execution-strategy.md)
 - [SimBrief latest OFP data](https://developers.navigraph.com/docs/simbrief/fetching-ofp-data)
 - [SimBrief OFP options](https://developers.navigraph.com/docs/simbrief/using-the-api#ofp-options)

@@ -1,7 +1,7 @@
 # Memory
 
-<!-- This file is read by Claude at the start of every session.        -->
-<!-- Use /remember to record entries, or edit directly.                 -->
+<!-- This file is read by Codex at the start of every session.         -->
+<!-- Use $remember to record entries, or edit directly.                -->
 <!-- Types: entity | decision | error | context | preference | todo     -->
 
 ## entity
@@ -53,46 +53,13 @@ Do not reverse: The wireframe is a reference drawing under docs/prototypes and i
 ## context
 
 <!-- context -->
-Status: Steps 1 through 3 of docs/task-list.md complete; next is step 4, the framework-independent domain layer
-In progress: Nothing in code. Planning docs through step 3 are committed and pushed to origin/main at b24c5ac
-Blocked: Repository is being transferred from a personal GitHub account to a business organization account. Re-clone before further work; the current local checkout points at the old remote. After transfer, main is protected and code work moves to feature branches and pull requests
-Next: Confirm the authoritative clone path, then build domain types, coordinate conversion, classification, slot and page assignment, and the pure transition engine with Vitest coverage
-Updated: 2026-07-28
+Status: The authoritative post-transfer clone is ready; task-list sections 1 through 3 are complete, and the application has not been scaffolded
+In progress: Closing the pre-build execution gate by reviewing the draft structured build strategy and final kickoff technique
+Next: Approve the orchestration choices and kickoff prompt, commit the planning artifacts, then begin section 4's local development foundation on a feature branch with framework-independent domain code under src/domain/ following in section 5
+Updated: 2026-07-29
 
 ## error
 
 ## preference
 
 ## todo
-
-<!-- todo -->
-Todo: Obtain sanitized representative SimBrief LIDO fixtures
-Source: user
-Status: done
-Next action: None. All seven scenarios captured, sanitized into tracked fixtures under tests/fixtures/simbrief, and supplemented with synthetic edge-case variants. Raw captures and their scenario mapping remain in the ignored .local/simbrief/ directory
-Created: 2026-07-24
-Work item:
-
-<!-- todo -->
-Todo: Resolve the remaining open implementation-planning decisions in docs/planning-status.md
-Source: docs/task-list.md section 2
-Status: done
-Next action: None. Persistence shape, Pilot ID cap, and load protection were decided on 2026-07-28. Test infrastructure and version pinning were moved into task-list sections 9 and 5, which resolve them
-Created: 2026-07-28
-Work item:
-
-<!-- todo -->
-Todo: Re-clone the repository after the transfer to the business organization account
-Source: user
-Status: open
-Next action: Confirm the new remote and the authoritative local path, then verify main is protected and that the feature-branch plus pull-request flow works via gh
-Created: 2026-07-28
-Work item:
-
-<!-- todo -->
-Todo: Decide the domain layer's location before writing section 4 code
-Source: conversation
-Status: open
-Next action: Choose whether the framework-independent domain layer gets its own directory and package.json now, or waits to be slotted into the Next.js tree during scaffolding in section 5
-Created: 2026-07-28
-Work item:

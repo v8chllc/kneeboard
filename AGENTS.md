@@ -10,6 +10,7 @@ Before planning or changing application behavior, read:
 4. `docs/technical-decisions.md`
 5. `docs/planning-status.md`
 6. `docs/task-list.md`
+7. `docs/build-execution-strategy.md`
 
 The decision documents are the source of truth. `docs/task-list.md` records
 execution order but does not override product, domain, or technical decisions.
@@ -53,8 +54,10 @@ application timestamps in UTC using aviation-style formatting.
 - Treat external responses, persisted JSON, request payloads, and environment
   configuration as untrusted boundaries validated with Zod.
 - Keep tracker rules in a framework-independent domain layer.
-- Implement Save, Pass, and Skip through typed commands and a pure,
-  deterministic transition engine.
+- Implement Save, Pass, Skip, and pre-start SID/STAR inclusion changes through
+  typed commands and a pure, deterministic transition engine.
+- Use a shared pure domain preview for cascading Pass confirmation; do not
+  reimplement cascade selection in the UI.
 - Persist complete tracker snapshots; do not introduce event sourcing or a
   visible event history.
 - Use server-confirmed mutations with expected snapshot versions and
@@ -114,8 +117,16 @@ shared domain implementation.
   limit, not a SimBrief rule. Do not add username login, flight-generation
   APIs, or Navigraph OAuth.
 - The authenticated Load endpoint enforces a 30-second per-account cooldown
-  alongside per-action idempotency. Idempotency-key replays bypass the cooldown
-  and return the existing tracker without contacting SimBrief.
+  alongside per-action idempotency. Completed idempotency-key replays bypass
+  the cooldown and return the existing tracker without contacting SimBrief.
+- Claim the per-account cooldown atomically before contacting SimBrief. A
+  different action during the interval receives the remaining cooldown; a
+  same-key request returns the completed tracker or a retryable in-progress
+  response and never starts another fetch. Failed attempts create no tracker
+  but retain the short cooldown.
+- Bound application-side SimBrief requests with an abort timeout and response
+  size limit, and test timeout, oversize, non-success, and invalid-JSON paths
+  without contacting the live service.
 - Accept only JSON OFPs using the LIDO layout with a detailed navlog.
 - Validate and normalize only fields required by the tracker; do not attempt to
   model the complete SimBrief payload.
@@ -143,18 +154,25 @@ shared domain implementation.
 
 Follow `docs/task-list.md` and preserve these dependencies:
 
+Complete the unnumbered pre-build execution gate in `docs/task-list.md` before
+starting item 4. The build strategy remains a draft until the user approves its
+open orchestration choices and final kickoff prompt.
+
 1. Capture, inspect, map, and sanitize representative SimBrief fixtures.
 2. Resolve the remaining implementation-planning decisions.
 3. Validate the tracker display model with a throwaway static wireframe before
    domain code depends on it.
-4. Build domain types, parsing, coordinate conversion, transitions, and unit
+4. Establish the reproducible local development foundation, application
+   scaffold, test tooling, and CI command parity.
+5. Build domain types, parsing, coordinate conversion, transitions, and unit
    tests.
-5. Scaffold the application and CI.
-6. Establish authentication and account isolation before introducing private
+6. Add local and production persistence with committed migrations and explicit
+   production migration procedures.
+7. Establish authentication and account isolation before introducing private
    OFP data flows.
-7. Deliver one authenticated vertical slice from OFP load through a working
+8. Deliver one authenticated vertical slice from OFP load through a working
    tracker.
-8. Complete responsive UI, accessibility, manual E2E coverage, migration
+9. Complete responsive UI, accessibility, manual E2E coverage, migration
    procedures, and production validation.
 
 ## Testing and Delivery

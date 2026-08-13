@@ -21,7 +21,8 @@ The pre-build execution gate is closed. The structured agent workflow,
 checkpoint cadence, delegation boundaries, review gates, and final kickoff
 prompt are approved and recorded in
 [Build execution strategy](docs/build-execution-strategy.md). Implementation
-proceeds one task-list section per pull request.
+proceeds one task-list section per pull request, with a section split across
+two pull requests when its diff cannot be reviewed safely as one unit.
 
 The next milestone is a reproducible local development foundation: the pinned
 toolchain, runnable Next.js scaffold, canonical build and test commands, and CI

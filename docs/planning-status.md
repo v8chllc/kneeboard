@@ -69,6 +69,20 @@ planning.
 - Production-only Vercel deployments during soft launch
 - Manual production migrations
 
+### Build execution
+
+- One primary integration agent working bounded task-list slices, with the
+  surface named at kickoff rather than fixed in the documents
+- One feature branch and pull request per numbered task-list section, with one
+  commit per completed slice
+- CodeRabbit as the mandatory independent review gate on every section pull
+  request, triaged and resolved before merge, governed by a committed
+  `.coderabbit.yaml`
+- Interactive bounded goals through sections 4 and 5; a capped loop permitted
+  from section 6 only after both complete cleanly
+- Read-only delegation preferred; parallel writing requires separate worktrees
+  and explicit approval
+
 ## Deferred until after MVP
 
 - General OFP briefing content
@@ -97,7 +111,8 @@ planning.
 
 These are intentionally not filled in by assumption. Package versions and test
 infrastructure are resolved during the work that makes them concrete. Build
-orchestration is resolved in the final pre-build review with the user.
+orchestration was the third entry here and was resolved on 2026-08-12 when the
+pre-build execution gate closed.
 
 1. **Test infrastructure**
    - Mailpit is the local magic-link inbox. Choose how manual Playwright tests
@@ -111,17 +126,6 @@ orchestration is resolved in the final pre-build review with the user.
    - Resolve current stable compatible versions when scaffolding, then pin them.
    - Resolved in section 4 of [the task list](task-list.md), because versions
      are pinned as they are installed.
-3. **Build orchestration**
-   - Review the draft
-     [build execution strategy](build-execution-strategy.md) and decide the
-     primary Codex surface, checkpoint cadence, delegation limits, review
-     gates, status limits, and whether a capped loop is useful after the manual
-     workflow is proven.
-   - Approve a final kickoff prompt that distinguishes a locally verified MVP
-     release candidate from separately authorized production operations.
-   - Resolved in the pre-build execution gate of
-     [the task list](task-list.md), before section 4 begins.
-
 ## Implementation-plan boundaries
 
 The first implementation plan should:
@@ -136,8 +140,8 @@ The first implementation plan should:
 - include data migration, rollback, validation evidence, and manual E2E steps.
 
 Execution also follows the approved
-[build execution strategy](build-execution-strategy.md). Until its open choices
-and final kickoff prompt are approved, the application build has not begun.
+[build execution strategy](build-execution-strategy.md), including its approved
+orchestration choices and final kickoff prompt.
 
 If implementation reveals a conflict with these decisions, update the
 documentation deliberately rather than silently changing behavior in code.

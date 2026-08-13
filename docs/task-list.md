@@ -92,14 +92,13 @@ than discovering the gap after the capture.
 - [x] Select a small per-account cooldown for the authenticated OFP load
       endpoint in addition to per-action idempotency.
 
-Three implementation-planning decisions remain open in
+Two implementation-planning decisions remain open in
 [Planning status](planning-status.md). Package and tool versions are pinned as
 they are installed in section 4. Mailpit is the local magic-link inbox, while
 the exact Playwright polling, inbox-reset, and database-isolation mechanism
 depends on how Better Auth, Mailpit, and persistence are wired in sections 6
 and 7; that choice is carried in section 9. The build-orchestration choices and
-final kickoff prompt are resolved in the pre-build execution gate below before
-section 4 begins.
+final kickoff prompt were resolved in the pre-build execution gate below.
 
 ## 3. Validate the tracker display model
 
@@ -138,9 +137,10 @@ on them yet.
 
 ## Pre-build execution gate
 
-Do not begin section 4 until this final planning gate is complete. The first
-four items close the repository-audit gaps; the remaining items deliberately
-stay open while the build technique is studied and approved.
+Closed 2026-08-12. The first four items closed the repository-audit gaps; the
+remaining items resolved the build technique. The approved orchestration choices
+and the final kickoff prompt are recorded in
+[Build execution strategy](build-execution-strategy.md).
 
 - [x] Define atomic OFP-load cooldown and in-progress idempotency semantics,
       including same-key replay, concurrent different-key actions, failure, and
@@ -151,17 +151,29 @@ stay open while the build technique is studied and approved.
       mocked failure tests, and no live-service calls from automated tests.
 - [x] Refresh curated project memory for the authoritative post-transfer clone,
       the `src/domain/` decision, and the current pre-build status.
-- [ ] Review and approve the draft
+- [x] Review and approve the
       [build execution strategy](build-execution-strategy.md).
-- [ ] Decide the primary Codex surface, commit and pull-request cadence,
-      delegation limits, parallel-write policy, mandatory review checkpoints,
-      and status limits for a long-running build.
-- [ ] Decide whether the first build uses interactive bounded goals only or a
+- [x] Decide the agent surface, commit and pull-request cadence, delegation
+      limits, parallel-write policy, mandatory review checkpoints, and status
+      limits for a long-running build.
+  - The surface is deliberately left unspecified. The strategy names the
+    capabilities a surface must provide; the kickoff prompt names the surface
+    actually used.
+  - One pull request per numbered section, one commit per slice, and a
+    mandatory CodeRabbit review triaged and resolved on every section pull
+    request before merge.
+- [x] Decide whether the first build uses interactive bounded goals only or a
       capped Ralph-style loop after the manual workflow proves reliable.
-- [ ] Write and approve the final kickoff prompt, including the local-release-
+  - Interactive bounded goals through sections 4 and 5. A capped loop is
+    permitted from section 6 only after both complete without an unreported
+    gate failure or a late-discovered divergence.
+- [x] Write and approve the final kickoff prompt, including the local-release-
       candidate definition, production-operation boundary, verification
       evidence, and stop conditions.
-- [ ] Commit the completed planning artifacts, begin from a clean current
+- [x] Add `.coderabbit.yaml` so the review gate runs on a deliberate
+      configuration from the first pull request onward, rather than on
+      CodeRabbit's default profile.
+- [x] Commit the completed planning artifacts, begin from a clean current
       feature branch, and confirm the pre-build gate is closed.
 
 ## 4. Establish the local development foundation
@@ -193,6 +205,9 @@ testable throughout development.
       checks, and tests locally.
 - [ ] Add GitHub Actions that run the same install, lint, type-check, test, and
       build commands used locally.
+- [ ] Tune the committed `.coderabbit.yaml` now that the stack exists: confirm
+      the ESLint and Actions tooling settings against the real configuration,
+      and extend the path instructions to the directories scaffolding created.
 
 ## 5. Build the domain foundation
 

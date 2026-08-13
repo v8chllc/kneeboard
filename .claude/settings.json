@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remember-session-end-capture.py",
+            "args": [
+              "--root",
+              "${CLAUDE_PROJECT_DIR}",
+              "--kind",
+              "session-end"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remember-stop-capture.py",
+            "args": [
+              "--root",
+              "${CLAUDE_PROJECT_DIR}",
+              "--kind",
+              "stop"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

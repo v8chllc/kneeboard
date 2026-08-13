@@ -154,9 +154,12 @@ shared domain implementation.
 
 Follow `docs/task-list.md` and preserve these dependencies:
 
-Complete the unnumbered pre-build execution gate in `docs/task-list.md` before
-starting item 4. The build strategy remains a draft until the user approves its
-open orchestration choices and final kickoff prompt.
+The unnumbered pre-build execution gate in `docs/task-list.md` closed on
+2026-08-12. `docs/build-execution-strategy.md` is approved and governs
+orchestration: one pull request per numbered section with one commit per slice,
+CodeRabbit as the mandatory review gate on every section pull request,
+interactive bounded goals through sections 4 and 5, and a capped loop permitted
+only from section 6 after both complete cleanly.
 
 1. Capture, inspect, map, and sanitize representative SimBrief fixtures.
 2. Resolve the remaining implementation-planning decisions.

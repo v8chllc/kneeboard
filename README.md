@@ -17,10 +17,11 @@ core product and application-architecture decisions are resolved; and the
 tracker display model has been validated against a static wireframe. The web
 application has not been scaffolded yet.
 
-A final pre-build execution gate is now open to review the structured agent
-workflow, checkpoint cadence, delegation boundaries, and kickoff prompt. No
-application build begins until that gate is approved and the planning artifacts
-are committed from a clean current branch.
+The pre-build execution gate is closed. The structured agent workflow,
+checkpoint cadence, delegation boundaries, review gates, and final kickoff
+prompt are approved and recorded in
+[Build execution strategy](docs/build-execution-strategy.md). Implementation
+proceeds one task-list section per pull request.
 
 The next milestone is a reproducible local development foundation: the pinned
 toolchain, runnable Next.js scaffold, canonical build and test commands, and CI
@@ -69,9 +70,9 @@ planning documents are deliberate artifacts rather than scratch notes.
 - [Project task list](docs/task-list.md) — representative SimBrief fixture
   scenarios and the ordered path from local development setup through MVP
   release.
-- [Build execution strategy](docs/build-execution-strategy.md) — the draft
-  structured-agent workflow, delegation boundaries, quality gates, and kickoff
-  choices to approve before implementation begins.
+- [Build execution strategy](docs/build-execution-strategy.md) — the approved
+  structured-agent workflow, delegation boundaries, quality gates, approved
+  orchestration choices, and the final kickoff prompt.
 - [Tracker wireframe](docs/prototypes/tracker-wireframe.html) — a throwaway
   static drawing of the navlog, waypoint states, and sliding window across six
   fixture-derived scenarios. Open it in a browser; it is a reference artifact

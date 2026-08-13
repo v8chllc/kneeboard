@@ -1,10 +1,10 @@
 # Build execution strategy
 
-Status: **Draft for pre-build review.** This document describes how an agent or
-agent team should implement the Kneeboard MVP. It is not permission to begin the
-build, deploy infrastructure, or perform production operations. The unchecked
-choices in the pre-build gate of [the task list](task-list.md) must be approved
-first.
+Status: **Approved 2026-08-12.** This document describes how an agent or agent
+team should implement the Kneeboard MVP. It is not permission to deploy
+infrastructure or perform production operations; those remain separately
+authorized. The approved orchestration choices are recorded under
+[Approved execution choices](#approved-execution-choices).
 
 ## Objective
 
@@ -17,6 +17,26 @@ passing build as proof that the application is ready for production.
 The execution source of truth remains [the project task list](task-list.md).
 This document governs how that list is executed; it does not duplicate its
 feature requirements or completion state.
+
+## Agent surface
+
+This document is deliberately surface-neutral. It names required capabilities
+and boundaries rather than a specific assistant, product, or vendor surface,
+because surfaces change faster than the requirements they serve. The kickoff
+prompt names the surface actually hosting a given goal.
+
+A surface is suitable when it can:
+
+- delegate bounded read-only investigation and receive a short evidence-based
+  summary rather than raw output;
+- isolate concurrent write work in separate checkouts and branches;
+- run the canonical local quality commands established in task-list section 4;
+- record durable progress in the repository rather than only in model context;
+  and
+- support an independent review pass over a combined diff.
+
+Where a surface lacks one of these, the corresponding practice below is
+performed manually by the user rather than skipped.
 
 ## Recommended method
 
@@ -113,6 +133,9 @@ The main agent waits for all requested review or exploration results and
 synthesizes them before choosing the next action. Subagent output is evidence,
 not an independent source of product authority.
 
+The approved concurrency limits are recorded under
+[Delegation and parallel-write limits](#3-delegation-and-parallel-write-limits).
+
 ## Slice lifecycle
 
 Each slice follows the same gated lifecycle:
@@ -138,6 +161,41 @@ Each slice follows the same gated lifecycle:
 A failing check is normal backpressure, not permission to weaken the check or
 change a requirement. A flaky or environment-blocked check must be diagnosed
 and reported accurately.
+
+### Stop conditions by lifecycle step
+
+The lifecycle above and
+[Stop and approval boundaries](#stop-and-approval-boundaries) are separate flat
+lists. This mapping says where each condition surfaces, so the check is
+performed at a defined moment rather than re-derived by each agent. It matters
+most in a capped loop, where nobody is present to notice a condition the agent
+did not think to look for.
+
+| Step | Conditions that surface here |
+| --- | --- |
+| 1. Orient | Unexpected user changes overlap the planned edit and cannot be preserved. A governing document already conflicts with what is in the working tree. |
+| 2. Bound | An open choice would materially change product behavior or architecture. The slice cannot be bounded without crossing into a module another slice owns. |
+| 3. Research | Upstream behavior contradicts a governing decision. The section needs a runtime dependency the task list does not anticipate. Verification would require credentials or provider configuration. |
+| 4. Implement | The change requires editing outside the scope stated at step 2. The only available implementation weakens a safety, privacy, authorization, or test boundary. A production operation is required. |
+| 5. Validate narrowly | A required result cannot be verified. Passing the test would require contacting live SimBrief, Resend, or production infrastructure. |
+| 6. Validate broadly | A gate is environment-blocked or flaky and cannot be diagnosed. Verification needs production data or infrastructure. |
+| 7. Review independently | Review surfaces a governing-document conflict, or a finding whose remedy is an architecture change rather than a repair. |
+| 8. Repair and repeat | Three consecutive repair iterations fail the same gate. The only available fix weakens a gate or boundary, or pushes edits outside the stated scope. |
+| 9. Record evidence | The evidence for a checkbox does not exist. Reconciling code with a governing decision would require editing the decision. |
+| 10. Checkpoint | The slice ceiling is reached. The section boundary is reached. A pull request, merge, push to `main`, or deployment is the next action. |
+
+Two clarifications the mapping depends on.
+
+A failing gate at step 5 or 6 is not a stop condition. It returns to step 8,
+which repairs and re-runs. Only the three-consecutive-same-gate rule converts
+repeated failure into a stop, and without that rule a loop would grind
+indefinitely against one gate.
+
+Scope creep is checked twice, at step 4 and again at step 8, and is the
+condition most likely to fire in practice. Both checks measure against the
+scope stated at step 2, so a vague Bound statement disables them silently. A
+Bound statement that cannot name its files, tests, and non-goals is itself
+reason to stop.
 
 ## Progress state and context control
 
@@ -170,13 +228,17 @@ complete until all applicable gates pass:
 - privacy and account-isolation tests;
 - locally triggered Playwright journeys using sanitized fixtures, Mailpit, and
   an isolated test database; and
-- independent review with all accepted material findings resolved.
+- a completed CodeRabbit review on the section pull request, with every finding
+  triaged and all accepted findings resolved.
 
 Tests must never call live SimBrief, Resend, or production infrastructure.
 Passing tests do not replace manual verification of the simulation-only warning,
 responsive layout, keyboard interaction, focus visibility, or cascade copy.
 
 ## Stop and approval boundaries
+
+[Stop conditions by lifecycle step](#stop-conditions-by-lifecycle-step) records
+where each of these surfaces during a slice.
 
 The primary agent stops and requests direction when:
 
@@ -220,50 +282,189 @@ providers and domain, applies migrations manually, validates the deployed flows,
 and captures rollback and validation evidence. A locally complete application
 is not by itself a completed launch.
 
-## Draft kickoff-prompt structure
+## Approved execution choices
 
-The final kickoff prompt should be compact because durable requirements already
-live in the repository. It should contain:
+Approved 2026-08-12, closing the pre-build execution gate.
 
-1. **Goal** — build the locally verified Kneeboard MVP release candidate.
-2. **Authority** — follow `AGENTS.md`, the decision documents, the task list,
-   and this execution strategy in that order of responsibility.
-3. **Starting point** — begin only after confirming the pre-build gate is
-   complete and the working branch is clean and current.
-4. **Execution contract** — work one bounded task-list slice at a time, retain
-   one primary integrator, and delegate only clearly owned independent work.
-5. **Verification** — run focused checks, full applicable gates, and independent
-   review before recording completion.
-6. **Boundaries** — preserve MVP exclusions and stop on conflicts, sensitive
-   external actions, production operations, or missing authority.
-7. **Reporting** — report completed slices, evidence, unresolved risks, and the
-   exact next task without overstating verification.
+### 1. Agent surface
 
-The final prompt should name capabilities and completion criteria rather than
-pinning a model name that may become stale. Model and reasoning choices should
-be selected at kickoff from current official guidance and tested against the
-actual workload.
+Unspecified by design. See [Agent surface](#agent-surface). The kickoff prompt
+names the surface in use; this document names the capabilities it must provide.
+Model and reasoning choices are selected at kickoff from current guidance and
+tested against the actual workload rather than pinned here, where they would
+become stale.
 
-## Choices to approve before kickoff
+### 2. Checkpoint cadence
 
-The strategy is not final until these questions are reviewed with the user:
+One feature branch and one pull request per numbered task-list section. One
+conventional commit per completed slice within that section, so the pull request
+reads as an ordered sequence rather than a single opaque diff.
 
-1. Which Codex surface will host the primary long-running goals: desktop app,
-   CLI, IDE extension, or hosted work?
-2. What is the default checkpoint: one commit per coherent slice, one pull
-   request per task-list section, or another reviewed cadence?
-3. What maximum delegation and parallel-write limit should the primary agent
-   observe?
-4. At which checkpoints is an independent multi-agent consensus review
-   mandatory?
-5. Should the first build use interactive bounded goals only, or add a
-   deliberately capped loop script after the manual workflow proves reliable?
-6. What iteration, elapsed-time, or cost limit should cause a status checkpoint
-   rather than continued autonomous work?
-7. What exact evidence must be attached to a section-level pull request before
-   it is eligible to merge?
+A section may be split across two pull requests when its diff cannot be reviewed
+safely as one unit, but a pull request never spans two sections. No build goal
+commits directly to `main`.
+
+### 3. Delegation and parallel-write limits
+
+- Read-only delegation: at most four concurrent subagents, each with a bounded
+  question and an expected summary shape.
+- Parallel writing: zero by default. The primary agent is the only writer.
+- Exceptional parallel writing requires all of: genuinely independent module
+  boundaries, separate worktrees and branches, at most two concurrent writers,
+  and explicit user approval before the work starts. Integration back to the
+  section branch is always performed by the primary agent.
+
+### 4. Mandatory independent review
+
+CodeRabbit is the independent review gate. Every section pull request must carry
+a completed CodeRabbit review before it is eligible to merge. Every finding is
+triaged: accepted findings are fixed and the affected quality gates re-run, and
+a finding accepted as-is requires a recorded reason in the pull request. An
+unreviewed or partially triaged pull request is not mergeable regardless of
+whether the local gates pass.
+
+CodeRabbit reviews an open pull request, so the sequence at a section boundary
+is: local gates pass, the pull request opens, CodeRabbit reviews, findings are
+triaged and fixed, affected gates re-run, then merge. The gate is section-level
+either way, so an unattended loop reaches independent review at the same point
+it always would — the section boundary.
+
+The mechanism in this workspace is the `coderabbit-review` skill to run the
+review and post its findings as a durable audit comment on the pull request,
+and the `coderabbit-fix` skill to apply accepted findings and post a
+fixes-applied comment. Both require an open pull request and a clean worktree.
+The requirement is the reviewed and triaged pull request; the tooling that
+produces it may change.
+
+This gate is distinct from step 7 of the [slice lifecycle](#slice-lifecycle),
+where the agent inspects its own combined diff. Step 7 catches mechanical
+problems early but shares the blind spots of whatever produced the code, which
+is the reason an independent gate exists at all. Step 7 is not optional and does
+not substitute for the section-level gate; the reverse is equally true.
+
+Additional review inside a section is at the primary agent's discretion.
+
+No review runs on CodeRabbit's default profile. `.coderabbit.yaml` is committed
+at the root and is read from the feature branch under review rather than from
+`main`, so it governs every pull request including the one that introduced it.
+It is tuned further in task-list section 4, once the application stack it
+describes actually exists.
+
+### 5. Loop policy
+
+Sections 4 and 5 run as interactive bounded goals only, with the user present at
+each checkpoint. These two sections establish the canonical quality commands and
+the domain invariants, so an unattended error there is the most expensive kind.
+
+From section 6 onward, a deliberately capped loop is permitted once sections 4
+and 5 have both completed without an unreported gate failure and without a
+divergence from the governing documents found late. A permitted loop must:
+
+- carry a slice ceiling: a fixed maximum number of slices it may complete before
+  it stops and reports regardless of success, set in the goal that authorizes
+  the loop. This bounds how far the loop can travel unattended and is distinct
+  from the repair cap in
+  [Status-checkpoint limits](#6-status-checkpoint-limits), which bounds attempts
+  within one slice;
+- stop hard at the section boundary;
+- honor every condition in [Stop and approval boundaries](#stop-and-approval-boundaries),
+  checked at the lifecycle steps given in
+  [Stop conditions by lifecycle step](#stop-conditions-by-lifecycle-step); and
+- never open a pull request, merge, push to `main`, or perform a production
+  operation.
+
+If a capped loop produces a slice that fails section-level review, the build
+returns to interactive bounded goals for the remainder of that section.
+
+The slice ceiling is three slices: a loop completes at most three before it
+stops and reports, whether or not they succeeded. Graduation from interactive
+to loop-eligible is the user's call, made at the section 5 pull request. A loop
+may push its own branch; it may not open a pull request, merge, deploy, or
+perform a production operation.
+
+### 6. Status-checkpoint limits
+
+The primary agent stops and reports status, rather than continuing autonomously,
+when any of these is true:
+
+- three consecutive repair iterations fail the same quality gate;
+- a slice requires editing files or modules outside the scope it stated when it
+  was bounded;
+- a section requires a new runtime dependency that the task list does not
+  anticipate; or
+- any condition in [Stop and approval boundaries](#stop-and-approval-boundaries)
+  is met.
+
+A status checkpoint reports what is verified, what is not, and the exact next
+action. It is not a request to weaken the gate that triggered it.
+
+### 7. Section pull-request evidence
+
+A section pull request is eligible to merge only when its description records:
+
+- a slice-by-slice summary of what changed;
+- the exact canonical quality commands run and their results;
+- confirmation that CodeRabbit reviewed the final state of the branch, and the
+  disposition of every finding it raised, including a reason for each accepted
+  as-is;
+- the task-list checkboxes changed, with the evidence supporting each;
+- any governing-document change and the decision that motivated it;
+- what was deliberately not verified, and why; and
+- remaining risks and follow-up work, including anything deferred to the
+  supervised production-launch goal.
+
+## Final kickoff prompt
+
+Approved for use at the start of section 4. It is compact because the durable
+requirements already live in the repository.
+
+```text
+Goal: build the locally verified Kneeboard MVP release candidate. Stop at the
+local release candidate defined in docs/build-execution-strategy.md. Production
+operations are a separately authorized goal and are out of scope.
+
+Authority, in this order: AGENTS.md; the decision documents it names; the task
+list in docs/task-list.md for execution order; docs/build-execution-strategy.md
+for orchestration. Working memory and journals are context only and never
+override those sources. If code, an upstream dependency, or your intended
+implementation disagrees with a governing decision, stop and surface the
+conflict. Do not edit a decision to match your code.
+
+Starting point: confirm the pre-build execution gate in docs/task-list.md is
+closed and the working tree is clean and current, then begin at section 4 on a
+feature branch named for that section.
+
+Execution contract: work one bounded task-list slice at a time. Remain the only
+integrator and the only writer. Before each slice, state its intended outcome,
+files in scope, tests, and non-goals. Delegate only bounded read-only
+investigation, at most four at a time, and treat what comes back as evidence
+rather than authority. Parallel writing requires explicit approval first.
+
+Verification: run focused checks while iterating, then every applicable
+canonical quality gate, then inspect your own combined diff before opening the
+section pull request. CodeRabbit reviews the open pull request and its findings
+must be triaged, fixed where accepted, and the affected gates re-run before
+merge. Update a task-list checkbox only when the evidence for it exists.
+
+Boundaries: preserve the MVP exclusions in docs/planning-status.md and do not
+build deferred features or infrastructure early. Automated tests never contact
+live SimBrief, Resend, or production infrastructure. Never push to main, merge a
+pull request, deploy, change DNS, send production email, or run a production
+migration. Stop and ask when a governing document conflicts with reality, when
+an open choice would change product behavior or architecture, when the only
+available action would weaken a safety, privacy, authorization, or test
+boundary, or when a required result cannot be verified.
+
+Reporting: at each checkpoint report the slices completed, the commands run and
+their results, what was not verified, unresolved risks, and the exact next task.
+Do not describe a passing build as production readiness.
+```
 
 ## References
+
+These vendor guides informed the draft. They describe one surface's
+implementation of the practices above; the requirements in this document are
+surface-neutral and do not depend on them.
 
 - [OpenAI: Best practices for working with Codex](https://learn.chatgpt.com/guides/best-practices)
 - [OpenAI: Long-running work](https://learn.chatgpt.com/docs/long-running-work)

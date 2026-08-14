@@ -71,15 +71,21 @@ planning.
 
 ### Build execution
 
-- One primary integration agent working bounded task-list slices, with the
-  surface named at kickoff rather than fixed in the documents
+- One primary build agent working bounded task-list slices as the sole writer
+  and integrator, with the surface named at kickoff rather than fixed in the
+  documents
+- Direct user supervision or routine checkpoint supervision by a
+  user-authorized read-only manager with a durable channel to one persistent
+  build agent; product authority and explicit-user boundaries remain with the
+  user
 - One feature branch and pull request per numbered task-list section, with one
   commit per completed slice
 - CodeRabbit as the mandatory independent review gate on every section pull
   request, triaged and resolved before merge, governed by a committed
   `.coderabbit.yaml`
-- Interactive bounded goals through sections 4 and 5; a capped loop permitted
-  from section 6 only after both complete cleanly
+- Interactive bounded goals through sections 4 and 5, supervised by the user or
+  authorized manager at every checkpoint; a capped loop permitted from section
+  6 only after both complete cleanly
 - Read-only delegation preferred; parallel writing requires separate worktrees
   and explicit approval
 
@@ -141,7 +147,7 @@ The first implementation plan should:
 
 Execution also follows the approved
 [build execution strategy](build-execution-strategy.md), including its approved
-orchestration choices and final kickoff prompt.
+orchestration choices and kickoff prompts.
 
 If implementation reveals a conflict with these decisions, update the
 documentation deliberately rather than silently changing behavior in code.

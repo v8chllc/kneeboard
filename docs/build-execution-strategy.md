@@ -609,6 +609,13 @@ documentation must be checked at kickoff because product mechanics can change.
 - Let the main thread collect checkpoint results and send follow-up direction
   to that same agent. Use the CLI's agent inspection controls when human
   inspection is needed.
+- The persistent primary build agent may spawn its own bounded read-only
+  investigator subagents. Those investigators report to the primary build
+  agent, which synthesizes their evidence before reporting to the manager; they
+  do not become additional writers or independent integration owners.
+- Apply the read-only delegation ceiling subject to the session's shared agent
+  capacity. Count the manager, primary build agent, and investigators together;
+  do not assume all four policy-permitted investigators can run concurrently.
 - Do not use unrelated top-level sessions as manager and builder unless an
   explicit durable communication mechanism connects them.
 

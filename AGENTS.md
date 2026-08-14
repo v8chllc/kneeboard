@@ -159,8 +159,11 @@ The unnumbered pre-build execution gate in `docs/task-list.md` closed on
 orchestration: one pull request per numbered section (with a section split
 across two pull requests when its diff cannot be reviewed safely as one unit)
 and one commit per slice, CodeRabbit as the mandatory review gate on every
-section pull request, interactive bounded goals through sections 4 and 5, and a
-capped loop permitted only from section 6 after both complete cleanly.
+section pull request, interactive bounded goals through sections 4 and 5
+supervised at each checkpoint by the user or a user-authorized read-only manager,
+and a capped loop permitted only from section 6 after both complete cleanly. A
+manager-supervised run keeps one persistent primary build agent as the sole
+writer and integrator; human-only approval boundaries remain with the user.
 
 1. Capture, inspect, map, and sanitize representative SimBrief fixtures.
 2. Resolve the remaining implementation-planning decisions.

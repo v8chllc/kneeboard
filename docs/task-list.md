@@ -98,7 +98,7 @@ they are installed in section 4. Mailpit is the local magic-link inbox, while
 the exact Playwright polling, inbox-reset, and database-isolation mechanism
 depends on how Better Auth, Mailpit, and persistence are wired in sections 6
 and 7; that choice is carried in section 9. The build-orchestration choices and
-final kickoff prompt were resolved in the pre-build execution gate below.
+kickoff prompts were resolved in the pre-build execution gate below.
 
 ## 3. Validate the tracker display model
 
@@ -139,7 +139,7 @@ on them yet.
 
 Closed 2026-08-12. The first four items closed the repository-audit gaps; the
 remaining items resolved the build technique. The approved orchestration choices
-and the final kickoff prompt are recorded in
+and kickoff prompts are recorded in
 [Build execution strategy](build-execution-strategy.md).
 
 - [x] Define atomic OFP-load cooldown and in-progress idempotency semantics,
@@ -157,8 +157,9 @@ and the final kickoff prompt are recorded in
       limits, parallel-write policy, mandatory review checkpoints, and status
       limits for a long-running build.
   - The surface is deliberately left unspecified. The strategy names the
-    capabilities a surface must provide; the kickoff prompt names the surface
-    actually used.
+    capabilities a surface must provide; kickoff selects direct user supervision
+    or a surface profile that connects a read-only manager to one persistent
+    primary build agent.
   - One pull request per numbered section, one commit per slice, and a
     mandatory CodeRabbit review triaged and resolved on every section pull
     request before merge.
@@ -166,10 +167,12 @@ and the final kickoff prompt are recorded in
       capped Ralph-style loop after the manual workflow proves reliable.
   - Interactive bounded goals through sections 4 and 5. A capped loop is
     permitted from section 6 only after both complete without an unreported
-    gate failure or a late-discovered divergence.
-- [x] Write and approve the final kickoff prompt, including the local-release-
-      candidate definition, production-operation boundary, verification
-      evidence, and stop conditions.
+    gate failure or a late-discovered divergence. Interactive checkpoints may
+    be supervised directly by the user or by a user-authorized read-only manager;
+    human-only approval boundaries do not transfer.
+- [x] Write and approve the kickoff prompts, including the local-release-
+      candidate definition, manager and build-agent roles, production-operation
+      boundary, verification evidence, and stop conditions.
 - [x] Add `.coderabbit.yaml` so the review gate runs on a deliberate
       configuration from the first pull request onward, rather than on
       CodeRabbit's default profile.

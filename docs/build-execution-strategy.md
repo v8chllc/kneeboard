@@ -1,9 +1,10 @@
 # Build execution strategy
 
-Status: **Approved 2026-08-12.** This document describes how an agent or agent
-team should implement the Kneeboard MVP. It is not permission to deploy
-infrastructure or perform production operations; those remain separately
-authorized. The approved orchestration choices are recorded under
+Status: **Approved 2026-08-12; manager supervision approved 2026-08-13.** This
+document describes how an agent or agent team should implement the Kneeboard
+MVP. It is not permission to deploy infrastructure or perform production
+operations; those remain separately authorized. The approved orchestration
+choices are recorded under
 [Approved execution choices](#approved-execution-choices).
 
 ## Objective
@@ -29,19 +30,27 @@ A surface is suitable when it can:
 
 - delegate bounded read-only investigation and receive a short evidence-based
   summary rather than raw output;
+- give a supervising manager a durable, addressable communication channel to
+  one persistent primary build agent when manager-supervised execution is used;
+- preserve the build agent's separate context across routine checkpoint
+  approvals and follow-up instructions;
 - isolate concurrent write work in separate checkouts and branches;
 - run the canonical local quality commands established in task-list section 4;
 - record durable progress in the repository rather than only in model context;
   and
 - support an independent review pass over a combined diff.
 
-Where a surface lacks one of these, the corresponding practice below is
-performed manually by the user rather than skipped.
+An ordinary independent chat or terminal session does not satisfy the manager
+communication requirement merely because it shares a checkout. Where a surface
+lacks a required capability, the corresponding practice below is performed
+manually by the user rather than skipped.
 
 ## Recommended method
 
-Use one primary integration agent running a structured sequence of bounded
-goals. Within each goal, use the useful properties of a Ralph-style loop:
+Use one primary build agent running a structured sequence of bounded goals. The
+user may supervise that agent directly or may authorize a read-only manager
+agent to supervise routine checkpoints within the authority defined below.
+Within each goal, use the useful properties of a Ralph-style loop:
 
 - one coherent unit of work at a time;
 - durable progress recorded outside the model context;
@@ -59,11 +68,12 @@ integrator while resetting scope at deliberate checkpoints.
 
 ## Sources of authority
 
-At the start of every implementation goal, the primary agent follows the read
-order in [`AGENTS.md`](../AGENTS.md). The decision documents govern behavior.
-The task list governs execution order. This strategy governs orchestration.
-Working memory and journals provide context only and never override those
-sources.
+At the start of every implementation goal, the primary build agent follows the
+read order in [`AGENTS.md`](../AGENTS.md). A manager independently reads enough
+of the same authority to evaluate bounds, evidence, and stop conditions. The
+decision documents govern behavior. The task list governs execution order. This
+strategy governs orchestration. Working memory and journals provide context
+only and never override those sources.
 
 An agent must stop and surface a conflict when code, an upstream dependency, or
 a proposed implementation disagrees with a governing decision. It must not
@@ -92,9 +102,83 @@ Neon, Resend, DNS, production secrets, and production migrations require
 explicit authority and belong to the supervised launch goal even though their
 preparation and validation procedures are part of MVP readiness.
 
-## Primary-agent responsibilities
+## Supervision roles and modes
 
-The primary agent is the only integration owner. It:
+The user is the human sponsor. The sponsor may supervise the primary build
+agent directly or delegate routine checkpoint supervision to one manager agent
+for a stated section or smaller execution unit. That delegation does not
+transfer product authority or expand the actions already authorized by this
+document.
+
+Direct supervision remains valid: the primary build agent reports checkpoints
+to the user and waits for direction. Under manager supervision:
+
+- the manager starts or resumes one persistent, separate-context primary build
+  agent and retains its address or agent identity for the execution unit;
+- the manager remains read-only with respect to tracked repository files and
+  the section branch, enforced by surface permissions where available and by
+  its execution contract everywhere;
+- the primary build agent remains the sole writer and integration owner;
+- the manager evaluates bounds, validation evidence, diffs, and stop conditions
+  before authorizing routine continuation; and
+- the manager reports to the user whenever a decision exceeds its delegated
+  authority.
+
+Manager-to-builder delegation is supervision, not parallel writing. If the
+communication channel or persistent build-agent context is lost, the manager
+stops and reports the failure. It must not silently substitute a new writer or
+infer completion from the working tree alone.
+
+### Manager authority
+
+Within an approved execution unit, the manager may:
+
+- approve a proposed slice bound only when the outcome, files or modules,
+  constraints, tests, and non-goals are explicit and follow dependency order;
+- authorize implementation, in-scope repairs, applicable validation, the
+  agreed slice commit, and the next bounded slice;
+- request missing evidence or reject a checkpoint that does not support its
+  completion claims;
+- authorize a section-branch push or draft pull request only when the user's
+  kickoff authorization explicitly includes that external write; and
+- coordinate CodeRabbit triage and in-scope repairs without weakening the
+  independent review gate.
+
+The manager must escalate to the user, rather than decide, when:
+
+- any condition in [Stop and approval boundaries](#stop-and-approval-boundaries)
+  is met;
+- exceptional parallel writing is proposed;
+- accepting a review finding as-is would change a governing decision or weaken
+  a boundary;
+- the section boundary, capped-loop slice ceiling, or other user-set authority
+  limit is reached and the next action was not explicitly preauthorized;
+- a merge, push to `main`, deployment, production operation, credential use,
+  provider configuration, or external message is proposed; or
+- graduation from interactive execution to capped-loop eligibility is proposed.
+
+### Routine checkpoint decision
+
+The primary build agent's checkpoint report contains:
+
+- the slice and bound actually implemented;
+- files changed and the resulting commit, if any;
+- focused checks, canonical gates, and relevant runtime verification;
+- its combined-diff review;
+- task-list or decision-document changes and their evidence;
+- deviations, unverified claims, risks, and stop conditions; and
+- the proposed next slice or exact next action.
+
+The manager authorizes routine slice continuation only when the work remained
+inside the approved bound, the expected evidence exists, every currently
+applicable gate passed, checked tasks are supported, no governing conflict or
+open decision appeared, no stop condition applies, and the next slice follows
+dependency order. At a section or other authority boundary it follows only an
+explicit kickoff preauthorization; otherwise it escalates to the user.
+
+## Primary build-agent responsibilities
+
+The primary build agent is the only integration owner. It:
 
 - reads the governing context and inspects the current implementation;
 - selects the next incomplete task-list slice in dependency order;
@@ -107,9 +191,9 @@ The primary agent is the only integration owner. It:
   and
 - stops at the approval boundaries in this document.
 
-The primary agent should not use its main context for large raw searches, test
-logs, or repetitive inspection when a bounded read-only subagent can return a
-short evidence-based summary.
+The primary build agent should not use its main context for large raw searches,
+test logs, or repetitive inspection when a bounded read-only subagent can
+return a short evidence-based summary.
 
 ## Delegation and parallelism
 
@@ -127,11 +211,11 @@ exclusive file or module boundary, be told that other work may be occurring,
 and avoid reverting unrelated changes. Two agents must not edit the same
 checkout or shared contract concurrently. When write streams are genuinely
 independent, use separate Git worktrees and branches, then integrate them through
-the primary agent.
+the primary build agent.
 
-The main agent waits for all requested review or exploration results and
-synthesizes them before choosing the next action. Subagent output is evidence,
-not an independent source of product authority.
+The primary build agent waits for all requested review or exploration results
+and synthesizes them before choosing the next action. Subagent output is
+evidence, not an independent source of product authority.
 
 The approved concurrency limits are recorded under
 [Delegation and parallel-write limits](#3-delegation-and-parallel-write-limits).
@@ -240,7 +324,7 @@ responsive layout, keyboard interaction, focus visibility, or cascade copy.
 [Stop conditions by lifecycle step](#stop-conditions-by-lifecycle-step) records
 where each of these surfaces during a slice.
 
-The primary agent stops and requests direction when:
+The primary build agent stops and reports to its supervisor when:
 
 - a governing document conflicts with implementation reality;
 - an open choice would materially change product behavior or architecture;
@@ -252,9 +336,11 @@ The primary agent stops and requests direction when:
 - a required result cannot be verified; or
 - the approved slice or iteration limit has been reached.
 
-Autonomy does not broaden authority. In particular, no build loop may push to
-`main`, merge a pull request, deploy, change DNS, send production email, or run a
-production migration unless the user explicitly authorizes that action.
+When the supervisor is a manager, it applies the authority rules above and
+escalates these conditions to the user. Autonomy does not broaden authority. In
+particular, no build loop or manager may push to `main`, merge a pull request,
+deploy, change DNS, send production email, or run a production migration unless
+the user explicitly authorizes that action.
 
 ## Completion definitions
 
@@ -288,11 +374,17 @@ Approved 2026-08-12, closing the pre-build execution gate.
 
 ### 1. Agent surface
 
-Unspecified by design. See [Agent surface](#agent-surface). The kickoff prompt
-names the surface in use; this document names the capabilities it must provide.
+Unspecified by design. See [Agent surface](#agent-surface). Kickoff selects the
+surface in use; this document names the capabilities it must provide.
 Model and reasoning choices are selected at kickoff from current guidance and
 tested against the actual workload rather than pinned here, where they would
 become stale.
+
+The surface may use direct user supervision or manager supervision. A managed
+run must provide the durable manager-to-builder communication and persistent
+separate-context build agent described under
+[Supervision roles and modes](#supervision-roles-and-modes). Shared filesystem
+access alone is insufficient.
 
 ### 2. Checkpoint cadence
 
@@ -308,11 +400,11 @@ commits directly to `main`.
 
 - Read-only delegation: at most four concurrent subagents, each with a bounded
   question and an expected summary shape.
-- Parallel writing: zero by default. The primary agent is the only writer.
+- Parallel writing: zero by default. The primary build agent is the only writer.
 - Exceptional parallel writing requires all of: genuinely independent module
   boundaries, separate worktrees and branches, at most two concurrent writers,
   and explicit user approval before the work starts. Integration back to the
-  section branch is always performed by the primary agent.
+  section branch is always performed by the primary build agent.
 
 ### 4. Mandatory independent review
 
@@ -342,7 +434,8 @@ problems early but shares the blind spots of whatever produced the code, which
 is the reason an independent gate exists at all. Step 7 is not optional and does
 not substitute for the section-level gate; the reverse is equally true.
 
-Additional review inside a section is at the primary agent's discretion.
+Additional review inside a section is at the primary build agent's or manager's
+discretion.
 
 No review runs on CodeRabbit's default profile. `.coderabbit.yaml` is committed
 at the root and is read from the feature branch under review rather than from
@@ -352,9 +445,12 @@ describes actually exists.
 
 ### 5. Loop policy
 
-Sections 4 and 5 run as interactive bounded goals only, with the user present at
-each checkpoint. These two sections establish the canonical quality commands and
-the domain invariants, so an unattended error there is the most expensive kind.
+Sections 4 and 5 run as interactive bounded goals only, with the user or a
+user-authorized manager supervising each checkpoint. A manager-supervised goal
+is interactive because the primary build agent stops for an independent
+checkpoint decision; it is not a capped or unattended loop. These two sections
+establish the canonical quality commands and the domain invariants, so an
+unattended error there is the most expensive kind.
 
 From section 6 onward, a deliberately capped loop is permitted once sections 4
 and 5 have both completed without an unreported gate failure and without a
@@ -384,8 +480,8 @@ perform a production operation.
 
 ### 6. Status-checkpoint limits
 
-The primary agent stops and reports status, rather than continuing autonomously,
-when any of these is true:
+The primary build agent stops and reports status to its supervisor, rather than
+continuing autonomously, when any of these is true:
 
 - three consecutive repair iterations fail the same quality gate;
 - a slice requires editing files or modules outside the scope it stated when it
@@ -413,10 +509,46 @@ A section pull request is eligible to merge only when its description records:
 - remaining risks and follow-up work, including anything deferred to the
   supervised production-launch goal.
 
-## Final kickoff prompt
+## Kickoff prompts
 
-Approved for use at the start of section 4. It is compact because the durable
-requirements already live in the repository.
+These prompts are compact because the durable requirements already live in the
+repository. Directly supervised work uses only the primary build-agent prompt.
+Manager-supervised work starts with the manager prompt, which gives the primary
+build-agent prompt to one persistent worker through the surface's supported
+communication channel.
+
+### Manager kickoff prompt
+
+```text
+Role: supervise the approved Kneeboard execution unit as its read-only manager.
+Do not edit tracked repository files, integrate changes, or act as a second
+writer. Start or resume one persistent, separate-context primary build agent;
+retain its address for the entire execution unit; and make it the sole writer
+and integrator.
+
+Authority: follow AGENTS.md, the decision documents it names,
+docs/task-list.md for execution order, and docs/build-execution-strategy.md for
+orchestration. Your delegated authority covers routine bounded-slice decisions
+only. It does not let you resolve product or architecture choices, weaken a
+boundary, authorize parallel writing, merge or push to main, perform production
+operations, use credentials, configure providers, or communicate externally.
+
+Supervision: require the build agent to bound and report each slice using the
+documented checkpoint fields. Independently inspect enough repository state,
+diff, and evidence to evaluate the report. Authorize continuation only when the
+work stayed in scope, every applicable gate passed, completion claims have
+evidence, no governing conflict or open decision appeared, no stop condition
+applies, and the proposed next slice follows dependency order. Otherwise request
+an in-scope correction or escalate to the user.
+
+Continuity: communicate approval and follow-up work to the same build agent. If
+its context or communication channel is lost, stop and report; do not silently
+replace it or infer completion from the checkout. Stop at every authority limit
+and report what is verified, what is not, the reason for stopping, and the exact
+next action requiring user direction.
+```
+
+### Primary build-agent kickoff prompt
 
 ```text
 Goal: build the locally verified Kneeboard MVP release candidate. Stop at the
@@ -431,8 +563,9 @@ implementation disagrees with a governing decision, stop and surface the
 conflict. Do not edit a decision to match your code.
 
 Starting point: confirm the pre-build execution gate in docs/task-list.md is
-closed and the working tree is clean and current, then begin at section 4 on a
-feature branch named for that section.
+closed and the working tree is clean and current. Inspect the task list and
+current section branch to identify the next incomplete slice rather than
+assuming a prior completion report is accurate.
 
 Execution contract: work one bounded task-list slice at a time. Remain the only
 integrator and the only writer. Before each slice, state its intended outcome,
@@ -450,15 +583,45 @@ Boundaries: preserve the MVP exclusions in docs/planning-status.md and do not
 build deferred features or infrastructure early. Automated tests never contact
 live SimBrief, Resend, or production infrastructure. Never push to main, merge a
 pull request, deploy, change DNS, send production email, or run a production
-migration. Stop and ask when a governing document conflicts with reality, when
-an open choice would change product behavior or architecture, when the only
-available action would weaken a safety, privacy, authorization, or test
-boundary, or when a required result cannot be verified.
+migration. Stop and report to your supervisor when a governing document
+conflicts with reality, when an open choice would change product behavior or
+architecture, when the only available action would weaken a safety, privacy,
+authorization, or test boundary, or when a required result cannot be verified.
 
-Reporting: at each checkpoint report the slices completed, the commands run and
-their results, what was not verified, unresolved risks, and the exact next task.
-Do not describe a passing build as production readiness.
+Reporting: at each checkpoint report the slice and bound actually implemented,
+files changed and commit, focused checks, canonical gates, runtime verification,
+combined-diff review, task-list changes and evidence, deviations or unverified
+claims, risks and stop conditions, and the exact proposed next task. Wait for
+direction from the user or manager supervising the goal. Do not describe a
+passing build as production readiness.
 ```
+
+## Surface profiles
+
+These profiles explain how current surfaces can satisfy the contract. They are
+non-authoritative adapters, not additional requirements; current vendor
+documentation must be checked at kickoff because product mechanics can change.
+
+### Codex CLI
+
+- Run the manager in the main thread and the primary build agent as one
+  persistent subagent with a separate context.
+- Let the main thread collect checkpoint results and send follow-up direction
+  to that same agent. Use the CLI's agent inspection controls when human
+  inspection is needed.
+- Do not use unrelated top-level sessions as manager and builder unless an
+  explicit durable communication mechanism connects them.
+
+### Claude Code Agent Teams
+
+- Run the manager as team lead and create exactly one writing teammate as the
+  persistent primary build agent.
+- Use the team mailbox and direct teammate messaging for checkpoint reports and
+  follow-up direction. The shared task list may reflect coordination state, but
+  it never replaces `docs/task-list.md` as the progress ledger.
+- Keep the lead read-only and the teammate the sole writer. Because Agent Teams
+  is experimental, verify current availability, permission behavior, resumption,
+  and cleanup limitations before kickoff.
 
 ## References
 
@@ -470,4 +633,6 @@ surface-neutral and do not depend on them.
 - [OpenAI: Long-running work](https://learn.chatgpt.com/docs/long-running-work)
 - [OpenAI: Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 - [OpenAI: Git worktrees](https://learn.chatgpt.com/docs/environments/git-worktrees)
+- [Anthropic: Claude Code Agent Teams](https://code.claude.com/docs/en/agent-teams)
+- [Anthropic: Claude Code subagents](https://code.claude.com/docs/en/sub-agents)
 - [Ralph Wiggum technique guide](https://github.com/ghuntley/how-to-ralph-wiggum)

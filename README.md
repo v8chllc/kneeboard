@@ -75,7 +75,8 @@ planning documents are deliberate artifacts rather than scratch notes.
   release.
 - [Build execution strategy](docs/build-execution-strategy.md) — the approved
   structured-agent workflow, delegation boundaries, quality gates, approved
-  orchestration choices, and the final kickoff prompt.
+  orchestration choices, and the manager and primary build-agent kickoff
+  prompts.
 - [Tracker wireframe](docs/prototypes/tracker-wireframe.html) — a throwaway
   static drawing of the navlog, waypoint states, and sliding window across six
   fixture-derived scenarios. Open it in a browser; it is a reference artifact

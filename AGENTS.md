@@ -11,6 +11,7 @@ Before planning or changing application behavior, read:
 5. `docs/planning-status.md`
 6. `docs/task-list.md`
 7. `docs/build-execution-strategy.md`
+8. `WORKFLOW_STANDARDS.md`
 
 The decision documents are the source of truth. `docs/task-list.md` records
 execution order but does not override product, domain, or technical decisions.
@@ -37,6 +38,8 @@ assuming a blank slate.
   conflict rather than quietly changing behavior.
 - Preserve unrelated user changes in a dirty working tree.
 - Do not implement deferred features or infrastructure "for later."
+- Use the authenticated `gh` CLI directly for GitHub operations in this
+  repository. Do not attempt the connected GitHub app first.
 
 ## Product and Safety Boundary
 

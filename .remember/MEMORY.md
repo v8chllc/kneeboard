@@ -74,12 +74,23 @@ Date: 2026-08-13
 Rationale: Sections 4 and 5 establish the canonical quality commands and the domain invariants, so an unattended error there is the most expensive kind. A permitted loop stops hard at the section boundary, honors every stop condition, may push its own branch, and may never open a pull request, merge, or deploy. Graduation is the user's call at the section 5 pull request
 Do not reverse: A loop that could merge or deploy would convert a wrong turn into a production event
 
+<!-- decision -->
+Decision: Permit a user-authorized read-only manager to supervise routine build checkpoints while one persistent primary build agent remains the sole writer and integrator
+Date: 2026-08-13
+Rationale: Requiring the user to manually approve every routine checkpoint prevents unattended coordination but does not require human judgment for evidence-backed continuation. The manager may approve bounded continuation, request in-scope repairs, and evaluate validation evidence. Product and architecture choices, governing conflicts, weakened boundaries, exceptional parallel writing, merges, production operations, and graduation to capped loops remain with the human sponsor
+Do not reverse: Treating the manager as another implementation agent would violate the single-writer model; treating it as the human sponsor would improperly transfer product and production authority
+
+<!-- decision -->
+Decision: Preserve reusable issue-build prompts in an ignored project-local journal under .local/prompts/
+Date: 2026-08-13
+Rationale: Prompts should remain adjacent to the repository for study and iteration without becoming product artifacts or cluttering version history. Each entry preserves the verbatim prompt, execution metadata, result, deviations, and lessons
+
 ## context
 
 <!-- context -->
-Status: Pre-build execution gate closed; planning complete and the application not yet scaffolded
-In progress: PR #3 awaiting CodeRabbit triage and merge
-Next: Merge PR #3, then begin task-list section 4 on a feature branch — pinned toolchain, Next.js scaffold with the src/ layout, src/domain/ established as an empty location, canonical commands, CI parity, and .coderabbit.yaml tuning
+Status: Section 4 implementation underway; Slice 1 completed locally
+In progress: Manager-supervised execution strategy merged through PR #6
+Next: Return to 4/local-development-foundation, review commit 632e660, and Orient/Bound Slice 2 — canonical quality commands, Vitest smoke coverage, environment example, setup documentation, and planning-status version record
 Updated: 2026-08-13
 
 ## error
@@ -99,6 +110,10 @@ Scope: global
 <!-- preference -->
 Preference: Decide routine open questions and state the default for override, or ask directly — do not re-raise the same unresolved question at the end of every turn
 Scope: global
+
+<!-- preference -->
+Preference: Use the authenticated `gh` CLI directly for GitHub operations; do not try the connected GitHub app first because it is consistently unconnected across sessions
+Scope: github tooling
 
 ## todo
 

@@ -161,8 +161,9 @@ and kickoff prompts are recorded in
     or a surface profile that connects a read-only manager to one persistent
     primary build agent.
   - One pull request per numbered section, one commit per slice, and a
-    mandatory CodeRabbit review triaged and resolved on every section pull
-    request before merge.
+    mandatory CodeRabbit review on every section pull request, with accepted
+    findings either (a) fixed and affected gates rerun, or (b) accepted as-is
+    with a recorded reason, before merge.
 - [x] Decide whether the first build uses interactive bounded goals only or a
       capped Ralph-style loop after the manual workflow proves reliable.
   - Interactive bounded goals through sections 4 and 5. A capped loop is

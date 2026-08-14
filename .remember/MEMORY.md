@@ -50,16 +50,62 @@ Date: 2026-07-28
 Rationale: Two domain-model corrections in one session came from visual reasoning — that pages cannot track unit contents, and that passing a fix cannot free its slot. Both would have been expensive to discover after the transition engine and its tests existed. The wireframe needs no domain code, so the cheapest moment to look at the model is before anything depends on it
 Do not reverse: The wireframe is a reference drawing under docs/prototypes and is deliberately not carried into application code
 
+<!-- decision -->
+Decision: Keep the build execution strategy surface-neutral, naming required capabilities rather than an agent product
+Date: 2026-08-12
+Rationale: The draft was written against Codex and asked which Codex surface would host the build, which would have gone stale faster than the requirements it served. The document now names five capabilities a surface must provide — bounded read-only delegation, isolated concurrent writes, running the canonical commands, durable in-repo progress, and an independent review pass — and the kickoff prompt names the surface actually in use
+Do not reverse: A surface-specific strategy would need rewriting whenever the tooling changes, and the requirements would drift during the rewrite
+
+<!-- decision -->
+Decision: One pull request per numbered task-list section, one conventional commit per slice
+Date: 2026-08-12
+Rationale: Matches the protected-main workflow adopted after the org transfer. Section-sized diffs are coherent enough to review as a unit and small enough to actually read, while per-slice commits make the pull request an ordered sequence rather than one opaque diff. A section may split across two pull requests, but a pull request never spans two sections
+Do not reverse: No build goal commits directly to main
+
+<!-- decision -->
+Decision: CodeRabbit is the mandatory independent review gate on every section pull request, governed by a committed .coderabbit.yaml
+Date: 2026-08-13
+Rationale: Step 7 of the slice lifecycle has the agent inspect its own diff, which catches mechanical problems but shares the blind spots of whatever wrote the code. The gate is the check that does not share them. CodeRabbit is already integrated with the repository, so it replaced the multi-agent consensus review originally drafted. Every finding is triaged; accepted findings are fixed and the affected gates re-run; accepting as-is requires a recorded reason in the pull request
+Do not reverse: No review runs on CodeRabbit's default profile
+
+<!-- decision -->
+Decision: Interactive bounded goals through task-list sections 4 and 5; a capped loop permitted from section 6 with a three-slice ceiling
+Date: 2026-08-13
+Rationale: Sections 4 and 5 establish the canonical quality commands and the domain invariants, so an unattended error there is the most expensive kind. A permitted loop stops hard at the section boundary, honors every stop condition, may push its own branch, and may never open a pull request, merge, or deploy. Graduation is the user's call at the section 5 pull request
+Do not reverse: A loop that could merge or deploy would convert a wrong turn into a production event
+
 ## context
 
 <!-- context -->
-Status: The authoritative post-transfer clone is ready; task-list sections 1 through 3 are complete, and the application has not been scaffolded
-In progress: Closing the pre-build execution gate by reviewing the draft structured build strategy and final kickoff technique
-Next: Approve the orchestration choices and kickoff prompt, commit the planning artifacts, then begin section 4's local development foundation on a feature branch with framework-independent domain code under src/domain/ following in section 5
-Updated: 2026-07-29
+Status: Pre-build execution gate closed; planning complete and the application not yet scaffolded
+In progress: PR #3 awaiting CodeRabbit triage and merge
+Next: Merge PR #3, then begin task-list section 4 on a feature branch — pinned toolchain, Next.js scaffold with the src/ layout, src/domain/ established as an empty location, canonical commands, CI parity, and .coderabbit.yaml tuning
+Updated: 2026-08-13
 
 ## error
 
+<!-- error -->
+Symptom: Assumed a pull request introducing .coderabbit.yaml would be reviewed on CodeRabbit's default profile, because the config had not reached main yet
+Root cause: CodeRabbit reads .coderabbit.yaml from the feature branch under review, not from the base branch, so it governs the pull request that introduces it
+Fix: Land config changes on the branch that needs them; verify against CodeRabbit's published schema.v2.json rather than by eye
+Status: resolved
+
 ## preference
 
+<!-- preference -->
+Preference: Concise responses — answer what was asked without meandering preamble or trailing recaps
+Scope: global
+
+<!-- preference -->
+Preference: Decide routine open questions and state the default for override, or ask directly — do not re-raise the same unresolved question at the end of every turn
+Scope: global
+
 ## todo
+
+<!-- todo -->
+Todo: Revisit the loop-eligibility threshold at the section 5 pull request
+Source: conversation
+Status: open
+Next action: Compare the approved "from section 6 onward" cut against cutting by kind of work — sections 6 to 8 carry persistence, account isolation, and vertical-slice product judgment, while section 9 is the mechanical work
+Created: 2026-08-13
+Work item:

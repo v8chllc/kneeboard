@@ -187,25 +187,25 @@ Every later section extends this environment in the same change that introduces
 a new runtime dependency, so the application remains locally runnable and
 testable throughout development.
 
-- [ ] Scaffold Next.js App Router, React, and TypeScript in the repository root,
+- [x] Scaffold Next.js App Router, React, and TypeScript in the repository root,
       using the `src/` layout.
-- [ ] Establish `src/domain/` as the framework-independent domain location,
+- [x] Establish `src/domain/` as the framework-independent domain location,
       without adding tracker behavior during scaffolding.
-- [ ] Configure Tailwind CSS and a minimal dark, high-contrast page that keeps
+- [x] Configure Tailwind CSS and a minimal dark, high-contrast page that keeps
       the simulation-only warning visible from the first runnable build.
-- [ ] Add `mise.toml` with pinned Node.js and `pnpm` versions.
-- [ ] Resolve and pin current compatible package and tool versions as they are
+- [x] Add `mise.toml` with pinned Node.js and `pnpm` versions.
+- [x] Resolve and pin current compatible package and tool versions as they are
       installed, then record the resolution in
       [Planning status](planning-status.md).
-- [ ] Commit `pnpm-lock.yaml` and configure canonical `dev`, `build`, `start`,
+- [x] Commit `pnpm-lock.yaml` and configure canonical `dev`, `build`, `start`,
       `lint`, `typecheck`, `test`, and `test:watch` scripts.
-- [ ] Configure ESLint, TypeScript checks, and Vitest, including a minimal smoke
+- [x] Configure ESLint, TypeScript checks, and Vitest, including a minimal smoke
       test proving the test command is operational.
-- [ ] Add a non-secret `.env.example`, keep `.env.local` ignored, and document
+- [x] Add a non-secret `.env.example`, keep `.env.local` ignored, and document
       that environment validation grows with each introduced service.
-- [ ] Document the fresh-clone workflow, prerequisites, localhost URL, and
+- [x] Document the fresh-clone workflow, prerequisites, localhost URL, and
       canonical commands in `README.md`.
-- [ ] Verify the development server, production build and start, lint, type
+- [x] Verify the development server, production build and start, lint, type
       checks, and tests locally.
 - [ ] Add GitHub Actions that run the same install, lint, type-check, test, and
       build commands used locally.

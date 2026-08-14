@@ -12,10 +12,13 @@ for real-world navigation.
 ## Status
 
 Planning is complete through the display model. Representative SimBrief OFPs
-have been captured, mapped, and sanitized into tracked fixtures; the
-core product and application-architecture decisions are resolved; and the
-tracker display model has been validated against a static wireframe. The web
-application has not been scaffolded yet.
+have been captured, mapped, and sanitized into tracked fixtures; the core
+product and application-architecture decisions are resolved; and the tracker
+display model has been validated against a static wireframe.
+
+Task-list section 4 is in progress. The pinned Next.js scaffold and canonical
+local quality commands are established. CI command parity and review
+configuration remain before the section is complete.
 
 The pre-build execution gate is closed. The structured agent workflow,
 checkpoint cadence, delegation boundaries, review gates, and the manager and
@@ -109,6 +112,49 @@ planning documents are deliberate artifacts rather than scratch notes.
   link capture
 
 ## Development tools
+
+### Local application
+
+Prerequisites:
+
+- [mise](https://mise.jdx.dev/) installed;
+- Git; and
+- a shell supported by mise.
+
+From a fresh clone, inspect the checked-in `mise.toml`, then run:
+
+```bash
+mise trust
+mise install
+mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm dev
+```
+
+Open <http://localhost:3000>. The page should display the simulation-only
+warning. No environment variables are required by the current scaffold.
+`.env.example` grows only when later sections introduce services; local secrets
+belong in the ignored `.env.local` file.
+
+The canonical local commands are:
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the development server. |
+| `pnpm build` | Create the production build. |
+| `pnpm start` | Serve an existing production build. |
+| `pnpm lint` | Run ESLint. |
+| `pnpm typecheck` | Run TypeScript without emitting files. |
+| `pnpm test` | Run the Vitest suite once. |
+| `pnpm test:watch` | Run Vitest in interactive watch mode. |
+
+With mise activated in the shell, run the commands directly. Otherwise prefix
+them with `mise exec --`, as in the fresh-clone procedure above. To exercise the
+production runtime locally:
+
+```bash
+mise exec -- pnpm build
+mise exec -- pnpm start
+```
 
 ### Fetch a SimBrief OFP
 

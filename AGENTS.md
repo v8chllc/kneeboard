@@ -20,9 +20,9 @@ execution order but does not override product, domain, or technical decisions.
 navlog, waypoint states, and sliding window. Consult it to understand the
 intended display, but do not carry it into application code.
 
-Application implementation has not begun. Development tooling and planning
-artifacts may already exist, so inspect the repository and working tree before
-assuming a blank slate.
+Application implementation began with task-list section 4. Development tooling
+and planning artifacts may already exist, so inspect the repository and working
+tree before assuming a blank slate.
 
 ## Working Agreement
 

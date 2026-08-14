@@ -69,6 +69,16 @@ planning.
 - Production-only Vercel deployments during soft launch
 - Manual production migrations
 
+Resolved section 4 toolchain, pinned on 2026-08-13:
+
+- Node.js `24.19.0` and pnpm `11.21.0`
+- Next.js `16.3.1`, React `19.2.8`, and React DOM `19.2.8`
+- Tailwind CSS `4.3.3` and `@tailwindcss/postcss` `4.3.3`
+- ESLint `9.39.5` and `eslint-config-next` `16.3.1`
+- TypeScript `5.9.3`, `@types/node` `24.13.3`, `@types/react` `19.2.18`,
+  and `@types/react-dom` `19.2.4`
+- Vitest `4.1.10`
+
 ### Build execution
 
 - One primary build agent working bounded task-list slices as the sole writer
@@ -116,10 +126,10 @@ planning.
 
 ## Open implementation-planning decisions
 
-These are intentionally not filled in by assumption. Package versions and test
-infrastructure are resolved during the work that makes them concrete. Build
-orchestration was the third entry here and was resolved on 2026-08-12 when the
-pre-build execution gate closed.
+This is intentionally not filled in by assumption. Test infrastructure is
+resolved during the work that makes it concrete. Package and tool versions were
+resolved as part of task-list section 4, and build orchestration was resolved on
+2026-08-12 when the pre-build execution gate closed.
 
 1. **Test infrastructure**
    - Mailpit is the local magic-link inbox. Choose how manual Playwright tests
@@ -129,10 +139,7 @@ pre-build execution gate closed.
    - Resolved in section 9 of [the task list](task-list.md), because the
      mechanism depends on how persistence, Better Auth, and Mailpit are wired
      in sections 6 and 7.
-2. **Exact package and tool versions**
-   - Resolve current stable compatible versions when scaffolding, then pin them.
-   - Resolved in section 4 of [the task list](task-list.md), because versions
-     are pinned as they are installed.
+
 ## Implementation-plan boundaries
 
 The first implementation plan should:

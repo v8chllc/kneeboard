@@ -51,8 +51,10 @@ planning documents are deliberate artifacts rather than scratch notes.
   synthetic coordinates, distances, and flight identities. Only public aviation
   reference data — airport codes, published procedure identifiers, and waypoint
   names — is retained.
-- `.remember/` holds working session notes kept alongside the documents. They
-  record how decisions were reached, including revisions and false starts.
+- `.remember/MEMORY.md` holds curated notes kept alongside the documents. They
+  record how decisions were reached, including revisions and false starts. The
+  dated session journals and lifecycle segments in the same directory are local
+  working notes and are deliberately not tracked.
 
 ## Documentation
 

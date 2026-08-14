@@ -215,7 +215,10 @@ memory/procedural-memory guidance files:
 - `CODING_STANDARDS.md`
 - `WORKFLOW_STANDARDS.md`
 - `.remember/MEMORY.md`
-- `.remember/memory/*.md`
+
+Daily journals under `.remember/memory/` and lifecycle segments under
+`.remember/turns/` are ignored by Git and never enter a fast-track. Curated
+memory is the only memory lane other systems can read from `origin/main`.
 
 If any other tracked, staged, modified, deleted, or untracked path is present,
 stop and ask the user whether to handle that work separately. Do not include
@@ -227,8 +230,8 @@ Required sequence:
 2. Inspect `git status --short` and fail closed unless only allowed memory paths
    are present.
 3. Fetch and integrate the latest `origin/main` before committing.
-4. Resolve conflicts only in allowed memory files; preserve journal chronology
-   and update the single active `context` entry instead of duplicating it.
+4. Resolve conflicts only in allowed memory files, updating the single active
+   `context` entry instead of duplicating it.
 5. Review memory content for obvious secrets or sensitive account data.
 6. Run `git diff --check`.
 7. Commit with a conventional memory message such as

@@ -52,3 +52,4 @@ Thumbs.db
 
 # AI Coding Agent Files
 .remember/turns/
+.remember/memory/

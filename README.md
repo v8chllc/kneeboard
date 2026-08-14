@@ -18,8 +18,8 @@ tracker display model has been validated against a static wireframe. The web
 application has not been scaffolded yet.
 
 The pre-build execution gate is closed. The structured agent workflow,
-checkpoint cadence, delegation boundaries, review gates, and final kickoff
-prompt are approved and recorded in
+checkpoint cadence, delegation boundaries, review gates, and the manager and
+primary build-agent kickoff prompts are approved and recorded in
 [Build execution strategy](docs/build-execution-strategy.md). Implementation
 proceeds one task-list section per pull request, with a section split across
 two pull requests when its diff cannot be reviewed safely as one unit.

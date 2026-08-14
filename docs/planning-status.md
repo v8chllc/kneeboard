@@ -81,8 +81,9 @@ planning.
 - One feature branch and pull request per numbered task-list section, with one
   commit per completed slice
 - CodeRabbit as the mandatory independent review gate on every section pull
-  request, triaged and resolved before merge, governed by a committed
-  `.coderabbit.yaml`
+  request, with accepted findings either (a) fixed and affected gates rerun, or
+  (b) accepted as-is with a recorded reason, before merge, governed by a
+  committed `.coderabbit.yaml`
 - Interactive bounded goals through sections 4 and 5, supervised by the user or
   authorized manager at every checkpoint; a capped loop permitted from section
   6 only after both complete cleanly

@@ -619,6 +619,29 @@ documentation must be checked at kickoff because product mechanics can change.
 - Do not use unrelated top-level sessions as manager and builder unless an
   explicit durable communication mechanism connects them.
 
+### Claude Code subagents
+
+This profile applies when Agent Teams is unavailable, which has been the common
+case in practice.
+
+- Run the manager in the main session and the primary build agent as one spawned
+  subagent with a separate context.
+- Record the subagent's agent identity at spawn and address every later
+  instruction to it, so it resumes with its context intact. Spawning again
+  rather than messaging the existing agent starts a new context and silently
+  replaces the writer, which is the failure this profile most needs to prevent.
+- The manager is read-only by execution contract rather than by surface
+  permission, because the main session is not restricted. It may inspect files,
+  diffs, and history and may spawn bounded read-only investigators for its own
+  evaluation; it may not edit files or run a mutating Git command.
+- Verify at kickoff whether the build subagent can itself delegate bounded
+  read-only investigation. Where it cannot, that ceiling is reported as a
+  tooling limitation; the manager does not write on the builder's behalf or
+  raise its own concurrency to compensate.
+- Losing the subagent's address ends the execution unit. The working tree
+  containing the expected files is not evidence that a slice completed as
+  bounded.
+
 ### Claude Code Agent Teams
 
 - Run the manager as team lead and create exactly one writing teammate as the
@@ -628,7 +651,8 @@ documentation must be checked at kickoff because product mechanics can change.
   it never replaces `docs/task-list.md` as the progress ledger.
 - Keep the lead read-only and the teammate the sole writer. Because Agent Teams
   is experimental, verify current availability, permission behavior, resumption,
-  and cleanup limitations before kickoff.
+  and cleanup limitations before kickoff. When it is unavailable, use the
+  [Claude Code subagents](#claude-code-subagents) profile instead.
 
 ## References
 

@@ -26,10 +26,8 @@ primary build-agent kickoff prompts are approved and recorded in
 proceeds one task-list section per pull request, with a section split across
 two pull requests when its diff cannot be reviewed safely as one unit.
 
-The next milestone is a reproducible local development foundation: the pinned
-toolchain, runnable Next.js scaffold, canonical build and test commands, and CI
-command parity. The framework-independent domain layer under `src/domain/`
-follows immediately: types and typed commands, coordinate conversion, waypoint
+The next milestone is the framework-independent domain layer under
+`src/domain/`: types and typed commands, coordinate conversion, waypoint
 classification, slot and page assignment, and the pure transition engine with
 unit tests.
 

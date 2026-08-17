@@ -89,8 +89,8 @@ Rationale: Prompts should remain adjacent to the repository for study and iterat
 
 <!-- context -->
 Status: Section 4 slices 1 and 2 accepted; Slice 3 not started
-In progress: Nothing in flight. PR #9 merged the Claude Code subagents surface profile at 346519d, and 4/local-development-foundation is rebased onto it with slices 1 and 2 rewritten as dc4abfc and 0caf3d8
-Next: Run the Slice 3 manager kickoff from .local/prompts/issue-005-section-4/05-slice-3-manager-kickoff.md, dropping its now-complete rebase instruction — GitHub Actions with exact local-command parity and .coderabbit.yaml tuning, closing section 4's final two entries. Two rulings are open: whether parity evidence alone may check the CI entry when the build agent may not push, and jdx/mise-action versus pnpm/action-setup plus actions/setup-node
+In progress: Nothing in flight. 4/local-development-foundation is clean at 0caf3d8, carrying slices 1 and 2 as dc4abfc and 0caf3d8 on top of the merged surface profile at 346519d, and is one commit behind origin/main at 7108f5d after the memory fast-track merge
+Next: Run the Slice 3 manager kickoff from .local/prompts/issue-005-section-4/05-slice-3-manager-kickoff.md — GitHub Actions with exact local-command parity and .coderabbit.yaml tuning, closing section 4's final two entries. Both previously open rulings are settled and folded into the prompt: jdx/mise-action pinned to an immutable commit SHA so Node and pnpm are single-sourced from the checked-in mise.toml, and parity evidence alone checks the CI entry provided the checkoff states what is unverified, with a red first run on the section pull request reverting it and returning the slice to repair. The prompt's rebase instruction is retargeted at current origin/main rather than dropped
 Updated: 2026-08-17
 
 ## error

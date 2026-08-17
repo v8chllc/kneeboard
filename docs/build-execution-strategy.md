@@ -432,9 +432,9 @@ Automatic review is enabled in `.coderabbit.yaml`, but it does not always fire.
 On the section 4 pull request it did not, and the review had to be started by
 hand. A review invoked manually by commenting `@coderabbitai review` on the open
 pull request satisfies this gate exactly as an automatic review does. What the
-gate requires is a completed review of the final branch state with every finding
-triaged, not the mechanism that started it. An agent may invoke the review this
-way; it still may not merge.
+gate requires is a completed review of the branch state submitted for review with
+every finding triaged, not the mechanism that started it. An agent may invoke the
+review this way; it still may not merge.
 
 Do not treat a silent auto-review as a passed gate. Absence of a review is an
 unreviewed pull request, so confirm a review actually completed rather than
@@ -516,9 +516,10 @@ A section pull request is eligible to merge only when its description records:
 
 - a slice-by-slice summary of what changed;
 - the exact canonical quality commands run and their results;
-- confirmation that CodeRabbit reviewed the final state of the branch, and the
-  disposition of every finding it raised, including a reason for each accepted
-  as-is;
+- confirmation that CodeRabbit reviewed the branch state submitted for review,
+  naming which review is the gate of record when multiple CodeRabbit reviews
+  exist on the pull request, and the disposition of every finding from every
+  review (addressed, dismissed, deferred, or accepted as-is with reason);
 - the task-list checkboxes changed, with the evidence supporting each;
 - any governing-document change and the decision that motivated it;
 - what was deliberately not verified, and why; and

@@ -16,9 +16,8 @@ have been captured, mapped, and sanitized into tracked fixtures; the core
 product and application-architecture decisions are resolved; and the tracker
 display model has been validated against a static wireframe.
 
-Task-list section 4 is in progress. The pinned Next.js scaffold and canonical
-local quality commands are established. CI command parity and review
-configuration remain before the section is complete.
+Task-list section 4 is complete. The pinned Next.js scaffold, canonical local
+quality commands, CI command parity, and review configuration are established.
 
 The pre-build execution gate is closed. The structured agent workflow,
 checkpoint cadence, delegation boundaries, review gates, and the manager and

@@ -150,8 +150,9 @@ The manager must escalate to the user, rather than decide, when:
 - any condition in [Stop and approval boundaries](#stop-and-approval-boundaries)
   is met;
 - exceptional parallel writing is proposed;
-- accepting a review finding as-is would change a governing decision or weaken
-  a boundary;
+- a review finding cannot be accepted as-is under
+  [Accepting a finding as-is](#accepting-a-finding-as-is) and cannot be fixed
+  within the approved bound;
 - the section boundary, capped-loop slice ceiling, or other user-set authority
   limit is reached and the next action was not explicitly preauthorized;
 - a merge, push to `main`, deployment, production operation, credential use, or
@@ -449,6 +450,52 @@ name which is the gate of record in the pull request description and record the
 disposition of every finding from all of them. A finding does not become
 invalid because a review other than the gate of record raised it.
 
+If a manually invoked review also produces nothing, the gate is unavailable.
+Stop and report it. An unreviewed pull request remains ineligible to merge, and
+a stalled gate is never grounds for merging without one.
+
+A manager-supervised section runs the gate to completion before it checkpoints.
+The pull request is merge-ready when continuous integration is green on the
+current head, a review of that head completed, every finding carries a recorded
+disposition, and each accepted-as-is finding satisfies
+[Accepting a finding as-is](#accepting-a-finding-as-is). Merge-ready is the
+checkpoint, not the merge: the user merges.
+
+Two bounds apply to that loop. Review, repair, and re-review at most three times
+on one pull request; at the third, stop and report whatever state exists rather
+than continuing. And the primary build agent applies every repair, so it must
+stay addressable through triage. If its context or channel is lost mid-triage,
+that is a continuity failure: stop, leave the pull request open, and report what
+is triaged and what is not. The manager does not repair on its own.
+
+### Accepting a finding as-is
+
+A finding is accepted as-is only when the recorded reason cites the governing
+document and passage that already sanctions the behavior. Where no such
+citation exists, the finding is fixed or escalated — "it does not seem to
+weaken anything" is not a disposition. This is deliberately an evidence test
+rather than a judgment call, because the agent making the call supervised the
+work under review.
+
+A finding touching a safety, privacy, authorization, or test boundary is never
+accepted as-is. It is fixed or escalated, whatever the citation would say.
+
+The citation is verified by a bounded read-only subagent rather than by the
+manager, using this prompt unchanged:
+
+```text
+Read the finding below and the repository's governing documents. Report whether
+any governing document already sanctions the behavior the finding objects to.
+Answer with the document and passage, or with "no citation found". Do not
+evaluate whether the finding is worth fixing, and do not consider who wrote the
+code. Report "no citation found" when uncertain.
+```
+
+Record the subagent's answer in the finding's disposition. Subagent output is
+evidence, not authority — the manager still decides — but "no citation
+found" leaves only fix or escalate. A rewritten prompt, an unrecorded result,
+or an accepted finding with no check is itself a reportable deviation.
+
 This gate is distinct from step 7 of the [slice lifecycle](#slice-lifecycle),
 where the agent inspects its own combined diff. Step 7 catches mechanical
 problems early but shares the blind spots of whatever produced the code, which
@@ -524,7 +571,9 @@ A section pull request is eligible to merge only when its description records:
 - confirmation that CodeRabbit reviewed the branch state submitted for review,
   naming which review is the gate of record when multiple CodeRabbit reviews
   exist on the pull request, and the disposition of every finding from every
-  review (addressed, dismissed, deferred, or accepted as-is with reason);
+  review (addressed, dismissed, deferred, or accepted as-is with reason), each
+  accepted-as-is finding carrying the citation and the subagent check result
+  required by [Accepting a finding as-is](#accepting-a-finding-as-is);
 - the task-list checkboxes changed, with the evidence supporting each;
 - any governing-document change and the decision that motivated it;
 - what was deliberately not verified, and why; and
@@ -565,6 +614,17 @@ work stayed in scope, every applicable gate passed, completion claims have
 evidence, no governing conflict or open decision appeared, no stop condition
 applies, and the proposed next slice follows dependency order. Otherwise request
 an in-scope correction or escalate to the user.
+
+Section boundary: push the branch, open the pull request ready for review, and
+run the review gate to completion. Confirm a review actually ran rather than
+inferring it; invoke it by hand if auto-review is silent, and stop and report if
+that produces nothing either. Every finding gets a recorded disposition. Accept
+a finding as-is only under the rules in docs/build-execution-strategy.md, which
+require a governing citation verified by a bounded read-only subagent using the
+prompt given there, and which never permit accepting a safety, privacy,
+authorization, or test finding. Repairs are the build agent's; you do not write.
+Stop after three review cycles regardless of state. Checkpoint when the pull
+request is merge-ready — the merge is mine.
 
 Continuity: communicate approval and follow-up work to the same build agent. If
 its context or communication channel is lost, stop and report; do not silently

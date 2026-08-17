@@ -44,6 +44,16 @@ reviews:
         sliding window changing membership only on Save. Transitions must be
         pure and deterministic.
 
+    - path: "src/app/**"
+      instructions: >-
+        This is the Next.js App Router layer. Tracker rules belong in
+        src/domain/ and must be called from here, never reimplemented. Keep the
+        simulation-only warning visible in user-facing output: Kneeboard is a
+        home flight-simulation aid and is never an approved real-world
+        navigation tool. Keep the interface dark and high-contrast, and format
+        timestamps in UTC using aviation-style formatting. Never leak server
+        secrets, raw OFPs, or Pilot IDs into client components or markup.
+
     - path: "src/**"
       instructions: >-
         Flag any tracker rule reimplemented outside src/domain/. Every
@@ -59,6 +69,23 @@ reviews:
         must never contact live SimBrief, Resend, or production infrastructure.
         Flag any weakened assertion that makes a failing gate pass.
 
+    - path: "tests/tooling/**"
+      instructions: >-
+        These tests exist only to prove the test command is operational. Keep
+        them minimal and free of network access. Flag domain or application
+        behavior being tested here instead of alongside the code it covers.
+
+    - path: ".github/workflows/**"
+      instructions: >-
+        Workflows must run the same canonical commands documented in README.md
+        and defined in package.json, with no CI-only variants. Node and pnpm
+        come from the checked-in mise.toml, so flag any version pinned a second
+        time in YAML. Every third-party action must be pinned to a full
+        immutable commit SHA with the human-readable version in a trailing
+        comment. Keep permissions least-privilege. CI must never contact live
+        SimBrief, Resend, or production infrastructure, and must never run a
+        production migration or deployment.
+
     - path: "scripts/**"
       instructions: >-
         These handle raw SimBrief payloads containing personal account data.
@@ -71,6 +98,10 @@ reviews:
         that alters a recorded decision to match code rather than the reverse,
         and flag any new statement that conflicts with an existing decision.
 
+  # Confirmed against the real stack: eslint.config.mjs is an ESLint 9 flat
+  # config composing eslint-config-next core-web-vitals and typescript, ruff
+  # covers the two Python scripts under scripts/, and actionlint now has a real
+  # workflow to check at .github/workflows/ci.yml.
   tools:
     gitleaks:
       enabled: true

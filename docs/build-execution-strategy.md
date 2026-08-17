@@ -428,6 +428,22 @@ fixes-applied comment. Both require an open pull request and a clean worktree.
 The requirement is the reviewed and triaged pull request; the tooling that
 produces it may change.
 
+Automatic review is enabled in `.coderabbit.yaml`, but it does not always fire.
+On the section 4 pull request it did not, and the review had to be started by
+hand. A review invoked manually by commenting `@coderabbitai review` on the open
+pull request satisfies this gate exactly as an automatic review does. What the
+gate requires is a completed review of the final branch state with every finding
+triaged, not the mechanism that started it. An agent may invoke the review this
+way; it still may not merge.
+
+Do not treat a silent auto-review as a passed gate. Absence of a review is an
+unreviewed pull request, so confirm a review actually completed rather than
+inferring it from the configuration. When more than one review exists on a pull
+request — a manual invocation and a separate tool-run review, for example —
+name which is the gate of record in the pull request description and record the
+disposition of every finding from all of them. A finding does not become
+invalid because a review other than the gate of record raised it.
+
 This gate is distinct from step 7 of the [slice lifecycle](#slice-lifecycle),
 where the agent inspects its own combined diff. Step 7 catches mechanical
 problems early but shares the blind spots of whatever produced the code, which
@@ -440,8 +456,8 @@ discretion.
 No review runs on CodeRabbit's default profile. `.coderabbit.yaml` is committed
 at the root and is read from the feature branch under review rather than from
 `main`, so it governs every pull request including the one that introduced it.
-It is tuned further in task-list section 4, once the application stack it
-describes actually exists.
+It was tuned further in task-list section 4, once the application stack it
+describes actually existed.
 
 ### 5. Loop policy
 

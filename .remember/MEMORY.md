@@ -85,12 +85,24 @@ Decision: Preserve reusable issue-build prompts in an ignored project-local jour
 Date: 2026-08-13
 Rationale: Prompts should remain adjacent to the repository for study and iteration without becoming product artifacts or cluttering version history. Each entry preserves the verbatim prompt, execution metadata, result, deviations, and lessons
 
+<!-- decision -->
+Decision: A manager pushes the section branch, opens its pull request ready for review, runs the review gate to completion, and checkpoints at merge-ready
+Date: 2026-08-17
+Rationale: The old default required explicit kickoff authorization for the push and put the human handoff mid-sequence, where it bought no new information — the same diff gets read one step later, after review findings have changed it. Push and pull-request open are reversible and approve nothing, while merge, deployment, and every production operation stay with the user. The old default also inverted the supervision gradient, since a capped loop was already permitted to push its own branch. Merge-ready is defined as CI green on the current head, a completed review of that head, every finding dispositioned, and accepted-as-is findings satisfying the citation rules, bounded by three review cycles. Merged as PR #14 at bb698ba
+Do not reverse: A draft-pull-request variant was tried and abandoned. It made the user read a diff CodeRabbit was about to change, so the same diff got read twice, and it reintroduced the mid-sequence handoff the amendment existed to remove
+
+<!-- decision -->
+Decision: A review finding is accepted as-is only against a governing citation verified by a bounded read-only subagent, never by the manager alone
+Date: 2026-08-17
+Rationale: Letting the manager run the review gate to completion means it triages findings against work it supervised. The old test asked whether acceptance "would weaken a boundary" — a judgment that invites the answer the judge prefers. Acceptance now requires citing the governing document and passage that already sanctions the behavior; no citation means fix or escalate. Safety, privacy, authorization, and test findings are never accepted as-is regardless of citation. The citation is checked by a bounded read-only subagent with no stake in the outcome
+Do not reverse: The subagent prompt is fixed in docs/build-execution-strategy.md rather than authored per finding, because a leading prompt gets a leading answer and that failure is invisible in the output. A skipped or reworded check is itself a reportable deviation, since the cheapest way around the control is never to invoke it
+
 ## context
 
 <!-- context -->
-Status: Section 4 slices 1 and 2 accepted; Slice 3 not started
-In progress: Nothing in flight. 4/local-development-foundation is clean at 0caf3d8, carrying slices 1 and 2 as dc4abfc and 0caf3d8 on top of the merged surface profile at 346519d, and is one commit behind origin/main at 7108f5d after the memory fast-track merge
-Next: Run the Slice 3 manager kickoff from .local/prompts/issue-005-section-4/05-slice-3-manager-kickoff.md — GitHub Actions with exact local-command parity and .coderabbit.yaml tuning, closing section 4's final two entries. Both previously open rulings are settled and folded into the prompt: jdx/mise-action pinned to an immutable commit SHA so Node and pnpm are single-sourced from the checked-in mise.toml, and parity evidence alone checks the CI entry provided the checkoff states what is unverified, with a red first run on the section pull request reverting it and returning the slice to repair. The prompt's rebase instruction is retargeted at current origin/main rather than dropped
+Status: Section 4 complete and merged; section 5, the framework-independent domain layer, is next
+In progress: Nothing in flight. main is clean at bb698ba with no open pull requests. PRs #10 (memory fast-track), #13 (manual CodeRabbit invocation), and #14 (section-boundary push policy and review-gate completion) are merged
+Next: Rebuild the section 5 manager kickoff prompt from the amended template in docs/build-execution-strategy.md — push, pull-request open, description authorship, and gate completion are now documented defaults rather than hand-written authorizations. Then build src/domain/: types and typed commands, coordinate conversion, waypoint classification, slot and page assignment, and the pure transition engine with unit tests. The open loop-eligibility todo comes due at the section 5 pull request
 Updated: 2026-08-17
 
 ## error
@@ -99,6 +111,12 @@ Updated: 2026-08-17
 Symptom: Assumed a pull request introducing .coderabbit.yaml would be reviewed on CodeRabbit's default profile, because the config had not reached main yet
 Root cause: CodeRabbit reads .coderabbit.yaml from the feature branch under review, not from the base branch, so it governs the pull request that introduces it
 Fix: Land config changes on the branch that needs them; verify against CodeRabbit's published schema.v2.json rather than by eye
+Status: resolved
+
+<!-- error -->
+Symptom: Auto-review did not fire on a non-draft pull request, and later a fix commit received only a verification comment rather than a review
+Root cause: Two separate CodeRabbit behaviors. Auto-review can silently fail to fire, plausibly during a GitHub outage, and silence is indistinguishable from a pass. Separately, CodeRabbit is incremental and does not re-review commits it has already seen, so a fix commit pushed to a reviewed pull request gets targeted verification of the fixes rather than a fresh review that could surface newly introduced issues
+Fix: Confirm a review actually completed rather than inferring it from configuration. Invoke manually by commenting @coderabbitai review; if that also produces nothing the gate is unavailable, so stop and report rather than merging. For a fix commit, name the gate of record as the original review plus the verification, or force a full review when the delta warrants it
 Status: resolved
 
 ## preference

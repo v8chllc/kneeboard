@@ -88,10 +88,10 @@ Rationale: Prompts should remain adjacent to the repository for study and iterat
 ## context
 
 <!-- context -->
-Status: Section 4 implementation underway; Slice 1 completed locally
-In progress: Manager-supervised execution strategy merged through PR #6
-Next: Return to 4/local-development-foundation, review commit 632e660, and Orient/Bound Slice 2 — canonical quality commands, Vitest smoke coverage, environment example, setup documentation, and planning-status version record
-Updated: 2026-08-13
+Status: Section 4 slices 1 and 2 accepted; Slice 3 not started
+In progress: Nothing in flight. PR #9 merged the Claude Code subagents surface profile at 346519d, and 4/local-development-foundation is rebased onto it with slices 1 and 2 rewritten as dc4abfc and 0caf3d8
+Next: Run the Slice 3 manager kickoff from .local/prompts/issue-005-section-4/05-slice-3-manager-kickoff.md, dropping its now-complete rebase instruction — GitHub Actions with exact local-command parity and .coderabbit.yaml tuning, closing section 4's final two entries. Two rulings are open: whether parity evidence alone may check the CI entry when the build agent may not push, and jdx/mise-action versus pnpm/action-setup plus actions/setup-node
+Updated: 2026-08-17
 
 ## error
 

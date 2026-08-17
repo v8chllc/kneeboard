@@ -208,10 +208,12 @@ testable throughout development.
 - [x] Verify the development server, production build and start, lint, type
       checks, and tests locally.
 - [x] Add GitHub Actions that run the same install, lint, type-check, test, and
-      build commands used locally. Checked on parity evidence: the workflow runs
-      the canonical commands verbatim, that sequence passes locally, and Node
-      and `pnpm` resolve from `mise.toml`. Unverified: the workflow has never
-      executed on GitHub. A red first run reverts this checkoff.
+      build commands used locally. Checked first on parity evidence alone: the
+      workflow runs the canonical commands verbatim, that sequence passes
+      locally, and Node and `pnpm` resolve from `mise.toml`. That conditional
+      checkoff is now confirmed by execution. GitHub Actions run 32054087279
+      passed on the final workflow, so the parity claim is verified rather than
+      inferred.
 - [x] Tune the committed `.coderabbit.yaml` now that the stack exists: confirm
       the ESLint and Actions tooling settings against the real configuration,
       and extend the path instructions to the directories scaffolding created.

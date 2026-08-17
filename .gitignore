@@ -53,3 +53,6 @@ Thumbs.db
 # AI Coding Agent Files
 .remember/turns/
 .remember/memory/
+
+# Local CodeRabbit review artifacts; the durable audit lives on the pull request
+.code-review/

@@ -139,10 +139,11 @@ Within an approved execution unit, the manager may:
   agreed slice commit, and the next bounded slice;
 - request missing evidence or reject a checkpoint that does not support its
   completion claims;
-- authorize a section-branch push or draft pull request only when the user's
-  kickoff authorization explicitly includes that external write; and
-- coordinate CodeRabbit triage and in-scope repairs without weakening the
-  independent review gate.
+- push the section branch and open its pull request, ready for review, at the
+  section boundary, unless the user's kickoff withholds that authorization; and
+- run the independent review gate to completion — confirm a review actually
+  ran, triage every finding, direct in-scope repairs, and re-run affected
+  gates — without weakening what the gate requires.
 
 The manager must escalate to the user, rather than decide, when:
 
@@ -153,8 +154,11 @@ The manager must escalate to the user, rather than decide, when:
   a boundary;
 - the section boundary, capped-loop slice ceiling, or other user-set authority
   limit is reached and the next action was not explicitly preauthorized;
-- a merge, push to `main`, deployment, production operation, credential use,
-  provider configuration, or external message is proposed; or
+- a merge, push to `main`, deployment, production operation, credential use, or
+  provider configuration is proposed;
+- an external message is proposed, other than the section-branch push, the pull
+  request that accompanies it, and a CodeRabbit review invocation on an open
+  pull request; or
 - graduation from interactive execution to capped-loop eligibility is proposed.
 
 ### Routine checkpoint decision
@@ -266,7 +270,7 @@ did not think to look for.
 | 7. Review independently | Review surfaces a governing-document conflict, or a finding whose remedy is an architecture change rather than a repair. |
 | 8. Repair and repeat | Three consecutive repair iterations fail the same gate. The only available fix weakens a gate or boundary, or pushes edits outside the stated scope. |
 | 9. Record evidence | The evidence for a checkbox does not exist. Reconciling code with a governing decision would require editing the decision. |
-| 10. Checkpoint | The slice ceiling is reached. The section boundary is reached. A pull request, merge, push to `main`, or deployment is the next action. |
+| 10. Checkpoint | The slice ceiling is reached. The section pull request is merge-ready, the review gate is unavailable, or the review-cycle cap is reached. A merge, push to `main`, or deployment is the next action. Pushing the section branch and opening its pull request are not themselves stops. |
 
 Two clarifications the mapping depends on.
 
@@ -416,8 +420,9 @@ unreviewed or partially triaged pull request is not mergeable regardless of
 whether the local gates pass.
 
 CodeRabbit reviews an open pull request, so the sequence at a section boundary
-is: local gates pass, the pull request opens, CodeRabbit reviews, findings are
-triaged and fixed, affected gates re-run, then merge. The gate is section-level
+is: local gates pass, the branch is pushed and its pull request opens ready for
+review, CodeRabbit reviews, findings are triaged and fixed, affected gates
+re-run, and the user merges. The gate is section-level
 either way, so an unattended loop reaches independent review at the same point
 it always would — the section boundary.
 
@@ -547,8 +552,11 @@ Authority: follow AGENTS.md, the decision documents it names,
 docs/task-list.md for execution order, and docs/build-execution-strategy.md for
 orchestration. Your delegated authority covers routine bounded-slice decisions
 only. It does not let you resolve product or architecture choices, weaken a
-boundary, authorize parallel writing, merge or push to main, perform production
-operations, use credentials, configure providers, or communicate externally.
+boundary, authorize parallel writing, merge, push to main, perform production
+operations, use credentials, or configure providers. You may communicate
+externally only by pushing the section branch, opening its pull request, and
+invoking a CodeRabbit review on an open pull request; anything further is
+escalated.
 
 Supervision: require the build agent to bound and report each slice using the
 documented checkpoint fields. Independently inspect enough repository state,

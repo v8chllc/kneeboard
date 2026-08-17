@@ -140,7 +140,8 @@ Within an approved execution unit, the manager may:
 - request missing evidence or reject a checkpoint that does not support its
   completion claims;
 - push the section branch and open its pull request, ready for review, at the
-  section boundary, unless the user's kickoff withholds that authorization; and
+  section boundary, and author and update that pull request's description,
+  unless the user's kickoff withholds that authorization; and
 - run the independent review gate to completion — confirm a review actually
   ran, triage every finding, direct in-scope repairs, and re-run affected
   gates — without weakening what the gate requires.
@@ -158,8 +159,8 @@ The manager must escalate to the user, rather than decide, when:
 - a merge, push to `main`, deployment, production operation, credential use, or
   provider configuration is proposed;
 - an external message is proposed, other than the section-branch push, the pull
-  request that accompanies it, and a CodeRabbit review invocation on an open
-  pull request; or
+  request that accompanies it, authoring or updating that pull request's
+  description, and a CodeRabbit review invocation on an open pull request; or
 - graduation from interactive execution to capped-loop eligibility is proposed.
 
 ### Routine checkpoint decision
@@ -318,7 +319,9 @@ complete until all applicable gates pass:
 - locally triggered Playwright journeys using sanitized fixtures, Mailpit, and
   an isolated test database; and
 - a completed CodeRabbit review on the section pull request, with every finding
-  triaged and all accepted findings resolved.
+  triaged, every finding accepted as valid resolved, and every finding accepted
+  as-is carrying the record required by
+  [Accepting a finding as-is](#accepting-a-finding-as-is).
 
 Tests must never call live SimBrief, Resend, or production infrastructure.
 Passing tests do not replace manual verification of the simulation-only warning,
@@ -603,9 +606,9 @@ orchestration. Your delegated authority covers routine bounded-slice decisions
 only. It does not let you resolve product or architecture choices, weaken a
 boundary, authorize parallel writing, merge, push to main, perform production
 operations, use credentials, or configure providers. You may communicate
-externally only by pushing the section branch, opening its pull request, and
-invoking a CodeRabbit review on an open pull request; anything further is
-escalated.
+externally only by pushing the section branch, opening its pull request,
+authoring and updating that pull request's description, and invoking a
+CodeRabbit review on an open pull request; anything further is escalated.
 
 Supervision: require the build agent to bound and report each slice using the
 documented checkpoint fields. Independently inspect enough repository state,
@@ -624,7 +627,7 @@ require a governing citation verified by a bounded read-only subagent using the
 prompt given there, and which never permit accepting a safety, privacy,
 authorization, or test finding. Repairs are the build agent's; you do not write.
 Stop after three review cycles regardless of state. Checkpoint when the pull
-request is merge-ready — the merge is mine.
+request is merge-ready; the user merges.
 
 Continuity: communicate approval and follow-up work to the same build agent. If
 its context or communication channel is lost, stop and report; do not silently

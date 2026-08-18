@@ -40,6 +40,16 @@ export function selectPassCascade(
   snapshot: TrackerSnapshot,
   routeIndex: number,
 ): PassCascadeSelection {
+  // Exported, so it may be called with a value the engine has not validated.
+  // Checking here keeps the message below free of any unvalidated input.
+  if (!Number.isInteger(routeIndex)) {
+    return {
+      outcome: "rejected",
+      reason: "unknownWaypoint",
+      message: "route index must be an integer",
+    };
+  }
+
   const target = snapshot.waypoints.find((waypoint) => waypoint.routeIndex === routeIndex);
 
   if (target === undefined) {

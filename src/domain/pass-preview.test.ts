@@ -12,6 +12,15 @@ import { applyCommand } from "./engine";
 import { selectPassCascade } from "./pass-cascade";
 import { previewPass } from "./pass-preview";
 
+/**
+ * The unmocked implementation. The sweep below must compare `previewPass`
+ * against this, not against the mocked module export: comparing against the
+ * mock would assert that a value equals itself and prove nothing.
+ */
+const { selectPassCascade: realSelectPassCascade } = await vi.importActual<
+  typeof import("./pass-cascade")
+>("./pass-cascade");
+
 const navlog = navlogFor("valid-multi-page.json");
 const eligible = eligibleOf(navlog);
 const shared = vi.mocked(selectPassCascade);
@@ -70,6 +79,9 @@ describe("shared cascade implementation", () => {
 
 describe("previewPass", () => {
   it("returns the same result as the shared selection for every scenario", () => {
+    // Compared against the real implementation via vi.importActual, so the
+    // mock cannot make this assertion compare a value with itself.
+    //
     // Deliberately includes snapshots that no command sequence can reach, such
     // as twelve entered with none passed. Agreement is a property of the pure
     // function for any input, so exercising unreachable inputs strengthens it.
@@ -82,7 +94,7 @@ describe("previewPass", () => {
 
         for (const routeIndex of [...eligible.slice(0, 14), 0, -1]) {
           expect(previewPass(snapshot, routeIndex)).toEqual(
-            selectPassCascade(snapshot, routeIndex),
+            realSelectPassCascade(snapshot, routeIndex),
           );
         }
       }

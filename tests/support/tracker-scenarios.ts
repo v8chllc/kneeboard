@@ -1,15 +1,17 @@
 /**
  * Test-only scenario builders for tracker snapshots.
  *
- * Slice 5a implements deferred slot release before any Pass command exists, so
- * a snapshot containing passed fixes cannot be reached by driving commands. It
- * must be constructed directly.
+ * `snapshotWithFacts` and `savedThrough` build a snapshot directly from
+ * recorded facts. `reachState` instead drives real Save and Pass commands to
+ * reach a state, and throws {@link UnreachableStateError} when no command
+ * sequence can produce one.
  *
- * TRACKED OBLIGATION for slice 5b: once Pass exists, every snapshot built here
- * with passed fixes must be re-reached by applying real Pass commands, and the
- * results compared. Until that happens, a hand-built snapshot could encode a
- * state the engine can never actually produce, and the suite would be verifying
- * a fiction.
+ * Prefer `reachState` whenever a test asserts engine behavior. A directly built
+ * snapshot can encode a state the engine cannot produce — three such states
+ * were found and removed when this check was first run — so
+ * `scenario-reachability.test.ts` verifies that every directly built shape the
+ * suite relies on is reachable, and that the states known to be unreachable
+ * stay that way.
  *
  * Not a Vitest suite: Vitest's default include matches only `*.test.ts`.
  */
@@ -155,4 +157,25 @@ export function applyOrThrow(
     throw new UnreachableStateError(`${command.type} rejected: ${result.reason}`);
   }
   return result.snapshot;
+}
+
+/**
+ * Builds a navlog from a sanitized fixture keeping only the listed
+ * `navlog.fix` indexes, preserving route order.
+ *
+ * Used to construct small routes whose state space can be explored
+ * exhaustively, without hand-writing a synthetic fixture into
+ * `tests/fixtures/simbrief`, whose contract is generated-from-capture.
+ */
+export function navlogFromFixtureSubset(
+  fileName: string,
+  keepFixIndexes: readonly number[],
+): Navlog {
+  const input = loadOfpFixture(fileName);
+  const keep = new Set(keepFixIndexes);
+
+  return buildNavlog({
+    ...input,
+    fixes: input.fixes.filter((_, index) => keep.has(index)),
+  });
 }

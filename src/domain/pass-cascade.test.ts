@@ -74,7 +74,9 @@ describe("selectPassCascade", () => {
   it("rejects a fix that is not saved", () => {
     const snapshot = savedThrough(navlog, 9, { passedThrough: 2 });
 
-    // Pending, queued, passed, and skipped fixes may not be passed.
+    // In this snapshot eligible[0] is passed, eligible[12] is pending, and
+    // eligible[30] is queued. The skipped case is covered separately below,
+    // and the pending case again from a fresh tracker.
     for (const routeIndex of [eligible[0], eligible[12], eligible[30]]) {
       expect(selectPassCascade(snapshot, routeIndex)).toMatchObject({
         outcome: "rejected",
@@ -82,6 +84,17 @@ describe("selectPassCascade", () => {
       });
     }
     expect(selectPassCascade(createInitialSnapshot(navlog), eligible[0])).toMatchObject({
+      outcome: "rejected",
+      reason: "notSaved",
+    });
+  });
+
+  it("rejects a skipped fix", () => {
+    const snapshot = snapshotWithFacts(navlog, [
+      { routeIndex: eligible[0], state: "skipped" },
+    ]);
+
+    expect(selectPassCascade(snapshot, eligible[0])).toMatchObject({
       outcome: "rejected",
       reason: "notSaved",
     });

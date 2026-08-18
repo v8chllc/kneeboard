@@ -17,7 +17,10 @@ const eligible = eligibleOf(navlog);
 const shared = vi.mocked(selectPassCascade);
 
 beforeEach(() => {
-  shared.mockClear();
+  // mockReset, not mockClear: clearing leaves queued one-time return values in
+  // place, which would leak stubbed cascades into the very tests that prove the
+  // preview and the command share one implementation.
+  shared.mockReset();
 });
 
 describe("shared cascade implementation", () => {

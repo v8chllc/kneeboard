@@ -100,6 +100,36 @@ describe("navlog metadata", () => {
   });
 });
 
+/** A minimal well-formed payload, so each test varies only what it is testing. */
+function syntheticFix(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    ident: "TSTC",
+    type: "wpt",
+    is_sid_star: "0",
+    via_airway: "DCT",
+    pos_lat: 1,
+    pos_long: 1,
+    distance: 1,
+    ...overrides,
+  };
+}
+
+function syntheticPayload(
+  overrides: {
+    origin?: Record<string, unknown>;
+    destination?: Record<string, unknown>;
+    fixes?: unknown[];
+  } = {},
+): Record<string, unknown> {
+  return {
+    params: { time_generated: 1 },
+    general: { flight_number: "TST1", sid_ident: "", star_ident: "", route_distance: 1 },
+    origin: overrides.origin ?? { icao_code: "TSTA", pos_lat: 1, pos_long: 1 },
+    destination: overrides.destination ?? { icao_code: "TSTB", pos_lat: 2, pos_long: 2 },
+    navlog: { fix: overrides.fixes ?? [syntheticFix()] },
+  };
+}
+
 describe("fixture adapter strictness", () => {
   it("loads every valid fixture", () => {
     for (const fileName of VALID_FIXTURES) {
@@ -154,6 +184,44 @@ describe("fixture adapter strictness", () => {
     expect(() => loadOfpFixture("invalid-missing-detailed-navlog.json")).toThrow(
       /navlog.fix is not an array/,
     );
+  });
+
+  it("rejects a coordinate outside its axis range on the airport path", () => {
+    // The adapter's own contract declares latitude in [-90, 90] and longitude
+    // in [-180, 180], so it must not hand back an OfpInput that violates it.
+    expect(() =>
+      adaptOfpFixture(syntheticPayload({ origin: { icao_code: "TSTA", pos_lat: 91, pos_long: 1 } }), "synthetic"),
+    ).toThrow(/origin.pos_lat is outside the range \[-90, 90\]: 91/);
+
+    expect(() =>
+      adaptOfpFixture(
+        syntheticPayload({ destination: { icao_code: "TSTB", pos_lat: 1, pos_long: "-181.000000" } }),
+        "synthetic",
+      ),
+    ).toThrow(/destination.pos_long is outside the range \[-180, 180\]: -181/);
+  });
+
+  it("rejects a coordinate outside its axis range on the navlog-fix path", () => {
+    expect(() =>
+      adaptOfpFixture(syntheticPayload({ fixes: [syntheticFix({ pos_lat: "91.000000" })] }), "synthetic"),
+    ).toThrow(/navlog.fix\[0\].pos_lat is outside the range \[-90, 90\]: 91/);
+
+    expect(() =>
+      adaptOfpFixture(syntheticPayload({ fixes: [syntheticFix({ pos_long: 181 })] }), "synthetic"),
+    ).toThrow(/navlog.fix\[0\].pos_long is outside the range \[-180, 180\]: 181/);
+  });
+
+  it("accepts coordinates exactly on the poles and the antimeridian", () => {
+    const input = adaptOfpFixture(
+      syntheticPayload({
+        origin: { icao_code: "TSTA", pos_lat: -90, pos_long: -180 },
+        fixes: [syntheticFix({ pos_lat: 90, pos_long: 180 })],
+      }),
+      "synthetic",
+    );
+
+    expect(input.origin.latitude).toBe(-90);
+    expect(input.fixes[0].longitude).toBe(180);
   });
 
   it("rejects a numeric string that overflows to a non-finite number", () => {

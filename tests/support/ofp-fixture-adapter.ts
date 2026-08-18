@@ -106,12 +106,52 @@ function requiredFlag(
   return fail(fixture, path, "is not a 0 or 1 token");
 }
 
+/** Latitude bound declared by `OfpNavlogFix` and `OfpAirport`. */
+const MAX_LATITUDE_DEGREES = 90;
+
+/** Longitude bound declared by `OfpNavlogFix` and `OfpAirport`. */
+const MAX_LONGITUDE_DEGREES = 180;
+
+/**
+ * Reads a coordinate and rejects one outside its declared axis range, so the
+ * adapter cannot hand back an `OfpInput` that violates its own contract.
+ *
+ * This is distinct from `assertInRange` in `src/domain/coordinates.ts`. That
+ * guard is currently the only range check on the path into the domain; this one
+ * guards the shape of test input. Neither replaces the other.
+ */
+function requiredCoordinate(
+  source: Record<string, unknown>,
+  fixture: string,
+  key: string,
+  path: string,
+  maxDegrees: number,
+): number {
+  const value = requiredNumber(source, fixture, key, path);
+  if (Math.abs(value) > maxDegrees) {
+    fail(fixture, path, `is outside the range [-${maxDegrees}, ${maxDegrees}]: ${value}`);
+  }
+  return value;
+}
+
 function airport(value: unknown, fixture: string, field: string): OfpAirport {
   const source = record(value, fixture, field);
   return {
     icaoCode: requiredString(source, fixture, "icao_code", `${field}.icao_code`),
-    latitude: requiredNumber(source, fixture, "pos_lat", `${field}.pos_lat`),
-    longitude: requiredNumber(source, fixture, "pos_long", `${field}.pos_long`),
+    latitude: requiredCoordinate(
+      source,
+      fixture,
+      "pos_lat",
+      `${field}.pos_lat`,
+      MAX_LATITUDE_DEGREES,
+    ),
+    longitude: requiredCoordinate(
+      source,
+      fixture,
+      "pos_long",
+      `${field}.pos_long`,
+      MAX_LONGITUDE_DEGREES,
+    ),
   };
 }
 
@@ -123,8 +163,20 @@ function navlogFix(value: unknown, fixture: string, index: number): OfpNavlogFix
     sourceType: requiredString(source, fixture, "type", `${field}.type`),
     isSidStar: requiredFlag(source, fixture, "is_sid_star", `${field}.is_sid_star`),
     viaAirway: requiredString(source, fixture, "via_airway", `${field}.via_airway`),
-    latitude: requiredNumber(source, fixture, "pos_lat", `${field}.pos_lat`),
-    longitude: requiredNumber(source, fixture, "pos_long", `${field}.pos_long`),
+    latitude: requiredCoordinate(
+      source,
+      fixture,
+      "pos_lat",
+      `${field}.pos_lat`,
+      MAX_LATITUDE_DEGREES,
+    ),
+    longitude: requiredCoordinate(
+      source,
+      fixture,
+      "pos_long",
+      `${field}.pos_long`,
+      MAX_LONGITUDE_DEGREES,
+    ),
     distance: requiredNumber(source, fixture, "distance", `${field}.distance`),
   };
 }

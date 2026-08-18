@@ -230,8 +230,9 @@ The approved concurrency limits are recorded under
 
 Each slice follows the same gated lifecycle:
 
-1. **Orient** — read required guidance, inspect the working tree, and confirm
-   the task is still incomplete.
+1. **Orient** — read required guidance, inspect the working tree, confirm the
+   task is still incomplete, and reconcile the tracking issue's plan against the
+   governing documents, reporting required work the plan does not name.
 2. **Bound** — state the intended outcome, files or modules in scope,
    constraints, tests, and explicit non-goals.
 3. **Research** — verify version-sensitive framework or provider behavior from
@@ -247,6 +248,13 @@ Each slice follows the same gated lifecycle:
    decision only when the evidence exists.
 10. **Checkpoint** — prepare the agreed commit or pull-request boundary and
     report what was and was not verified.
+
+A tracking issue is a plan, not an authority. One section's issue omitted the
+synthesized origin row and the derived `RDIS`, both required by the tracker
+behavior document and both prerequisites for the page rule a later slice
+implemented. The omission surfaced only because that run's kickoff prompt
+happened to ask for the plan to be evaluated against the repository, which is a
+prompt-level instruction a future kickoff might not include.
 
 A failing check is normal backpressure, not permission to weaken the check or
 change a requirement. A flaky or environment-blocked check must be diagnosed
@@ -303,6 +311,27 @@ Operational lessons that should affect future runs may be added concisely to
 `AGENTS.md`. Status narration, test output, and implementation diaries do not
 belong there.
 
+That sentence names a destination, not a trigger, and a lesson with no trigger
+decays. One section's observations file was created at its kickoff with four
+empty headings and was never filled in.
+
+At a section boundary, before the next kickoff, the manager records a
+retrospective and the primary build agent reviews it while that agent still
+holds the section's context. The context is perishable: it is the only place the
+section's implementation detail lives, and it is gone at the next kickoff, so a
+review deferred past the boundary reviews the manager's summary rather than the
+work. In section 5 the build agent's review produced two substantive corrections
+to the manager's draft.
+
+The output is candidate changes to named documents, each carrying a disposition:
+raised as an issue, folded into an amendment, or dropped with a reason. Without
+dispositions it is a diary rather than a feedback loop.
+
+The retrospective stays under `.local/` and is not a product document,
+consistent with keeping prompt journals project-local and ignored. The prompt it
+records must be the prompt actually used; a run whose archived prompt differs
+from the delivered one documents a run that did not happen.
+
 ## Quality gates
 
 The exact commands are established in task-list section 4 and then remain the
@@ -341,8 +370,21 @@ The primary build agent stops and reports to its supervisor when:
   deployment, or production migrations are required;
 - the only available action would weaken a safety, privacy, authorization, or
   test boundary;
-- a required result cannot be verified; or
+- a required result cannot be verified;
+- an instruction from the supervisor conflicts with the evidence rule, a
+  governing document, or demonstrable fact, or is insufficient to achieve what
+  it asks for; or
 - the approved slice or iteration limit has been reached.
+
+A supervisor instruction is evidence, not authority, and the supervisor
+condition above has two directions. One is refusal: an instruction resting on a
+wrong fact, or asking for a checkbox the evidence does not support, is reported
+rather than followed. The other is compliance that must go further than
+instructed: an instruction can be right in intent and still leave the defect it
+targeted in place. That second case is the one most easily missed, because
+implementing the letter of the instruction reports success while the defect
+survives. Report the divergence in both directions rather than absorbing it
+silently.
 
 When the supervisor is a manager, it applies the authority rules above and
 escalates these conditions to the user. Autonomy does not broaden authority. In
@@ -457,6 +499,15 @@ If a manually invoked review also produces nothing, the gate is unavailable.
 Stop and report it. An unreviewed pull request remains ineligible to merge, and
 a stalled gate is never grounds for merging without one.
 
+When a finding identifies a class of defect rather than a single instance,
+audit for other instances of that class before closing it, and record the
+audit's result alongside the finding's disposition. That audit is not bounded to
+the current diff. In section 5 one reported payload echo in a rejection message
+became three found leaks, and the most serious of them sat in code that had
+already merged through a passing gate, where a diff-scoped audit would not have
+looked. Without the audit the gate closes on the reported instance and the class
+survives.
+
 A manager-supervised section runs the gate to completion before it checkpoints.
 The pull request is merge-ready when continuous integration is green on the
 current head, a review of that head completed, every finding carries a recorded
@@ -470,6 +521,20 @@ than continuing. And the primary build agent applies every repair, so it must
 stay addressable through triage. If its context or channel is lost mid-triage,
 that is a continuity failure: stop, leave the pull request open, and report what
 is triaged and what is not. The manager does not repair on its own.
+
+Reaching the cap with findings outstanding is a checkpoint requiring user
+direction. It is not a failure, and it is never grounds to merge. The pull
+request stays open, the manager reports which findings remain and why each is
+outstanding, and the user directs the next move — authorize a further cycle,
+accept the state as it stands, or change the scope of the pull request. A
+finding that can never be accepted as-is does not become acceptable because the
+cap was reached.
+
+A review that arrives after triage of the same head is already complete reopens
+triage for its findings. It does not consume a cycle, because no repair round
+was spent on it. Two reviews landed five minutes apart on one head in section 5,
+and the later one raised a finding after the repair for the earlier had already
+shipped.
 
 ### Accepting a finding as-is
 
@@ -583,6 +648,26 @@ A section pull request is eligible to merge only when its description records:
 - remaining risks and follow-up work, including anything deferred to the
   supervised production-launch goal.
 
+At a section boundary every carried item is routed to a durable home before the
+pull request merges, and the description records where it went rather than
+restating it. Once the pull request merges its description is scrollback, and a
+follow-up that lives only there is one nobody reads.
+
+The homes are fixed, so routing is mechanical rather than a judgment call:
+
+- an obligation that gates a future section becomes a checkbox in that section
+  of [the task list](task-list.md);
+- a genuinely open choice becomes an entry under
+  [Planning status](planning-status.md) open implementation-planning decisions;
+- a decision or invariant that constrains future code goes to the governing
+  document that owns it; and
+- the rationale, including rejected alternatives, goes to the `.remember/MEMORY.md`
+  decision lane.
+
+A record of what happened stays in the description and is not called a risk.
+Section 5 carried eight follow-up items, two of which were records rather than
+risks.
+
 ## Kickoff prompts
 
 These prompts are compact because the durable requirements already live in the
@@ -590,6 +675,13 @@ repository. Directly supervised work uses only the primary build-agent prompt.
 Manager-supervised work starts with the manager prompt, which gives the primary
 build-agent prompt to one persistent worker through the surface's supported
 communication channel.
+
+Restating a documented default in a kickoff prompt is a defect rather than
+harmless redundancy: it creates two texts that can drift, and the prompt is the
+copy nobody updates. Delegate to the document instead. The section 5 manager
+prompt did exactly that, treating the prompt below as its standing instructions
+and carrying only the execution unit. It ran about half the length of its
+predecessor and produced no drift.
 
 ### Manager kickoff prompt
 

@@ -366,3 +366,7 @@ The lean Vitest suite should prioritize:
 
 - [SimBrief staff explanation that fix details describe the preceding leg](https://forum.navigraph.com/t/departure-airport-in-navlog/19556/2)
 - [iniBuilds L-1011 aircraft manual thread](https://forum.inibuilds.com/topic/35986-aircraft-manual-tristar-airliner/)
+- ARINC Specification 424-17 §5.36 Latitude and §5.37 Longitude, the source of
+  the equator and meridian hemisphere conventions above, read from an
+  [unofficial mirror](https://s8f1feefd4f70cc50.jimcontent.com/download/version/1347002609/module/6126893315/name/ARINC%20424-17.pdf)
+  rather than a purchased copy

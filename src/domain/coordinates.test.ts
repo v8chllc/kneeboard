@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { loadOfpFixture } from "../../tests/support/ofp-fixture-adapter";
 import {
   formatLatitude,
   formatLongitude,
@@ -8,38 +9,43 @@ import {
 } from "./coordinates";
 
 /**
- * Literal inputs are transcribed from the tracked sanitized fixtures, with the
- * fixture and field recorded so slice 3 can cross-check them against the real
- * payload once the fixture adapter exists. The adapter is deliberately not
- * pulled forward into this slice.
+ * Coordinate inputs are read from the tracked sanitized fixtures through the
+ * test adapter rather than transcribed by hand, so a value can never drift from
+ * the payload it claims to come from. Only the expected OUTPUT strings below
+ * are literal.
+ *
+ * Rows are addressed by index, not identifier: valid-ten-boundary-cases.json
+ * repeats the identifier REPEAT at navlog.fix[8] and navlog.fix[10]. The ident
+ * assertions guard against an index drifting if a fixture is regenerated.
  */
+const southernEastern = loadOfpFixture("valid-southern-eastern.json");
+const boundaryCases = loadOfpFixture("valid-ten-boundary-cases.json");
+
 const FIXTURE_VALUES = {
-  /** valid-southern-eastern.json: origin.pos_lat "-30.000000" */
-  southernOriginLatitude: -30.0,
-  /** valid-southern-eastern.json: origin.pos_long "150.000000" */
-  easternOriginLongitude: 150.0,
-  /** valid-southern-eastern.json: navlog.fix[0] EVONN pos_lat "-30.125000" */
-  southernFixLatitude: -30.125,
-  /** valid-southern-eastern.json: navlog.fix[0] EVONN pos_long "150.125000" */
-  easternFixLongitude: 150.125,
-  /** valid-southern-eastern.json: destination.pos_lat "-31.500000" */
-  southernDestinationLatitude: -31.5,
-  /**
-   * valid-ten-boundary-cases.json: navlog.fix[10].pos_lat 12.9999 (bare
-   * number). The identifier REPEAT is ambiguous — it appears at navlog.fix[8]
-   * (12.9) and navlog.fix[10]. This literal is the fix[10] value.
-   */
-  rolloverLatitude: 12.9999,
-  /**
-   * valid-ten-boundary-cases.json: navlog.fix[10].pos_long -179.9999 (bare
-   * number), the same fix[10] row as the latitude above, not fix[8].
-   */
-  antimeridianLongitude: -179.9999,
-  /** valid-ten-boundary-cases.json: navlog.fix[9] ETP pos_lat "12.950000" */
-  etpLatitude: 12.95,
-  /** valid-ten-boundary-cases.json: origin.pos_long "-170.000000" */
-  westernOriginLongitude: -170.0,
+  southernOriginLatitude: southernEastern.origin.latitude,
+  easternOriginLongitude: southernEastern.origin.longitude,
+  southernFixLatitude: southernEastern.fixes[0].latitude,
+  easternFixLongitude: southernEastern.fixes[0].longitude,
+  southernDestinationLatitude: southernEastern.destination.latitude,
+  /** navlog.fix[10], the second row identified as REPEAT. */
+  rolloverLatitude: boundaryCases.fixes[10].latitude,
+  /** navlog.fix[10], the same row as the latitude above. */
+  antimeridianLongitude: boundaryCases.fixes[10].longitude,
+  /** navlog.fix[9], the computed point ETP. */
+  etpLatitude: boundaryCases.fixes[9].latitude,
+  westernOriginLongitude: boundaryCases.origin.longitude,
 } as const;
+
+describe("fixture inputs", () => {
+  it("reads the expected rows from the tracked fixtures", () => {
+    expect(southernEastern.fixes[0].ident).toBe("EVONN");
+    expect(boundaryCases.fixes[9].ident).toBe("ETP");
+    expect(boundaryCases.fixes[10].ident).toBe("REPEAT");
+    // The first REPEAT row is a different position and a different value.
+    expect(boundaryCases.fixes[8].ident).toBe("REPEAT");
+    expect(boundaryCases.fixes[8].latitude).not.toBe(FIXTURE_VALUES.rolloverLatitude);
+  });
+});
 
 describe("formatLatitude", () => {
   it("formats a northern latitude in both representations", () => {
@@ -108,11 +114,20 @@ describe("formatLatitude", () => {
     expect(formatLatitude(-90).keypad).toBe("S 90000");
   });
 
-  it("rejects values the boundary should already have rejected", () => {
+  it("rejects out-of-range and non-finite values", () => {
     expect(() => formatLatitude(90.5)).toThrow(RangeError);
     expect(() => formatLatitude(-91)).toThrow(RangeError);
     expect(() => formatLatitude(Number.NaN)).toThrow(RangeError);
     expect(() => formatLatitude(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+  });
+
+  it("rejects a value just past the pole without rejecting the pole itself", () => {
+    // Range must be checked before rounding: 90.00001 rounds to exactly 54000
+    // tenths and would otherwise be admitted silently as N 90000.
+    expect(() => formatLatitude(90.00001)).toThrow(RangeError);
+    expect(() => formatLatitude(-90.00001)).toThrow(RangeError);
+    expect(formatLatitude(90).keypad).toBe("N 90000");
+    expect(formatLatitude(-90).keypad).toBe("S 90000");
   });
 });
 
@@ -174,10 +189,17 @@ describe("formatLongitude", () => {
     expect(result.tenthsOfMinute).toBe(0);
   });
 
-  it("rejects values the boundary should already have rejected", () => {
+  it("rejects out-of-range and non-finite values", () => {
     expect(() => formatLongitude(180.5)).toThrow(RangeError);
     expect(() => formatLongitude(-181)).toThrow(RangeError);
     expect(() => formatLongitude(Number.NaN)).toThrow(RangeError);
+  });
+
+  it("rejects a value just past the antimeridian without rejecting it", () => {
+    expect(() => formatLongitude(180.00001)).toThrow(RangeError);
+    expect(() => formatLongitude(-180.00001)).toThrow(RangeError);
+    expect(formatLongitude(180).keypad).toBe("E 180000");
+    expect(formatLongitude(-180).keypad).toBe("E 180000");
   });
 });
 

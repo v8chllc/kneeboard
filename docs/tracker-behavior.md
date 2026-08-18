@@ -133,9 +133,13 @@ Kneeboard follows ARINC 424 at those boundaries:
 - `N` is entered for latitudes falling on the equator (§5.36).
 
 This diverges deliberately from ISO 6709 §6.5(b) and §6.5(c), which render the
-180th meridian as `W` over the range `[-180, +180)`. ARINC 424 is the format the
-navigation databases the pilot cross-checks are built from, including the LIDO
-OFPs Kneeboard consumes, so its convention governs here.
+180th meridian as `W` over the range `[-180, +180)`. The choice is not a claim
+about correct real-world practice: Kneeboard is a simulation-only aid and is
+never an approved navigation tool. The simulated OFP data Kneeboard consumes
+already follows the ARINC 424 convention, so matching it keeps the derived
+coordinate display consistent with the source data it is derived from. Adopting
+the opposing convention would make the same position render two ways within one
+simulated flight.
 
 Both displayed representations are derived, read-only data. The MVP provides no
 coordinate-edit override.

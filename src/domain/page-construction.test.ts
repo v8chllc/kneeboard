@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { loadOfpFixture } from "../../tests/support/ofp-fixture-adapter";
+import { isSlotEligibleClassification } from "./classification";
 import { DEFAULT_PROCEDURE_INCLUSION, deriveEligibleSequence } from "./eligibility";
 import { buildNavlog } from "./navlog-construction";
 import { buildPages } from "./page-construction";
@@ -165,42 +166,26 @@ describe("page rebuilding", () => {
   });
 
   it("puts every point on one page when no fix is eligible", () => {
-    // Built inline rather than from a fixture: no tracked fixture classifies
-    // every row as ineligible, and a conditional assertion would pass without
-    // testing the case.
-    const navlog = buildNavlog({
-      generatedAtUnixSeconds: 1,
-      flightNumber: "TST1",
-      origin: { icaoCode: "TSTA", latitude: 1, longitude: 1 },
-      destination: { icaoCode: "TSTB", latitude: 2, longitude: 2 },
-      sidIdent: "",
-      starIdent: "",
-      routeDistance: 3,
-      fixes: [
-        {
-          ident: "TOC",
-          sourceType: "ltlg",
-          isSidStar: false,
-          viaAirway: "DCT",
-          latitude: 1.5,
-          longitude: 1.5,
-          distance: 2,
-        },
-        {
-          ident: "TSTB",
-          sourceType: "apt",
-          isSidStar: false,
-          viaAirway: "DCT",
-          latitude: 2,
-          longitude: 2,
-          distance: 1,
-        },
-      ],
-    });
-    const pages = buildPages(navlog, deriveSlotAssignments([]));
+    // Derived from a sanitized fixture rather than hand-built, and rather than
+    // adding a synthetic file to tests/fixtures/simbrief, whose documented
+    // contract is generated-from-capture by scripts/sanitize_simbrief_fixture.py.
+    // No real OFP has zero eligible fixes, so the case is constructed by
+    // keeping only the fixture rows that are already ineligible.
+    const input = loadOfpFixture("valid-domestic.json");
+    const classified = buildNavlog(input);
+    const ineligibleFixes = input.fixes.filter(
+      (_, index) => !isSlotEligibleClassification(classified.points[index + 1].classification),
+    );
 
+    expect(ineligibleFixes.length).toBeGreaterThan(0);
+
+    const navlog = buildNavlog({ ...input, fixes: ineligibleFixes });
+    const sequence = deriveEligibleSequence(navlog, DEFAULT_PROCEDURE_INCLUSION);
+    expect(sequence).toHaveLength(0);
+
+    const pages = buildPages(navlog, deriveSlotAssignments(sequence));
     expect(pages).toHaveLength(1);
-    expect(pages[0].routeIndexes).toEqual([0, 1, 2]);
+    expect(pages[0].routeIndexes).toEqual(navlog.points.map((point) => point.routeIndex));
   });
 
   it("keeps enroute fixes eligible when both procedures are excluded", () => {

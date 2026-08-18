@@ -517,18 +517,31 @@ checkpoint, not the merge: the user merges.
 
 Two bounds apply to that loop. Review, repair, and re-review at most three times
 on one pull request; at the third, stop and report whatever state exists rather
-than continuing. And the primary build agent applies every repair, so it must
-stay addressable through triage. If its context or channel is lost mid-triage,
+than continuing. The cap counts review passes on that pull request as a whole,
+not per manager-supervised loop, per agent, or per section of the change. And
+the primary build agent applies every repair, so it must stay addressable
+through triage. If its context or channel is lost mid-triage,
 that is a continuity failure: stop, leave the pull request open, and report what
 is triaged and what is not. The manager does not repair on its own.
 
 Reaching the cap with findings outstanding is a checkpoint requiring user
 direction. It is not a failure, and it is never grounds to merge. The pull
-request stays open, the manager reports which findings remain and why each is
-outstanding, and the user directs the next move — authorize a further cycle,
-accept the state as it stands, or change the scope of the pull request. A
-finding that can never be accepted as-is does not become acceptable because the
-cap was reached.
+request stays open and the manager reports which findings remain and why each is
+outstanding.
+
+Only the user may authorize a cycle beyond the cap, and that authorization is an
+exception rather than a bypass. It is granted for named findings, it is recorded
+in the pull-request description together with what it was authorized for, and it
+carries to neither a later pull request nor a further cycle on the same one. A
+manager may not self-authorize a continuation and may not treat one
+authorization as standing. Without that authorization, the state at the cap is
+the state reported.
+
+A finding that can never be accepted as-is does not become acceptable because
+the cap was reached, and the pull request stays ineligible to merge until every
+finding carries a recorded disposition — including findings from a late
+same-head review, which reopens triage without consuming a cycle even once the
+cap is reached.
 
 A review that arrives after triage of the same head is already complete reopens
 triage for its findings. It does not consume a cycle, because no repair round
@@ -676,12 +689,20 @@ Manager-supervised work starts with the manager prompt, which gives the primary
 build-agent prompt to one persistent worker through the surface's supported
 communication channel.
 
-Restating a documented default in a kickoff prompt is a defect rather than
-harmless redundancy: it creates two texts that can drift, and the prompt is the
-copy nobody updates. Delegate to the document instead. The section 5 manager
-prompt did exactly that, treating the prompt below as its standing instructions
-and carrying only the execution unit. It ran about half the length of its
-predecessor and produced no drift.
+The rule that follows governs a per-run prompt, not the templates in this
+section. A per-run prompt that restates what its template already covers is a
+defect rather than harmless redundancy: it creates two texts that can drift, and
+the per-run copy is the one nobody updates. A per-run prompt delegates to the
+template and carries only what is specific to its execution unit. The section 5
+manager prompt did exactly that, treating the template below as its standing
+instructions and carrying only the execution unit; it ran about half the length
+of its predecessor and produced no drift.
+
+The templates themselves necessarily restate the authority, sole-writer,
+production-operation, review, cap, and evidence defaults. Their reader has not
+read this document yet, and establishing those boundaries before the agent knows
+where to look is precisely the template's function. Stripping them out to
+satisfy the rule above would trade a safety boundary for consistency.
 
 ### Manager kickoff prompt
 

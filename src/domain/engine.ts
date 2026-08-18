@@ -19,13 +19,12 @@ import type { TrackerCommand } from "./commands";
 import { DEFAULT_PROCEDURE_INCLUSION, deriveEligibleSequenceForSnapshot } from "./eligibility";
 import type { Navlog } from "./navlog";
 import { selectPassCascade } from "./pass-cascade";
-import { derivePendingRouteIndexes, earliestPendingRouteIndex } from "./slot-state";
-import type {
-  ProcedureInclusion,
-  TrackerSnapshot,
-  WaypointEntry,
-  WaypointState,
-} from "./tracker";
+import {
+  derivePendingRouteIndexes,
+  earliestPendingRouteIndex,
+  stateByRouteIndex,
+} from "./slot-state";
+import type { ProcedureInclusion, TrackerSnapshot, WaypointEntry } from "./tracker";
 
 /** Why a command was rejected. */
 export type TrackerCommandRejection =
@@ -44,7 +43,9 @@ export type TrackerCommandRejection =
   /** Only a saved fix may be passed. */
   | "notSaved"
   /** The command's type is not one this engine recognizes. */
-  | "unknownCommand";
+  | "unknownCommand"
+  /** The command's type is recognized but its fields are not well formed. */
+  | "malformedCommand";
 
 /**
  * The result of applying a command. Failures are returned rather than thrown,
@@ -65,10 +66,6 @@ function applied(snapshot: TrackerSnapshot): TrackerCommandResult {
 
 function rejected(reason: TrackerCommandRejection, message: string): TrackerCommandResult {
   return { outcome: "rejected", reason, message };
-}
-
-function stateByRouteIndex(snapshot: TrackerSnapshot): ReadonlyMap<number, WaypointState> {
-  return new Map(snapshot.waypoints.map((waypoint) => [waypoint.routeIndex, waypoint.state]));
 }
 
 /**
@@ -235,6 +232,93 @@ function applyProcedureInclusion(
   return applied(recalculateSnapshot(navlog, { ...snapshot, procedureInclusion: inclusion }));
 }
 
+/** The command types this engine recognizes. */
+const KNOWN_COMMAND_TYPES: ReadonlySet<string> = new Set([
+  "saveWaypoint",
+  "passWaypoint",
+  "skipWaypoint",
+  "setProcedureInclusion",
+]);
+
+/**
+ * Names a command's type without echoing anything the payload supplied.
+ *
+ * A command decoded from a request payload or persisted JSON is untrusted and
+ * may carry coordinates, Pilot IDs, or other sensitive values, so no rejection
+ * message may interpolate any part of it. Serializing such a payload could also
+ * throw on a circular or exotic value, inside the very branch whose purpose is
+ * not to throw.
+ *
+ * The returned string is always drawn from this module's own constants, never
+ * from the payload: a recognized discriminant is echoed because it is one of
+ * four fixed values, and anything else — absent, non-string, over-long, or
+ * simply unknown — collapses to a placeholder. An attacker-supplied `type`
+ * therefore cannot reach a log through a rejection message.
+ */
+function describeCommandType(command: unknown): string {
+  if (typeof command !== "object" || command === null) {
+    return "<non-object>";
+  }
+
+  const type: unknown = (command as { type?: unknown }).type;
+
+  return typeof type === "string" && KNOWN_COMMAND_TYPES.has(type) ? type : "<unrecognized>";
+}
+
+/**
+ * Rejects a command whose fields are not well formed, before any of them reach
+ * a derivation or a rejection message.
+ *
+ * The engine is total, so a command decoded from an untrusted payload must
+ * produce a rejection rather than an exception or a silently corrupted
+ * snapshot. Validating here also guarantees that every message below
+ * interpolates only values this function has already checked.
+ *
+ * Returns `null` when the command is well formed.
+ */
+function validateCommandShape(command: TrackerCommand): TrackerCommandResult | null {
+  if (typeof command.expectedVersion !== "number" || !Number.isFinite(command.expectedVersion)) {
+    return rejected(
+      "malformedCommand",
+      `${describeCommandType(command)} requires a numeric expectedVersion`,
+    );
+  }
+
+  switch (command.type) {
+    case "saveWaypoint":
+    case "passWaypoint":
+    case "skipWaypoint":
+      return Number.isInteger(command.routeIndex)
+        ? null
+        : rejected(
+            "malformedCommand",
+            `${describeCommandType(command)} requires an integer routeIndex`,
+          );
+
+    case "setProcedureInclusion": {
+      const inclusion: unknown = command.inclusion;
+      if (typeof inclusion !== "object" || inclusion === null) {
+        return rejected(
+          "malformedCommand",
+          "setProcedureInclusion requires an inclusion object",
+        );
+      }
+
+      const { sid, star } = inclusion as { sid?: unknown; star?: unknown };
+      return typeof sid === "boolean" && typeof star === "boolean"
+        ? null
+        : rejected(
+            "malformedCommand",
+            "setProcedureInclusion requires boolean sid and star values",
+          );
+    }
+
+    default:
+      // An unrecognized type is reported by the dispatch below.
+      return null;
+  }
+}
+
 /**
  * Applies one typed command to a snapshot.
  *
@@ -247,6 +331,11 @@ export function applyCommand(
   snapshot: TrackerSnapshot,
   command: TrackerCommand,
 ): TrackerCommandResult {
+  const malformed = validateCommandShape(command);
+  if (malformed !== null) {
+    return malformed;
+  }
+
   if (command.expectedVersion !== snapshot.version) {
     return rejected(
       "versionMismatch",
@@ -271,7 +360,7 @@ export function applyCommand(
       const unhandled: never = command;
       return rejected(
         "unknownCommand",
-        `unrecognized command: ${JSON.stringify(unhandled)}`,
+        `unrecognized command type: ${describeCommandType(unhandled)}`,
       );
     }
   }

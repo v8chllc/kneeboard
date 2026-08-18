@@ -468,17 +468,112 @@ describe("Pass", () => {
   });
 });
 
-describe("unknown commands", () => {
+describe("untrusted commands", () => {
+  const SENSITIVE = "PILOT-ID-1234567890";
+
+  function reject(command: unknown) {
+    const snapshot = createInitialSnapshot(navlog);
+    const result = applyCommand(navlog, snapshot, command as TrackerCommand);
+    expect(result.outcome).toBe("rejected");
+    if (result.outcome !== "rejected") {
+      throw new Error("expected a rejection");
+    }
+    return result;
+  }
+
   it("rejects an unrecognized command type instead of throwing", () => {
     // Section 8 decodes commands from request payloads and persisted JSON, so a
     // malformed command must return a rejection like any other failure.
-    const malformed = { type: "teleport", expectedVersion: 0 } as unknown as TrackerCommand;
+    const command = { type: "teleport", expectedVersion: 0 };
 
-    expect(() => applyCommand(navlog, createInitialSnapshot(navlog), malformed)).not.toThrow();
-    expect(applyCommand(navlog, createInitialSnapshot(navlog), malformed)).toMatchObject({
-      outcome: "rejected",
-      reason: "unknownCommand",
-    });
+    expect(() => applyCommand(navlog, createInitialSnapshot(navlog), command as TrackerCommand))
+      .not.toThrow();
+    expect(reject(command).reason).toBe("unknownCommand");
+  });
+
+  it("rejects a command whose fields are not well formed", () => {
+    expect(reject({ type: "saveWaypoint", expectedVersion: 0, routeIndex: 1.5 }).reason).toBe(
+      "malformedCommand",
+    );
+    expect(reject({ type: "passWaypoint", expectedVersion: 0, routeIndex: "3" }).reason).toBe(
+      "malformedCommand",
+    );
+    expect(reject({ type: "skipWaypoint", expectedVersion: 0 }).reason).toBe("malformedCommand");
+    expect(reject({ type: "saveWaypoint", routeIndex: 1 }).reason).toBe("malformedCommand");
+    expect(
+      reject({ type: "saveWaypoint", expectedVersion: Number.NaN, routeIndex: 1 }).reason,
+    ).toBe("malformedCommand");
+  });
+
+  it("rejects a procedure inclusion command with non-boolean or missing values", () => {
+    for (const inclusion of [
+      undefined,
+      null,
+      "both",
+      { sid: true },
+      { sid: "yes", star: true },
+      { sid: true, star: 1 },
+    ]) {
+      expect(
+        reject({ type: "setProcedureInclusion", expectedVersion: 0, inclusion }).reason,
+      ).toBe("malformedCommand");
+    }
+  });
+
+  it("still applies a well-formed inclusion command and still honours the lock", () => {
+    // Validation must not disturb the documented behavior around it.
+    const applied = expectApplied(
+      applyCommand(navlog, createInitialSnapshot(navlog), {
+        type: "setProcedureInclusion",
+        expectedVersion: 0,
+        inclusion: { sid: false, star: true },
+      }),
+    );
+    expect(applied.procedureInclusion).toEqual({ sid: false, star: true });
+
+    expect(
+      applyCommand(navlog, savedThrough(navlog, 1), {
+        type: "setProcedureInclusion",
+        expectedVersion: 0,
+        inclusion: { sid: false, star: true },
+      }),
+    ).toMatchObject({ outcome: "rejected", reason: "procedureControlsLocked" });
+  });
+
+  it("never echoes the command payload in a rejection message", () => {
+    // A command decoded from a payload may carry coordinates or a Pilot ID, and
+    // a rejection message is exactly the kind of value that reaches a log.
+    const payloads: unknown[] = [
+      { type: SENSITIVE, expectedVersion: 0 },
+      { type: "saveWaypoint", expectedVersion: 0, routeIndex: SENSITIVE },
+      { type: "passWaypoint", expectedVersion: SENSITIVE, routeIndex: 1 },
+      {
+        type: "setProcedureInclusion",
+        expectedVersion: 0,
+        inclusion: { sid: SENSITIVE, star: SENSITIVE },
+      },
+      // Well-formed but rejected, carrying an extra field the engine ignores.
+      { type: "skipWaypoint", expectedVersion: 0, routeIndex: 0, secret: SENSITIVE },
+    ];
+
+    for (const payload of payloads) {
+      expect(reject(payload).message).not.toContain(SENSITIVE);
+    }
+  });
+
+  it("bounds an over-long command type rather than echoing it whole", () => {
+    const result = reject({ type: "x".repeat(500), expectedVersion: 0 });
+
+    expect(result.message.length).toBeLessThan(120);
+  });
+
+  it("does not throw on a circular or exotic payload", () => {
+    const circular: Record<string, unknown> = { type: "saveWaypoint", expectedVersion: 0 };
+    circular.self = circular;
+
+    expect(() =>
+      applyCommand(navlog, createInitialSnapshot(navlog), circular as unknown as TrackerCommand),
+    ).not.toThrow();
   });
 });
 

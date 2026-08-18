@@ -114,6 +114,13 @@ describe("formatLatitude", () => {
     expect(formatLatitude(-90).keypad).toBe("S 90000");
   });
 
+  it("does not include the coordinate in the range error", () => {
+    // Coordinates are sensitive under AGENTS.md and must never reach a log.
+    expect(() => formatLatitude(91.234567)).toThrow(/latitude is outside the range/);
+    expect(() => formatLatitude(91.234567)).not.toThrow(/91\.234567/);
+    expect(() => formatLongitude(-181.7654)).not.toThrow(/181\.7654/);
+  });
+
   it("rejects out-of-range and non-finite values", () => {
     expect(() => formatLatitude(90.5)).toThrow(RangeError);
     expect(() => formatLatitude(-91)).toThrow(RangeError);

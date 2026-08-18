@@ -121,7 +121,9 @@ function assertInRange(value: number, maxDegrees: number, axis: string): void {
     throw new RangeError(`${axis} must be a finite number`);
   }
   if (Math.abs(value) > maxDegrees) {
-    throw new RangeError(`${axis} is out of range: ${value}`);
+    // The out-of-range value is deliberately not included: coordinates are
+    // sensitive under AGENTS.md and an error message can reach a log.
+    throw new RangeError(`${axis} is outside the range [-${maxDegrees}, ${maxDegrees}]`);
   }
 }
 

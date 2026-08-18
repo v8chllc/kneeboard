@@ -8,9 +8,14 @@ import {
 } from "../../tests/support/tracker-scenarios";
 import { createInitialSnapshot } from "./engine";
 import { selectPassCascade } from "./pass-cascade";
+import type { TrackerSnapshot } from "./tracker";
 
 const navlog = navlogFor("valid-multi-page.json");
 const eligible = eligibleOf(navlog);
+
+function stateOf(snapshot: TrackerSnapshot, routeIndex: number) {
+  return snapshot.waypoints.find((waypoint) => waypoint.routeIndex === routeIndex)?.state;
+}
 
 describe("selectPassCascade", () => {
   it("selects only the target when it is the sole saved fix", () => {
@@ -74,10 +79,14 @@ describe("selectPassCascade", () => {
   it("rejects a fix that is not saved", () => {
     const snapshot = savedThrough(navlog, 9, { passedThrough: 2 });
 
-    // In this snapshot eligible[0] is passed, eligible[12] is pending, and
-    // eligible[30] is queued. The skipped case is covered separately below,
-    // and the pending case again from a fresh tracker.
-    for (const routeIndex of [eligible[0], eligible[12], eligible[30]]) {
+    // Asserted rather than described, because a comment about which state each
+    // fix is in can drift from the snapshot without anything failing.
+    expect(stateOf(snapshot, eligible[0])).toBe("passed");
+    expect(stateOf(snapshot, eligible[9])).toBe("pending");
+    expect(stateOf(snapshot, eligible[12])).toBe("queued");
+    expect(stateOf(snapshot, eligible[30])).toBe("queued");
+
+    for (const routeIndex of [eligible[0], eligible[9], eligible[12], eligible[30]]) {
       expect(selectPassCascade(snapshot, routeIndex)).toMatchObject({
         outcome: "rejected",
         reason: "notSaved",

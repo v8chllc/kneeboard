@@ -26,7 +26,15 @@ export interface SlotState {
   readonly free: boolean;
 }
 
-function stateByRouteIndex(snapshot: TrackerSnapshot): ReadonlyMap<number, WaypointState> {
+/**
+ * Indexes waypoint state by route index.
+ *
+ * Exported so the engine shares this one implementation rather than keeping a
+ * second copy of it.
+ */
+export function stateByRouteIndex(
+  snapshot: TrackerSnapshot,
+): ReadonlyMap<number, WaypointState> {
   return new Map(snapshot.waypoints.map((waypoint) => [waypoint.routeIndex, waypoint.state]));
 }
 

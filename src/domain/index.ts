@@ -53,6 +53,25 @@ export {
 
 export { buildPages } from "./page-construction";
 
+export { deriveSlidingWindow } from "./sliding-window";
+
+export type { SlotState } from "./slot-state";
+export {
+  deriveFreeSlots,
+  derivePendingRouteIndexes,
+  deriveSlotStates,
+  earliestPendingRouteIndex,
+  mostRecentlyPassedRouteIndex,
+} from "./slot-state";
+
+export type { TrackerCommandRejection, TrackerCommandResult } from "./engine";
+export {
+  applyCommand,
+  areProcedureControlsLocked,
+  createInitialSnapshot,
+  recalculateSnapshot,
+} from "./engine";
+
 export type { Page } from "./pages";
 
 export type {

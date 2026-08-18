@@ -13,6 +13,9 @@ import {
   savedThrough,
   snapshotWithFacts,
 } from "../../tests/support/tracker-scenarios";
+import { buildPages } from "./page-construction";
+import { deriveSlidingWindow } from "./sliding-window";
+import { deriveFreeSlots, derivePendingRouteIndexes } from "./slot-state";
 import { deriveSlotAssignments, slotByRouteIndex } from "./slot-assignment";
 import { deriveEligibleSequence, deriveEligibleSequenceForSnapshot } from "./eligibility";
 import type { TrackerSnapshot } from "./tracker";
@@ -334,16 +337,134 @@ describe("procedure inclusion", () => {
 });
 
 describe("Pass", () => {
-  it("is rejected as not implemented until slice 5b", () => {
-    // Pass and its shared cascade selection land together, so that the Pass
-    // preview and the Pass command cannot diverge.
-    expect(
-      applyCommand(navlog, savedThrough(navlog, 5), {
+  it("passes a single saved fix without freeing its slot", () => {
+    const snapshot = savedThrough(navlog, 9);
+    const next = expectApplied(
+      applyCommand(navlog, snapshot, {
         type: "passWaypoint",
         expectedVersion: 0,
-        routeIndex: eligible[2],
+        routeIndex: eligible[0],
       }),
-    ).toMatchObject({ outcome: "rejected", reason: "notImplemented" });
+    );
+
+    expect(stateOf(next, eligible[0])).toBe("passed");
+    // Deferred release: the most recently passed fix anchors the active leg.
+    expect(deriveFreeSlots(navlog, next)).toEqual([]);
+    expect(derivePendingRouteIndexes(navlog, next)).toEqual([]);
+  });
+
+  it("cascades to every earlier saved-but-unpassed fix", () => {
+    const snapshot = savedThrough(navlog, 9);
+    const next = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "passWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[5],
+      }),
+    );
+
+    for (const routeIndex of eligible.slice(0, 6)) {
+      expect(stateOf(next, routeIndex)).toBe("passed");
+    }
+    for (const routeIndex of eligible.slice(6, 9)) {
+      expect(stateOf(next, routeIndex)).toBe("saved");
+    }
+  });
+
+  it("frees every affected slot except the newly passed one and promotes into them", () => {
+    const snapshot = savedThrough(navlog, 9);
+    const next = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "passWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[4],
+      }),
+    );
+
+    // Slots 1-4 released; slot 5 anchors the active leg.
+    expect(deriveFreeSlots(navlog, next)).toEqual([1, 2, 3, 4]);
+    // Several fixes promote to pending together, which is what the direct-to
+    // case requires.
+    expect(derivePendingRouteIndexes(navlog, next)).toEqual(eligible.slice(9, 13));
+    for (const routeIndex of eligible.slice(9, 13)) {
+      expect(stateOf(next, routeIndex)).toBe("pending");
+    }
+  });
+
+  it("never renumbers slots", () => {
+    const snapshot = savedThrough(navlog, 9);
+    const before = slotByRouteIndex(
+      deriveSlotAssignments(deriveEligibleSequenceForSnapshot(navlog, snapshot)),
+    );
+    const next = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "passWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[4],
+      }),
+    );
+    const after = slotByRouteIndex(
+      deriveSlotAssignments(deriveEligibleSequenceForSnapshot(navlog, next)),
+    );
+
+    expect([...after.entries()]).toEqual([...before.entries()]);
+  });
+
+  it("does not rebuild pages", () => {
+    const snapshot = savedThrough(navlog, 9);
+    const pagesOf = (state: TrackerSnapshot) =>
+      buildPages(
+        navlog,
+        deriveSlotAssignments(deriveEligibleSequenceForSnapshot(navlog, state)),
+      );
+    const before = pagesOf(snapshot);
+    const next = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "passWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[4],
+      }),
+    );
+
+    expect(pagesOf(next)).toEqual(before);
+  });
+
+  it("does not change sliding window membership", () => {
+    const snapshot = savedThrough(navlog, 9);
+    const before = deriveSlidingWindow(snapshot);
+    const next = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "passWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[4],
+      }),
+    );
+
+    expect(deriveSlidingWindow(next)).toEqual(before);
+  });
+
+  it("rejects passing a fix that is not saved", () => {
+    const snapshot = savedThrough(navlog, 9, { passedThrough: 2 });
+
+    for (const routeIndex of [eligible[0], eligible[9], eligible[30]]) {
+      expect(
+        applyCommand(navlog, snapshot, {
+          type: "passWaypoint",
+          expectedVersion: 0,
+          routeIndex,
+        }),
+      ).toMatchObject({ outcome: "rejected", reason: "notSaved" });
+    }
+  });
+
+  it("rejects passing a point that is not an eligible fix", () => {
+    expect(
+      applyCommand(navlog, savedThrough(navlog, 3), {
+        type: "passWaypoint",
+        expectedVersion: 0,
+        routeIndex: 0,
+      }),
+    ).toMatchObject({ outcome: "rejected", reason: "unknownWaypoint" });
   });
 });
 

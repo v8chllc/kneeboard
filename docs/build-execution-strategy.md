@@ -450,7 +450,11 @@ commits directly to `main`.
 
 - Read-only delegation: at most four concurrent subagents, each with a bounded
   question and an expected summary shape.
-- Parallel writing: zero by default. The primary build agent is the only writer.
+- Parallel writing: zero by default. The primary build agent is the only writer
+  of tracked repository files and the section branch, matching the manager's
+  read-only scope above. That scope is what the rule protects: integration
+  integrity and concurrent edits to one checkout. It does not reach untracked
+  artifacts outside the section branch, such as files under `.local/`.
 - Exceptional parallel writing requires all of: genuinely independent module
   boundaries, separate worktrees and branches, at most two concurrent writers,
   and explicit user approval before the work starts. Integration back to the
@@ -664,7 +668,11 @@ A section pull request is eligible to merge only when its description records:
 At a section boundary every carried item is routed to a durable home before the
 pull request merges, and the description records where it went rather than
 restating it. Once the pull request merges its description is scrollback, and a
-follow-up that lives only there is one nobody reads.
+follow-up that lives only there is one nobody reads. Routing a carried item does
+not defer or waive an independent-review finding: an item is routed only after
+its finding is validly triaged, and routing never substitutes for fixing the
+finding or for a documented acceptance under
+[Accepting a finding as-is](#accepting-a-finding-as-is).
 
 The homes are fixed, so routing is mechanical rather than a judgment call:
 

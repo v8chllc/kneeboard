@@ -121,6 +121,22 @@ When source coordinates have greater precision, conversion rounds to the nearest
 tenth of a minute. Conversion must correctly carry `60.0` minutes into the next
 degree and preserve the correct hemisphere at boundary cases.
 
+The hemisphere is determined after rounding and after any carry, from the
+rounded value. A value whose magnitude rounds to zero lies on the meridian or
+the equator regardless of the sign of its input.
+
+Kneeboard follows ARINC 424 at those boundaries:
+
+- `E` is entered for longitudes falling on the `0` or `180` degree meridians
+  (§5.37), so the longitude range is `(-180, +180]` and a west longitude that
+  carries onto the 180th meridian renders as `E`.
+- `N` is entered for latitudes falling on the equator (§5.36).
+
+This diverges deliberately from ISO 6709 §6.5(b) and §6.5(c), which render the
+180th meridian as `W` over the range `[-180, +180)`. ARINC 424 is the format the
+navigation databases the pilot cross-checks are built from, including the LIDO
+OFPs Kneeboard consumes, so its convention governs here.
+
 Both displayed representations are derived, read-only data. The MVP provides no
 coordinate-edit override.
 

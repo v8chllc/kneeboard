@@ -2,10 +2,10 @@
  * Coordinate conversion and formatting.
  *
  * The OFP supplies each position only as signed decimal degrees, so both
- * displayed representations — the keypad-ready value the pilot types into the
- * INS and the LIDO reference value used to cross-check it — are derived here
- * from that single source, through a single rounded intermediate, so they can
- * never disagree.
+ * displayed representations — the keypad-ready value entered into the simulated
+ * INS and the LIDO reference value shown beside it — are derived here from that
+ * single source, through a single rounded intermediate, so they can never
+ * disagree.
  *
  * Governed by `docs/tracker-behavior.md` §Coordinate presentation.
  */
@@ -17,10 +17,13 @@ const TENTHS_PER_DEGREE = 600;
 const TENTHS_PER_MINUTE = 10;
 
 /** Latitude magnitude never exceeds 90 degrees. */
-const MAX_LATITUDE_TENTHS = 90 * TENTHS_PER_DEGREE;
+const MAX_LATITUDE_DEGREES = 90;
 
 /** Longitude magnitude never exceeds 180 degrees. */
-const MAX_LONGITUDE_TENTHS = 180 * TENTHS_PER_DEGREE;
+const MAX_LONGITUDE_DEGREES = 180;
+
+/** The 180th meridian in tenths of a minute, used to normalize -180 to +180. */
+const ANTIMERIDIAN_TENTHS = MAX_LONGITUDE_DEGREES * TENTHS_PER_DEGREE;
 
 export type LatitudeHemisphere = "N" | "S";
 export type LongitudeHemisphere = "E" | "W";
@@ -102,15 +105,22 @@ function present(
 }
 
 /**
- * Guards against values the boundary should already have rejected. This is a
- * programmer-error guard, not boundary validation: Zod range-checks the payload
- * in the transport layer before any of it reaches the domain.
+ * Rejects a value outside the axis range.
+ *
+ * The check is applied to the supplied value, not to the rounded one: rounding
+ * first would pull an out-of-range value such as 90.00001 back onto the pole
+ * and admit it silently.
+ *
+ * Task-list section 8 is expected to range-check the payload with Zod at the
+ * transport boundary, but that boundary does not exist yet, so this guard is
+ * currently the only range check on the path into the domain and must not be
+ * weakened when the boundary lands.
  */
-function assertInRange(value: number, maxTenths: number, axis: string): void {
+function assertInRange(value: number, maxDegrees: number, axis: string): void {
   if (!Number.isFinite(value)) {
     throw new RangeError(`${axis} must be a finite number`);
   }
-  if (Math.abs(roundToTenthsOfMinute(value)) > maxTenths) {
+  if (Math.abs(value) > maxDegrees) {
     throw new RangeError(`${axis} is out of range: ${value}`);
   }
 }
@@ -125,7 +135,7 @@ function assertInRange(value: number, maxTenths: number, axis: string): void {
  * and negative zero, for which a sign-bit test would wrongly yield `S`.
  */
 export function formatLatitude(latitude: number): CoordinatePresentation {
-  assertInRange(latitude, MAX_LATITUDE_TENTHS, "latitude");
+  assertInRange(latitude, MAX_LATITUDE_DEGREES, "latitude");
 
   const roundedTenths = roundToTenthsOfMinute(latitude);
   const hemisphere: LatitudeHemisphere = roundedTenths < 0 ? "S" : "N";
@@ -147,13 +157,13 @@ export function formatLatitude(latitude: number): CoordinatePresentation {
  * meridian `W`. See `docs/tracker-behavior.md` §Coordinate presentation.
  */
 export function formatLongitude(longitude: number): CoordinatePresentation {
-  assertInRange(longitude, MAX_LONGITUDE_TENTHS, "longitude");
+  assertInRange(longitude, MAX_LONGITUDE_DEGREES, "longitude");
 
   const roundedTenths = roundToTenthsOfMinute(longitude);
   // Normalize onto the ARINC 424 range (-180, +180] before choosing the
   // hemisphere, so the 180th meridian is reached as +180 from either direction.
   const normalizedTenths =
-    roundedTenths === -MAX_LONGITUDE_TENTHS ? MAX_LONGITUDE_TENTHS : roundedTenths;
+    roundedTenths === -ANTIMERIDIAN_TENTHS ? ANTIMERIDIAN_TENTHS : roundedTenths;
   const hemisphere: LongitudeHemisphere = normalizedTenths < 0 ? "W" : "E";
 
   return present(hemisphere, Math.abs(normalizedTenths), 3);

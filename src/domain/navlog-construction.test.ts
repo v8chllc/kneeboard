@@ -156,6 +156,26 @@ describe("fixture adapter strictness", () => {
     );
   });
 
+  it("rejects a numeric string that overflows to a non-finite number", () => {
+    expect(() =>
+      adaptOfpFixture(
+        {
+          params: { time_generated: "9".repeat(400) },
+          general: {
+            flight_number: "TST1",
+            sid_ident: "",
+            star_ident: "",
+            route_distance: 1,
+          },
+          origin: { icao_code: "TSTA", pos_lat: 1, pos_long: 1 },
+          destination: { icao_code: "TSTB", pos_lat: 1, pos_long: 1 },
+          navlog: { fix: [] },
+        },
+        "synthetic",
+      ),
+    ).toThrow(/time_generated does not convert to a finite number/);
+  });
+
   it("reports the field path that failed", () => {
     expect(() => loadOfpFixture("invalid-empty-sections.json")).toThrow(/time_generated/);
   });

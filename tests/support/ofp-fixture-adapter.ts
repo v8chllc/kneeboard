@@ -78,7 +78,13 @@ function requiredNumber(
     return value;
   }
   if (typeof value === "string" && NUMERIC_STRING.test(value)) {
-    return Number(value);
+    const converted = Number(value);
+    // A syntactically valid numeric string can still overflow to Infinity. The
+    // adapter throws on anything unexpected rather than coercing it.
+    if (!Number.isFinite(converted)) {
+      fail(fixture, path, "does not convert to a finite number");
+    }
+    return converted;
   }
   return fail(fixture, path, "is neither a number nor a numeric string");
 }

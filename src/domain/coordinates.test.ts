@@ -116,9 +116,14 @@ describe("formatLatitude", () => {
 
   it("does not include the coordinate in the range error", () => {
     // Coordinates are sensitive under AGENTS.md and must never reach a log.
-    expect(() => formatLatitude(91.234567)).toThrow(/latitude is outside the range/);
-    expect(() => formatLatitude(91.234567)).not.toThrow(/91\.234567/);
-    expect(() => formatLongitude(-181.7654)).not.toThrow(/181\.7654/);
+    // Anchored so the message must be exactly the sanitized text: that proves
+    // no coordinate is present, which a negative match on one value cannot.
+    expect(() => formatLatitude(91.234567)).toThrow(
+      /^latitude is outside the range \[-90, 90\]$/,
+    );
+    expect(() => formatLongitude(-181.7654)).toThrow(
+      /^longitude is outside the range \[-180, 180\]$/,
+    );
   });
 
   it("rejects out-of-range and non-finite values", () => {

@@ -10,8 +10,6 @@
  * AGENTS.md §Domain Invariants.
  */
 
-import type { SlotNumber } from "./slots";
-
 /**
  * The lifecycle state of one eligible fix.
  *
@@ -26,16 +24,19 @@ import type { SlotNumber } from "./slots";
  */
 export type WaypointState = "queued" | "pending" | "saved" | "passed" | "skipped";
 
-/** The mutable state of one eligible fix, keyed by its stable route index. */
+/**
+ * The mutable state of one eligible fix, keyed by its stable route index.
+ *
+ * No slot is stored. A fix's slot follows determinately from its position in
+ * the eligible sequence, and a saved fix's derived slot can never drift from
+ * the slot it was written into: Skip applies only to queued or pending fixes,
+ * and only the earliest pending fix may be saved, so no skip can ever occur
+ * earlier in the route than a saved fix.
+ */
 export interface WaypointEntry {
   /** Index into `Navlog.points`. Stable across every renumbering. */
   readonly routeIndex: number;
   readonly state: WaypointState;
-  /**
-   * The slot this fix occupies or expects. `null` only when the fix is
-   * `skipped`, which consumes no slot.
-   */
-  readonly slot: SlotNumber | null;
 }
 
 /**
@@ -66,8 +67,9 @@ export type SlidingWindow = readonly number[];
  *
  * Slot assignment, page membership, the sliding window, and the permanent lock
  * on the procedure controls are all derived from these fields plus the
- * immutable navlog, so they are not stored redundantly where they could
- * disagree with the state they are derived from.
+ * immutable navlog, which shares the same persisted tracker row, so derivation
+ * never needs an extra fetch. Nothing derived is stored, so nothing stored can
+ * disagree with what it derives from.
  */
 export interface TrackerSnapshot {
   /**

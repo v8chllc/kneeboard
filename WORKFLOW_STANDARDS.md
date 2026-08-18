@@ -24,6 +24,17 @@ When polling in the background for a CodeRabbit review, fix, or reply:
   as a pull-request comment, or as a status check on the head, and which one it
   uses is not predictable from the request. A watcher keyed to only one shape
   reports nothing while the answer sits unread in another.
+- Know the two shapes that look like a stalled gate but are not. CodeRabbit
+  publishes through a commit status rather than a check run, so a check-runs
+  query returns nothing for it; query the commit status for the head instead.
+  And a completed status carrying no review object means reviewed with nothing
+  actionable, not not-reviewed.
+- Match a response to the current head rather than counting responses. Compare a
+  review's `commit_id` against the head SHA: an invocation acknowledgment is not
+  a review, and a late review of an earlier head inflates the count without
+  covering the commit that will merge. Both produced false positives within a
+  single section. Counting answers the question "did something arrive", not the
+  question the gate asks, which is "was this commit reviewed".
 - Filter on content, not on counts. Excluding the "Currently processing" notice
   by requiring a second comment also excludes a single substantive reply. Match
   the notice text and ignore it; trip on the first comment that is not it.

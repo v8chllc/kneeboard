@@ -193,6 +193,25 @@ writer and integrator; human-only approval boundaries remain with the user.
   states, concurrency conflicts, and load idempotency.
 - Run relevant lint, type, and test checks for every change and report exactly
   what was and was not verified.
+- Confirm a new assertion can fail before trusting it: remove the behavior it
+  guards, watch the assertion fail, then restore. Lint, type checks, and a green
+  suite all report success on a test that asserts nothing, so no gate catches
+  this. Recurring shapes that pass while proving nothing are a negative
+  assertion satisfied by the code not running at all, a comparison against a
+  mocked rather than the real implementation, a branch conditioned on whether a
+  fixture happens to contain the case, a bounded search asserting exhaustion it
+  never reached, and an assertion over a state the implementation cannot
+  produce.
+- When a slice must handle a state before the operation that produces it
+  exists, build that state directly in its tests and record a forward
+  obligation in the slice bound naming the later slice that re-reaches every
+  such state through the real operation and compares the result. A directly
+  built state can encode something the implementation can never produce, and
+  the suite then verifies a fiction while passing.
+- Where two constructors can produce the same type, prove one produces output
+  identical to the other for every tracked fixture. Two normalizers that must
+  agree will otherwise diverge on an edge case that no test covers, and the
+  suite stays green while production fails.
 - Keep Playwright manual for MVP unless the governing documents are changed.
 - Commit Drizzle migrations.
 - Never run production migrations automatically during a Vercel build.

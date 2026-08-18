@@ -23,3 +23,13 @@ export type SlotNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
  * deferred by one Pass.
  */
 export type SlotAvailability = "free" | "occupied";
+
+/**
+ * A derived slot assignment for one eligible fix. Never persisted: it follows
+ * from the fix's position in the eligible sequence and is recomputed on read.
+ */
+export interface SlotAssignment {
+  /** Index into `Navlog.points`. */
+  readonly routeIndex: number;
+  readonly slot: SlotNumber;
+}

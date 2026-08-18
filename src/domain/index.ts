@@ -34,8 +34,24 @@ export type {
 } from "./navlog";
 export { KNOWN_SOURCE_TYPES } from "./navlog";
 
-export type { SlotAvailability, SlotNumber } from "./slots";
+export type { SlotAssignment, SlotAvailability, SlotNumber } from "./slots";
 export { SLOT_COUNT } from "./slots";
+
+export {
+  DEFAULT_PROCEDURE_INCLUSION,
+  deriveEligibleSequence,
+  deriveEligibleSequenceForSnapshot,
+  isEligibleUnderInclusion,
+  skippedRouteIndexes,
+} from "./eligibility";
+
+export {
+  deriveSlotAssignments,
+  slotByRouteIndex,
+  slotForEligiblePosition,
+} from "./slot-assignment";
+
+export { buildPages } from "./page-construction";
 
 export type { Page } from "./pages";
 

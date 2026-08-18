@@ -18,17 +18,24 @@ const FIXTURE_VALUES = {
   southernOriginLatitude: -30.0,
   /** valid-southern-eastern.json: origin.pos_long "150.000000" */
   easternOriginLongitude: 150.0,
-  /** valid-southern-eastern.json: navlog.fix[0].pos_lat "-30.125000" */
+  /** valid-southern-eastern.json: navlog.fix[0] EVONN pos_lat "-30.125000" */
   southernFixLatitude: -30.125,
-  /** valid-southern-eastern.json: navlog.fix[0].pos_long "150.125000" */
+  /** valid-southern-eastern.json: navlog.fix[0] EVONN pos_long "150.125000" */
   easternFixLongitude: 150.125,
   /** valid-southern-eastern.json: destination.pos_lat "-31.500000" */
   southernDestinationLatitude: -31.5,
-  /** valid-ten-boundary-cases.json: REPEAT fix pos_lat 12.9999 (bare number) */
+  /**
+   * valid-ten-boundary-cases.json: navlog.fix[10].pos_lat 12.9999 (bare
+   * number). The identifier REPEAT is ambiguous — it appears at navlog.fix[8]
+   * (12.9) and navlog.fix[10]. This literal is the fix[10] value.
+   */
   rolloverLatitude: 12.9999,
-  /** valid-ten-boundary-cases.json: REPEAT fix pos_long -179.9999 (bare number) */
+  /**
+   * valid-ten-boundary-cases.json: navlog.fix[10].pos_long -179.9999 (bare
+   * number), the same fix[10] row as the latitude above, not fix[8].
+   */
   antimeridianLongitude: -179.9999,
-  /** valid-ten-boundary-cases.json: ETP fix pos_lat "12.950000" */
+  /** valid-ten-boundary-cases.json: navlog.fix[9] ETP pos_lat "12.950000" */
   etpLatitude: 12.95,
   /** valid-ten-boundary-cases.json: origin.pos_long "-170.000000" */
   westernOriginLongitude: -170.0,

@@ -222,8 +222,8 @@ testable throughout development.
 
 - [x] Define framework-independent domain types and typed commands.
 - [x] Implement coordinate conversion and formatting.
-- [ ] Implement waypoint classification and eligibility rules.
-- [ ] Implement repeating slot assignment and page construction.
+- [x] Implement waypoint classification and eligibility rules.
+- [x] Implement repeating slot assignment and page construction.
 - [ ] Implement the pure typed-command transition engine for Save, Pass, Skip,
       and pre-start SID/STAR inclusion changes.
 - [ ] Implement a pure Pass preview that returns the same ordered cascade the

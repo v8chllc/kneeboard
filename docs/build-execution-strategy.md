@@ -520,9 +520,9 @@ on one pull request; at the third, stop and report whatever state exists rather
 than continuing. The cap counts review passes on that pull request as a whole,
 not per manager-supervised loop, per agent, or per section of the change. And
 the primary build agent applies every repair, so it must stay addressable
-through triage. If its context or channel is lost mid-triage,
-that is a continuity failure: stop, leave the pull request open, and report what
-is triaged and what is not. The manager does not repair on its own.
+through triage. If its context or channel is lost mid-triage, that is a
+continuity failure: stop, leave the pull request open, and report what is
+triaged and what is not. The manager does not repair on its own.
 
 Reaching the cap with findings outstanding is a checkpoint requiring user
 direction. It is not a failure, and it is never grounds to merge. The pull
@@ -674,8 +674,8 @@ The homes are fixed, so routing is mechanical rather than a judgment call:
   [Planning status](planning-status.md) open implementation-planning decisions;
 - a decision or invariant that constrains future code goes to the governing
   document that owns it; and
-- the rationale, including rejected alternatives, goes to the `.remember/MEMORY.md`
-  decision lane.
+- the rationale, including rejected alternatives, goes to the
+  `.remember/MEMORY.md` decision lane.
 
 A record of what happened stays in the description and is not called a risk.
 Section 5 carried eight follow-up items, two of which were records rather than

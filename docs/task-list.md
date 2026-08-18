@@ -221,7 +221,7 @@ testable throughout development.
 ## 5. Build the domain foundation
 
 - [x] Define framework-independent domain types and typed commands.
-- [ ] Implement coordinate conversion and formatting.
+- [x] Implement coordinate conversion and formatting.
 - [ ] Implement waypoint classification and eligibility rules.
 - [ ] Implement repeating slot assignment and page construction.
 - [ ] Implement the pure typed-command transition engine for Save, Pass, Skip,

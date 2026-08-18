@@ -220,7 +220,7 @@ testable throughout development.
 
 ## 5. Build the domain foundation
 
-- [ ] Define framework-independent domain types and typed commands.
+- [x] Define framework-independent domain types and typed commands.
 - [ ] Implement coordinate conversion and formatting.
 - [ ] Implement waypoint classification and eligibility rules.
 - [ ] Implement repeating slot assignment and page construction.

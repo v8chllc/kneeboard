@@ -468,34 +468,100 @@ describe("Pass", () => {
   });
 });
 
+describe("unknown commands", () => {
+  it("rejects an unrecognized command type instead of throwing", () => {
+    // Section 8 decodes commands from request payloads and persisted JSON, so a
+    // malformed command must return a rejection like any other failure.
+    const malformed = { type: "teleport", expectedVersion: 0 } as unknown as TrackerCommand;
+
+    expect(() => applyCommand(navlog, createInitialSnapshot(navlog), malformed)).not.toThrow();
+    expect(applyCommand(navlog, createInitialSnapshot(navlog), malformed)).toMatchObject({
+      outcome: "rejected",
+      reason: "unknownCommand",
+    });
+  });
+});
+
 describe("determinism", () => {
-  const commands: TrackerCommand[] = [
-    { type: "saveWaypoint", expectedVersion: 0, routeIndex: eligible[0] },
-    { type: "skipWaypoint", expectedVersion: 0, routeIndex: eligible[4] },
-    { type: "setProcedureInclusion", expectedVersion: 0, inclusion: { sid: true, star: false } },
-    { type: "saveWaypoint", expectedVersion: 0, routeIndex: eligible[20] },
-    { type: "passWaypoint", expectedVersion: 0, routeIndex: eligible[1] },
+  /**
+   * Each command records the outcome it must produce against the snapshot it
+   * is applied to. Without that, a command that silently starts rejecting —
+   * because pending derivation changed, say — would still "pass" a determinism
+   * check by comparing two identical rejection objects, proving nothing about
+   * the transition path it claims to cover.
+   */
+  const cases: ReadonlyArray<{
+    command: TrackerCommand;
+    snapshot: TrackerSnapshot;
+    outcome: "applied" | "rejected";
+  }> = [
+    {
+      command: { type: "saveWaypoint", expectedVersion: 0, routeIndex: eligible[0] },
+      snapshot: createInitialSnapshot(navlog),
+      outcome: "applied",
+    },
+    {
+      command: { type: "skipWaypoint", expectedVersion: 0, routeIndex: eligible[4] },
+      snapshot: createInitialSnapshot(navlog),
+      outcome: "applied",
+    },
+    {
+      command: {
+        type: "setProcedureInclusion",
+        expectedVersion: 0,
+        inclusion: { sid: true, star: false },
+      },
+      snapshot: createInitialSnapshot(navlog),
+      outcome: "applied",
+    },
+    {
+      // Passing a saved fix: the Pass transition path, not a rejection.
+      command: { type: "passWaypoint", expectedVersion: 0, routeIndex: eligible[3] },
+      snapshot: savedThrough(navlog, 9),
+      outcome: "applied",
+    },
+    {
+      // Saving into a slot freed by a cascade.
+      command: { type: "saveWaypoint", expectedVersion: 0, routeIndex: eligible[9] },
+      snapshot: savedThrough(navlog, 9, { passedThrough: 2 }),
+      outcome: "applied",
+    },
+    {
+      // Deliberate rejections, kept alongside the applied paths.
+      command: { type: "saveWaypoint", expectedVersion: 0, routeIndex: eligible[20] },
+      snapshot: createInitialSnapshot(navlog),
+      outcome: "rejected",
+    },
+    {
+      command: { type: "passWaypoint", expectedVersion: 0, routeIndex: eligible[1] },
+      snapshot: createInitialSnapshot(navlog),
+      outcome: "rejected",
+    },
   ];
 
-  it("returns an identical result for the same snapshot and command", () => {
-    const snapshot = createInitialSnapshot(navlog);
+  it("exercises both applied and rejected paths", () => {
+    // Guards the guard: if every case degraded to a rejection, the determinism
+    // assertions below would compare rejection objects and prove nothing.
+    expect(cases.filter((c) => c.outcome === "applied").length).toBeGreaterThanOrEqual(5);
+    expect(cases.some((c) => c.outcome === "rejected")).toBe(true);
+  });
 
-    for (const command of commands) {
-      expect(applyCommand(navlog, snapshot, command)).toEqual(
-        applyCommand(navlog, snapshot, command),
-      );
+  it("returns an identical result for the same snapshot and command", () => {
+    for (const { command, snapshot, outcome } of cases) {
+      const first = applyCommand(navlog, snapshot, command);
+      const second = applyCommand(navlog, snapshot, command);
+
+      expect(first.outcome).toBe(outcome);
+      expect(first).toEqual(second);
     }
   });
 
   it("does not mutate the snapshot it is given", () => {
-    const snapshot = createInitialSnapshot(navlog);
-    const copy = structuredClone(snapshot);
-
-    for (const command of commands) {
+    for (const { command, snapshot } of cases) {
+      const copy = structuredClone(snapshot);
       applyCommand(navlog, snapshot, command);
+      expect(snapshot).toEqual(copy);
     }
-
-    expect(snapshot).toEqual(copy);
   });
 
   it("replays a command sequence to the same state every time", () => {

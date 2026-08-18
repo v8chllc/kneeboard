@@ -42,7 +42,9 @@ export type TrackerCommandRejection =
   /** The SID and STAR controls locked permanently at the first Save. */
   | "procedureControlsLocked"
   /** Only a saved fix may be passed. */
-  | "notSaved";
+  | "notSaved"
+  /** The command's type is not one this engine recognizes. */
+  | "unknownCommand";
 
 /**
  * The result of applying a command. Failures are returned rather than thrown,
@@ -237,7 +239,8 @@ function applyProcedureInclusion(
  * Applies one typed command to a snapshot.
  *
  * Pure and total: the same navlog, snapshot, and command always yield the same
- * result, and every failure is a returned value rather than an exception.
+ * result, and every failure — including an unrecognized command type — is a
+ * returned value rather than an exception.
  */
 export function applyCommand(
   navlog: Navlog,
@@ -261,8 +264,15 @@ export function applyCommand(
     case "passWaypoint":
       return applyPass(navlog, snapshot, command.routeIndex);
     default: {
+      // The `never` assignment keeps compile-time exhaustiveness: adding a
+      // command without handling it fails type checking. Returning a rejection
+      // keeps the function total at run time as well, for commands decoded from
+      // request payloads or persisted JSON that the type system never saw.
       const unhandled: never = command;
-      throw new Error(`Unhandled tracker command: ${JSON.stringify(unhandled)}`);
+      return rejected(
+        "unknownCommand",
+        `unrecognized command: ${JSON.stringify(unhandled)}`,
+      );
     }
   }
 }

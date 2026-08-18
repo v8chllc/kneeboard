@@ -8,6 +8,24 @@
 export type { OfpAirport, OfpInput, OfpNavlogFix } from "./ofp-input";
 
 export type {
+  CoordinatePresentation,
+  Hemisphere,
+  LatitudeHemisphere,
+  LongitudeHemisphere,
+  PositionPresentation,
+} from "./coordinates";
+export { formatLatitude, formatLongitude, formatPosition } from "./coordinates";
+
+export type { ProcedureIdentifiers } from "./classification";
+export {
+  COORDINATE_FIX_IDENT_PATTERN,
+  classifyFix,
+  isSlotEligibleClassification,
+} from "./classification";
+
+export { buildNavlog } from "./navlog-construction";
+
+export type {
   KnownSourceType,
   Navlog,
   NavlogMetadata,

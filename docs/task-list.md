@@ -224,11 +224,11 @@ testable throughout development.
 - [x] Implement coordinate conversion and formatting.
 - [x] Implement waypoint classification and eligibility rules.
 - [x] Implement repeating slot assignment and page construction.
-- [ ] Implement the pure typed-command transition engine for Save, Pass, Skip,
+- [x] Implement the pure typed-command transition engine for Save, Pass, Skip,
       and pre-start SID/STAR inclusion changes.
-- [ ] Implement a pure Pass preview that returns the same ordered cascade the
+- [x] Implement a pure Pass preview that returns the same ordered cascade the
       Pass command will validate and apply.
-- [ ] Add Vitest coverage for valid transitions, invalid commands, cascading
+- [x] Add Vitest coverage for valid transitions, invalid commands, cascading
       Pass, Skip recalculation, procedure controls, deferred slot release,
       sliding window movement, coordinate boundaries, and deterministic replay
       of snapshot plus command.

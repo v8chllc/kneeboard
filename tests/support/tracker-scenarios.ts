@@ -18,7 +18,13 @@ import {
   DEFAULT_PROCEDURE_INCLUSION,
   deriveEligibleSequence,
 } from "../../src/domain/eligibility";
-import { recalculateSnapshot } from "../../src/domain/engine";
+import type { TrackerCommand } from "../../src/domain/commands";
+import {
+  applyCommand,
+  createInitialSnapshot,
+  recalculateSnapshot,
+} from "../../src/domain/engine";
+import { earliestPendingRouteIndex } from "../../src/domain/slot-state";
 import type { Navlog } from "../../src/domain/navlog";
 import { buildNavlog } from "../../src/domain/navlog-construction";
 import type {
@@ -74,4 +80,79 @@ export function savedThrough(
       state: (position < passedThrough ? "passed" : "saved") as WaypointState,
     })),
   );
+}
+
+/**
+ * Thrown when a requested state cannot be reached by applying real commands.
+ *
+ * This is how a hand-built scenario encoding a state the engine can never
+ * produce is detected rather than assumed away.
+ */
+export class UnreachableStateError extends Error {}
+
+/**
+ * Drives real commands from a new tracker until the first `entered` eligible
+ * fixes have been entered and the first `passed` of them have been passed.
+ *
+ * Saves the earliest pending fix whenever one exists; when nothing is pending
+ * and more fixes are still needed, passes the next unpassed entered fix to
+ * release a slot. Throws {@link UnreachableStateError} when neither move makes
+ * progress, which means the requested state is not reachable.
+ */
+export function reachState(
+  navlog: Navlog,
+  target: { entered: number; passed: number },
+): TrackerSnapshot {
+  const eligible = eligibleOf(navlog);
+  let snapshot = createInitialSnapshot(navlog);
+
+  const enteredCount = () =>
+    snapshot.waypoints.filter((w) => w.state === "saved" || w.state === "passed").length;
+  const passedCount = () => snapshot.waypoints.filter((w) => w.state === "passed").length;
+
+  const apply = (command: TrackerCommand): void => {
+    const result = applyCommand(navlog, snapshot, command);
+    if (result.outcome !== "applied") {
+      throw new UnreachableStateError(`${command.type} rejected: ${result.reason}`);
+    }
+    snapshot = result.snapshot;
+  };
+
+  while (enteredCount() < target.entered || passedCount() < target.passed) {
+    const earliest = earliestPendingRouteIndex(navlog, snapshot);
+
+    if (earliest !== null && enteredCount() < target.entered) {
+      apply({ type: "saveWaypoint", expectedVersion: snapshot.version, routeIndex: earliest });
+      continue;
+    }
+
+    if (passedCount() < target.passed) {
+      apply({
+        type: "passWaypoint",
+        expectedVersion: snapshot.version,
+        routeIndex: eligible[passedCount()],
+      });
+      continue;
+    }
+
+    throw new UnreachableStateError(
+      `cannot reach ${target.entered} entered with ${target.passed} passed: ` +
+        `stalled at ${enteredCount()} entered and ${passedCount()} passed`,
+    );
+  }
+
+  return snapshot;
+}
+
+/** Applies one command, throwing if it is rejected. */
+export function applyOrThrow(
+  navlog: Navlog,
+  snapshot: TrackerSnapshot,
+  command: TrackerCommand,
+): TrackerSnapshot {
+  const result = applyCommand(navlog, snapshot, command);
+  if (result.outcome !== "applied") {
+    throw new UnreachableStateError(`${command.type} rejected: ${result.reason}`);
+  }
+  return result.snapshot;
 }

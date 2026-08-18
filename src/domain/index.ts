@@ -64,6 +64,11 @@ export {
   mostRecentlyPassedRouteIndex,
 } from "./slot-state";
 
+export type { PassCascadeRejection, PassCascadeSelection } from "./pass-cascade";
+export { selectPassCascade } from "./pass-cascade";
+
+export { previewPass } from "./pass-preview";
+
 export type { TrackerCommandRejection, TrackerCommandResult } from "./engine";
 export {
   applyCommand,

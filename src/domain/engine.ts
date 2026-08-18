@@ -18,6 +18,7 @@
 import type { TrackerCommand } from "./commands";
 import { DEFAULT_PROCEDURE_INCLUSION, deriveEligibleSequenceForSnapshot } from "./eligibility";
 import type { Navlog } from "./navlog";
+import { selectPassCascade } from "./pass-cascade";
 import { derivePendingRouteIndexes, earliestPendingRouteIndex } from "./slot-state";
 import type {
   ProcedureInclusion,
@@ -40,8 +41,8 @@ export type TrackerCommandRejection =
   | "notSkippable"
   /** The SID and STAR controls locked permanently at the first Save. */
   | "procedureControlsLocked"
-  /** The command is defined but not yet implemented by this engine. */
-  | "notImplemented";
+  /** Only a saved fix may be passed. */
+  | "notSaved";
 
 /**
  * The result of applying a command. Failures are returned rather than thrown,
@@ -184,6 +185,39 @@ function applySkip(
   );
 }
 
+/**
+ * Passing a saved fix atomically passes every earlier saved-but-unpassed fix.
+ *
+ * The cascade comes from the one shared selection the Pass preview also calls,
+ * so the confirmation the user saw and the transition applied cannot disagree.
+ *
+ * Pass changes eligibility for nothing, so it never renumbers slots and never
+ * rebuilds pages. Freed slots and promoted fixes fall out of recalculation: a
+ * slot holding a passed fix that is no longer the most recently passed one
+ * becomes free, and the next unsaved fixes claiming those slots become pending.
+ */
+function applyPass(
+  navlog: Navlog,
+  snapshot: TrackerSnapshot,
+  routeIndex: number,
+): TrackerCommandResult {
+  const selection = selectPassCascade(snapshot, routeIndex);
+  if (selection.outcome === "rejected") {
+    return rejected(selection.reason, selection.message);
+  }
+
+  const cascade = new Set(selection.routeIndexes);
+
+  return applied(
+    recalculateSnapshot(navlog, {
+      ...snapshot,
+      waypoints: snapshot.waypoints.map((waypoint) =>
+        cascade.has(waypoint.routeIndex) ? { ...waypoint, state: "passed" } : waypoint,
+      ),
+    }),
+  );
+}
+
 function applyProcedureInclusion(
   navlog: Navlog,
   snapshot: TrackerSnapshot,
@@ -225,9 +259,7 @@ export function applyCommand(
     case "setProcedureInclusion":
       return applyProcedureInclusion(navlog, snapshot, command.inclusion);
     case "passWaypoint":
-      // Pass and its shared cascade selection land together in slice 5b, so
-      // that the Pass preview and the Pass command cannot diverge.
-      return rejected("notImplemented", "Pass is not implemented by this engine yet");
+      return applyPass(navlog, snapshot, command.routeIndex);
     default: {
       const unhandled: never = command;
       throw new Error(`Unhandled tracker command: ${JSON.stringify(unhandled)}`);

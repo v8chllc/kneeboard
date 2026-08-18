@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { navlogFor, eligibleOf, savedThrough, snapshotWithFacts } from "../../tests/support/tracker-scenarios";
+import {
+  applyOrThrow,
+  eligibleOf,
+  navlogFor,
+  reachState,
+  savedThrough,
+  snapshotWithFacts,
+} from "../../tests/support/tracker-scenarios";
 import { createInitialSnapshot } from "./engine";
 import { deriveSlidingWindow } from "./sliding-window";
 
@@ -21,20 +28,44 @@ describe("deriveSlidingWindow", () => {
   });
 
   it("holds nine members from the first overwrite onward", () => {
-    for (const count of [9, 10, 15, 39]) {
-      const window = deriveSlidingWindow(savedThrough(navlog, count));
+    // Reached by driving real commands. A state with more than nine entered
+    // fixes always carries passes, because a slot must be released before a
+    // tenth fix can be saved.
+    for (const target of [
+      { entered: 9, passed: 0 },
+      { entered: 10, passed: 2 },
+      { entered: 12, passed: 4 },
+    ]) {
+      const window = deriveSlidingWindow(reachState(navlog, target));
       expect(window).toHaveLength(9);
-      expect(window).toEqual(eligible.slice(count - 9, count));
+      expect(window).toEqual(eligible.slice(target.entered - 9, target.entered));
     }
   });
 
-  it("evicts the oldest member on Save", () => {
-    const before = deriveSlidingWindow(savedThrough(navlog, 9));
-    const after = deriveSlidingWindow(savedThrough(navlog, 10));
+  it("evicts the oldest member on Save, and only on Save", () => {
+    const saved = reachState(navlog, { entered: 9, passed: 0 });
+    const beforeWindow = deriveSlidingWindow(saved);
+    expect(beforeWindow).toContain(eligible[0]);
 
-    expect(before).toContain(eligible[0]);
-    expect(after).not.toContain(eligible[0]);
-    expect(after[after.length - 1]).toBe(eligible[9]);
+    // Passing releases the slot but changes no membership.
+    const passed = applyOrThrow(navlog, saved, {
+      type: "passWaypoint",
+      expectedVersion: saved.version,
+      routeIndex: eligible[1],
+    });
+    expect(deriveSlidingWindow(passed)).toEqual(beforeWindow);
+
+    // The eviction happens on the Save that overwrites the freed slot.
+    const overwritten = applyOrThrow(navlog, passed, {
+      type: "saveWaypoint",
+      expectedVersion: passed.version,
+      routeIndex: eligible[9],
+    });
+    const afterWindow = deriveSlidingWindow(overwritten);
+
+    expect(afterWindow).not.toContain(eligible[0]);
+    expect(afterWindow[afterWindow.length - 1]).toBe(eligible[9]);
+    expect(afterWindow).toEqual(eligible.slice(1, 10));
   });
 
   it("does not change membership when fixes are passed", () => {
@@ -47,7 +78,7 @@ describe("deriveSlidingWindow", () => {
   });
 
   it("holds only saved or passed members, never pending or queued", () => {
-    const snapshot = savedThrough(navlog, 12, { passedThrough: 4 });
+    const snapshot = reachState(navlog, { entered: 12, passed: 4 });
     const window = deriveSlidingWindow(snapshot);
     const states = new Map(snapshot.waypoints.map((w) => [w.routeIndex, w.state]));
 

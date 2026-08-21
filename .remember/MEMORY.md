@@ -97,6 +97,19 @@ Date: 2026-08-17
 Rationale: Letting the manager run the review gate to completion means it triages findings against work it supervised. The old test asked whether acceptance "would weaken a boundary" — a judgment that invites the answer the judge prefers. Acceptance now requires citing the governing document and passage that already sanctions the behavior; no citation means fix or escalate. Safety, privacy, authorization, and test findings are never accepted as-is regardless of citation. The citation is checked by a bounded read-only subagent with no stake in the outcome
 Do not reverse: The subagent prompt is fixed in docs/build-execution-strategy.md rather than authored per finding, because a leading prompt gets a leading answer and that failure is invisible in the output. A skipped or reworded check is itself a reportable deviation, since the cheapest way around the control is never to invoke it
 
+<!-- decision -->
+Decision: Split SimBrief handling at a representation-versus-interpretation seam, with section 8 owning Zod normalization and section 5 owning domain interpretation
+Date: 2026-08-20
+Rationale: AGENTS.md assigned "parsing" to section 5 while the task list gave section 8 "Validate and normalize a detailed LIDO navlog," so the authority chain contradicted itself and AGENTS.md tells an agent hitting a governing conflict to stop. The alternative was to move normalization into section 5 and let the domain own the whole path from raw payload. It lost because the task list is the designated execution-order authority and the domain layer is framework-independent by guardrail, so pulling boundary validation into it would put Zod and transport concerns inside the layer that exists to have none. Section 5 owns the domain input type; section 8's schema must satisfy it rather than restate it
+Residual risk: tests/support/ofp-fixture-adapter.ts is a strict test-only caster covering the same ground the Zod schema will. If the two diverge on an edge case the domain tests pass while production fails, so section 8 carries a task-list gate proving they agree on every tracked fixture
+
+<!-- decision -->
+Decision: Keep TrackerSnapshot minimal, deriving slots, pages, the sliding window, and the procedure lock rather than storing them
+Date: 2026-08-20
+Rationale: Three options were weighed: materialize everything, materialize slots only, or store facts alone. Derived won because a stored slot is a second copy of a rule the domain already owns, and any consumer reading it can read a stale one. Pending and queued are the deliberate exception, stored in waypoints[].state and recalculated from the remaining facts on every transition; the safeguard is that recalculation never consults their previous values, and recalculateSnapshot is proven idempotent by test at src/domain/engine.test.ts
+Do not reverse: Reversing after section 6 persists snapshots is expensive, because every persisted row would carry the old shape and need migrating
+
+
 ## context
 
 <!-- context -->

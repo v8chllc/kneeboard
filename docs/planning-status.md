@@ -140,6 +140,17 @@ resolved as part of task-list section 4, and build orchestration was resolved on
      mechanism depends on how persistence, Better Auth, and Mailpit are wired
      in sections 6 and 7.
 
+2. **`RDIS` rounding policy**
+   - `buildNavlog` sums leg distances as plain floats, accumulated from the
+     destination backwards. This is exact for the integer distances in every
+     tracked fixture, but a payload with fractional leg distances could drift
+     in the last bits.
+   - No document specifies a rounding policy and none was invented during
+     section 5, so the current behavior is unruled rather than chosen.
+   - Resolved when a payload carrying fractional leg distances appears. The
+     OFP's own route-distance total is the cross-check; its great-circle air
+     distance is a different quantity and must not be used for this.
+
 ## Implementation-plan boundaries
 
 The first implementation plan should:

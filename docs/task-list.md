@@ -277,6 +277,13 @@ testable throughout development.
       limit, and test timeout, oversize, non-success, and invalid-JSON responses
       through a mocked transport.
 - [ ] Validate and normalize a detailed LIDO navlog.
+- [ ] Prove the Zod schema produces output identical to
+      `tests/support/ofp-fixture-adapter.ts` for every tracked fixture. The
+      adapter is a strict test-only caster; if the two diverge on an edge case,
+      the domain tests pass while production fails.
+- [ ] Handle every `TrackerCommandRejection` member at the transport boundary.
+      The union gained `notSaved`, `unknownCommand`, and `malformedCommand` in
+      section 5 and lost `notImplemented`.
 - [ ] Create a private persistent tracker for every successful explicit load.
 - [ ] Display the tracker at a stable account-protected URL.
 - [ ] Complete the essential Save, Pass, cascading Pass, and Skip workflow.

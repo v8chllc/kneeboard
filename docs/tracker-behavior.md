@@ -251,8 +251,8 @@ This is a deliberate operational convention for the simulator workflow.
 “Passed” means removed from the active INS sequence; it does not necessarily mean
 the aircraft physically overflew the fix.
 
-For example, if ATC clears the aircraft directly to a later saved fix and
-bypasses intermediate saved fixes, the pilot marks the later fix passed.
+For example, if simulated ATC clears the aircraft directly to a later saved fix
+and bypasses intermediate saved fixes, the user marks the later fix passed.
 Kneeboard then passes all earlier unpassed fixes as a side effect. A saved
 waypoint is never changed to `skipped`; bypassed saved waypoints are handled
 through Pass.

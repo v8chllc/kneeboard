@@ -45,9 +45,11 @@ When polling in the background for a CodeRabbit review, fix, or reply:
 - Confirm the status settled rather than sampling it once. A single read can
   race a transition — one `success` was read one second after the status had
   already flipped to `pending` for a newly started review, so the query returned
-  the previous value. Observe the status reach a terminal state, or require it
-  to hold across two consecutive probes and to postdate the push it should
-  cover.
+  the previous value. Require a terminal status for the current head that
+  postdates the push it should cover, reached either by observing the
+  transition or by reading the same terminal value on two consecutive probes.
+  Two matching probes are not evidence on their own: two `pending` reads agree
+  with each other and mean the review is still running.
 - Filter on content, not on counts. Excluding the "Currently processing" notice
   by requiring a second comment also excludes a single substantive reply. Match
   the notice text and ignore it; trip on the first comment that is not it.

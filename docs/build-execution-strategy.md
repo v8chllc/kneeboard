@@ -549,6 +549,27 @@ to loop-eligible is the user's call, made at the section 5 pull request. A loop
 may push its own branch; it may not open a pull request, merge, deploy, or
 perform a production operation.
 
+Graduation was granted on 2026-08-20 at the section 5 pull request. It makes a
+capped loop available to authorize; it does not authorize one. Every goal still
+states its own slice ceiling, so whether a particular section's work suits a
+loop is judged when that goal is written, not once at graduation.
+
+Section 7 is excepted and runs as interactive bounded goals regardless of
+graduation. Its content is the safety, privacy, and authorization boundary
+almost in full: the fail-closed email allowlist, database-backed authentication
+rate limiting, scoping every settings, load, tracker read, and tracker mutation
+to the authenticated account, and verifying that logs exclude raw OFPs,
+coordinates, Pilot IDs, email addresses, sessions, and magic-link tokens. Those
+are precisely the findings that may never be accepted as-is under
+[Accepting a finding as-is](#accepting-a-finding-as-is). The log-exclusion
+requirement is also a negative property, confirmed by not finding something,
+which is the check an unattended run is worst at and the one whose failure is
+invisible in a passing gate.
+
+The exception is by kind of work rather than by section number. A later section
+that turns out to carry the same kind of work inherits it, and section 7 would
+not have been excepted for merely being difficult.
+
 ### 6. Status-checkpoint limits
 
 The primary build agent stops and reports status to its supervisor, rather than

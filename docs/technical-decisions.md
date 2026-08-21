@@ -154,6 +154,22 @@ The implementation direction is reducer plus snapshot, not event sourcing.
 This keeps event-like domain modeling without event streams, projections,
 replay, event-schema migrations, or retained history.
 
+The snapshot is minimal rather than materialized. `TrackerSnapshot` holds a
+`version`, `procedureInclusion`, and `waypoints` as `routeIndex` plus `state`.
+Slot assignment, page membership, the sliding window, and the procedure-controls
+lock are all derived from those facts rather than stored alongside them, so no
+consumer can read a stale copy of a rule the domain owns.
+
+Pending and queued are the exception that proves the shape: they *are* stored in
+`waypoints[].state`, following the five-state model at
+[tracker behavior](tracker-behavior.md), and they are recalculated from the
+remaining facts on every transition. The safeguard is that recalculation never
+consults the previous pending or queued values, and `recalculateSnapshot` is
+proven idempotent by test.
+
+Reversing this after section 6 persists snapshots would be expensive, because
+every persisted row would carry the old shape and need migrating.
+
 ## Persistence requirements
 
 Neon Postgres is the system of record.

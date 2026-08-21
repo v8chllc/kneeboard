@@ -76,6 +76,16 @@ indexed metadata, a separate `ofp_raw` table for the complete payload, and a
 `tracker` row holding the immutable navlog, the mutable snapshot, and an integer
 version. Do not express slot, page, or sliding-window rules in SQL.
 
+Representation and interpretation are separate concerns with a fixed seam.
+Representation is the shape of the incoming payload — string-to-number
+coercion, collapsed single-element arrays, empty sections — and is validated
+with Zod at the integration boundary, in task-list section 8. Interpretation is
+the fail-closed classification order, eligibility, origin-row synthesis, and
+`RDIS` derivation; it is pure domain logic, owned by task-list section 5 and
+already built. Section 5 owns the domain input type. Section 8's schema must
+satisfy that type rather than restate it, and must not re-decide any question
+interpretation has already settled.
+
 ## Domain Invariants
 
 Consult `docs/tracker-behavior.md` before changing tracker logic. In particular:
@@ -86,6 +96,12 @@ Consult `docs/tracker-behavior.md` before changing tracker logic. In particular:
   INS slots.
 - Eligible fixes use repeating slots 1-9, derived from position in the eligible
   sequence. Only Skip and the SID/STAR controls renumber; Save and Pass never do.
+  The minimal snapshot depends on the ordering property under §Memory slots in
+  `docs/tracker-behavior.md`: because Save is route-ordered, every skip occurs
+  later in the route than every entered fix, so a saved fix's derived slot can
+  never drift from the slot it was written into. Permitting a saved fix to be
+  skipped, or a save out of route order, would silently produce wrong slots for
+  waypoints already entered into the unit.
 - Only the earliest pending fix may be saved.
 - Skip is terminal, applies only to queued or pending fixes, consumes no slot,
   and triggers deterministic recalculation.
@@ -174,8 +190,10 @@ writer and integrator; human-only approval boundaries remain with the user.
    domain code depends on it.
 4. Establish the reproducible local development foundation, application
    scaffold, test tooling, and CI command parity.
-5. Build domain types, parsing, coordinate conversion, transitions, and unit
-   tests.
+5. Build domain types, domain interpretation of the route, coordinate
+   conversion, transitions, and unit tests. Boundary normalization of the
+   SimBrief payload belongs to section 8; see the representation and
+   interpretation seam under Architecture Guardrails.
 6. Add local and production persistence with committed migrations and explicit
    production migration procedures.
 7. Establish authentication and account isolation before introducing private

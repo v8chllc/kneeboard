@@ -69,9 +69,11 @@ Rationale: Step 7 of the slice lifecycle has the agent inspect its own diff, whi
 Do not reverse: No review runs on CodeRabbit's default profile
 
 <!-- decision -->
-Decision: Interactive bounded goals through task-list sections 4 and 5; a capped loop permitted from section 6 with a three-slice ceiling
-Date: 2026-08-13
-Rationale: Sections 4 and 5 establish the canonical quality commands and the domain invariants, so an unattended error there is the most expensive kind. A permitted loop stops hard at the section boundary, honors every stop condition, may push its own branch, and may never open a pull request, merge, or deploy. Graduation is the user's call at the section 5 pull request
+Decision: Interactive bounded goals through task-list sections 4 and 5; a capped loop permitted from section 6 with a three-slice ceiling, granted 2026-08-20, with section 7 excepted
+Date: 2026-08-13, amended 2026-08-20
+Rationale: Sections 4 and 5 establish the canonical quality commands and the domain invariants, so an unattended error there is the most expensive kind. A permitted loop stops hard at the section boundary, honors every stop condition, may push its own branch, and may never open a pull request, merge, or deploy. Graduation was granted at the section 5 pull request. It makes a loop available to authorize rather than authorizing one, because every goal already states its own slice ceiling, which may be lower than three but never higher — that per-goal opt-in is where kind-of-work judgment belongs, and not seeing it was what kept the question open
+Section 7 exception: Section 7 stays interactive regardless of graduation. It is the safety, privacy, and authorization boundary almost in full, so its findings are the ones that may never be accepted as-is, and its log-exclusion requirement is a negative property whose failure is invisible in a passing gate. Written by kind of work rather than section number, and requiring those boundaries to be a section's substance rather than incidental, so the exception cannot spread by drift
+Rejected alternative: The inverse cut, permitting loops only for mechanical work in section 9. Section 9 holds the production Vercel, Neon, Resend, DNS, and migration work a loop may never perform, plus the still-open test-infrastructure decision, making it the least mechanical section remaining
 Do not reverse: A loop that could merge or deploy would convert a wrong turn into a production event
 
 <!-- decision -->
@@ -113,10 +115,10 @@ Do not reverse: Reversing after section 6 persists snapshots is expensive, becau
 ## context
 
 <!-- context -->
-Status: Section 4 complete and merged; section 5, the framework-independent domain layer, is next
-In progress: Nothing in flight. main is clean at bb698ba with no open pull requests. PRs #10 (memory fast-track), #13 (manual CodeRabbit invocation), and #14 (section-boundary push policy and review-gate completion) are merged
-Next: Rebuild the section 5 manager kickoff prompt from the amended template in docs/build-execution-strategy.md — push, pull-request open, description authorship, and gate completion are now documented defaults rather than hand-written authorizations. Then build src/domain/: types and typed commands, coordinate conversion, waypoint classification, slot and page assignment, and the pure transition engine with unit tests. The open loop-eligibility todo comes due at the section 5 pull request
-Updated: 2026-08-17
+Status: Section 5 complete and merged; section 6, persistence, is next and is the first loop-eligible section
+In progress: Nothing in flight. main is clean at 2664be5 with no open pull requests. PRs #17 and #18 delivered the domain layer, and #22, #23, #24, and #25 landed the amendments section 5 paid for. Issue #26 is open and carries the stale route-order claim in src/domain/tracker.ts and the wireframe
+Next: Section 6 — pinned local Postgres with separate development and test databases, Neon and Drizzle configuration, the aggregate schema, indexed recent-load metadata, committed migrations verified against an empty database, optimistic concurrency, and atomic load reservation with cooldown and idempotency. Build the section 6 manager kickoff prompt from the template; loop authorization is now available but is still stated per goal
+Updated: 2026-08-20
 
 ## error
 
@@ -151,7 +153,7 @@ Scope: github tooling
 <!-- todo -->
 Todo: Revisit the loop-eligibility threshold at the section 5 pull request
 Source: conversation
-Status: open
-Next action: Compare the approved "from section 6 onward" cut against cutting by kind of work — sections 6 to 8 carry persistence, account isolation, and vertical-slice product judgment, while section 9 is the mechanical work
+Status: done
+Next action: None. Resolved 2026-08-20 by keeping the section 6 cut, granting graduation, and excepting section 7. The premise that section 9 is the mechanical work did not survive inspection
 Created: 2026-08-13
-Work item:
+Work item: PR #25

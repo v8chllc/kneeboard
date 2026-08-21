@@ -1,7 +1,7 @@
 # Memory
 
-<!-- This file is read by Codex at the start of every session.         -->
-<!-- Use $remember to record entries, or edit directly.                -->
+<!-- This file is read at the start of every session.                  -->
+<!-- Use /remember to record entries, or edit directly.                -->
 <!-- Types: entity | decision | error | context | preference | todo     -->
 
 ## entity
@@ -65,7 +65,7 @@ Do not reverse: No build goal commits directly to main
 <!-- decision -->
 Decision: CodeRabbit is the mandatory independent review gate on every section pull request, governed by a committed .coderabbit.yaml
 Date: 2026-08-13
-Rationale: Step 7 of the slice lifecycle has the agent inspect its own diff, which catches mechanical problems but shares the blind spots of whatever wrote the code. The gate is the check that does not share them. CodeRabbit is already integrated with the repository, so it replaced the multi-agent consensus review originally drafted. Every finding is triaged; accepted findings are fixed and the affected gates re-run; accepting as-is requires a recorded reason in the pull request
+Rationale: Step 7 of the slice lifecycle has the agent inspect its own diff, which catches mechanical problems but shares the blind spots of whatever wrote the code. The gate is the check that does not share them. CodeRabbit is already integrated with the repository, so it replaced the multi-agent consensus review originally drafted. Every finding is triaged and accepted findings are fixed with the affected gates re-run. The accept-as-is test recorded here was superseded on 2026-08-17: a recorded reason is no longer sufficient, and acceptance now requires a governing citation verified by a bounded read-only subagent, with safety, privacy, authorization, and test findings never acceptable
 Do not reverse: No review runs on CodeRabbit's default profile
 
 <!-- decision -->
@@ -103,7 +103,7 @@ Do not reverse: The subagent prompt is fixed in docs/build-execution-strategy.md
 Decision: Split SimBrief handling at a representation-versus-interpretation seam, with section 8 owning Zod normalization and section 5 owning domain interpretation
 Date: 2026-08-20
 Rationale: AGENTS.md assigned "parsing" to section 5 while the task list gave section 8 "Validate and normalize a detailed LIDO navlog," so the authority chain contradicted itself and AGENTS.md tells an agent hitting a governing conflict to stop. The alternative was to move normalization into section 5 and let the domain own the whole path from raw payload. It lost because the task list is the designated execution-order authority and the domain layer is framework-independent by guardrail, so pulling boundary validation into it would put Zod and transport concerns inside the layer that exists to have none. Section 5 owns the domain input type; section 8's schema must satisfy it rather than restate it
-Residual risk: tests/support/ofp-fixture-adapter.ts is a strict test-only caster covering the same ground the Zod schema will. If the two diverge on an edge case the domain tests pass while production fails, so section 8 carries a task-list gate proving they agree on every tracked fixture
+Residual risk: tests/support/ofp-fixture-adapter.ts is a strict test-only caster covering the same ground the Zod schema will. If the two diverge on an edge case the domain tests pass while production fails. Section 8 therefore carries two task-list gates: output equality against the seven valid fixtures, and separate rejection tests for the seven invalid ones, with invalid-non-lido.json rejected on params.ofp_layout rather than on shape because its navlog is populated
 
 <!-- decision -->
 Decision: Keep TrackerSnapshot minimal, deriving slots, pages, the sliding window, and the procedure lock rather than storing them
@@ -116,7 +116,7 @@ Do not reverse: Reversing after section 6 persists snapshots is expensive, becau
 
 <!-- context -->
 Status: Section 5 complete and merged; section 6, persistence, is next and is the first loop-eligible section
-In progress: Nothing in flight. main is clean at 2664be5 with no open pull requests. PRs #17 and #18 delivered the domain layer, and #22, #23, #24, and #25 landed the amendments section 5 paid for. Issue #26 is open and carries the stale route-order claim in src/domain/tracker.ts and the wireframe
+In progress: main is at a7bfd9e. PR #28 is open, adding the two watcher lessons the section 5 window produced. PRs #17 and #18 delivered the domain layer, and #22, #23, #24, #25, and #27 landed the amendments section 5 paid for. Issue #26 is open and carries the stale route-order claim in src/domain/tracker.ts and docs/prototypes/tracker-wireframe.html
 Next: Section 6 — pinned local Postgres with separate development and test databases, Neon and Drizzle configuration, the aggregate schema, indexed recent-load metadata, committed migrations verified against an empty database, optimistic concurrency, and atomic load reservation with cooldown and idempotency. Build the section 6 manager kickoff prompt from the template; loop authorization is now available but is still stated per goal
 Updated: 2026-08-20
 
@@ -149,11 +149,3 @@ Preference: Use the authenticated `gh` CLI directly for GitHub operations; do no
 Scope: github tooling
 
 ## todo
-
-<!-- todo -->
-Todo: Revisit the loop-eligibility threshold at the section 5 pull request
-Source: conversation
-Status: done
-Next action: None. Resolved 2026-08-20 by keeping the section 6 cut, granting graduation, and excepting section 7. The premise that section 9 is the mechanical work did not survive inspection
-Created: 2026-08-13
-Work item: PR #25

@@ -278,9 +278,12 @@ testable throughout development.
       through a mocked transport.
 - [ ] Validate and normalize a detailed LIDO navlog.
 - [ ] Prove the Zod schema produces output identical to
-      `tests/support/ofp-fixture-adapter.ts` for every tracked fixture. The
-      adapter is a strict test-only caster; if the two diverge on an edge case,
-      the domain tests pass while production fails.
+      `tests/support/ofp-fixture-adapter.ts` for each of the seven valid
+      fixtures. The adapter is a strict test-only caster; if the two diverge on
+      an edge case, the domain tests pass while production fails.
+- [ ] Test each of the seven rejection fixtures separately, and reject
+      `invalid-non-lido.json` on `params.ofp_layout` rather than on shape. Its
+      navlog is populated, so a structural check alone would accept it.
 - [ ] Handle every `TrackerCommandRejection` member at the transport boundary.
       The union gained `notSaved`, `unknownCommand`, and `malformedCommand` in
       section 5 and lost `notImplemented`.

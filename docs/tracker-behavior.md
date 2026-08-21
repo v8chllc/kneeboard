@@ -155,9 +155,10 @@ appears once per page of the route.
 
 Only Skip and the SID/STAR inclusion controls change eligibility, so only those
 operations renumber slots and rebuild pages. Save and Pass never renumber.
-Because Save is route-ordered, every skip occurs later in the route than every
-entered fix, so renumbering can never disturb a fix already entered into the
-unit.
+Because Save takes the earliest pending fix, every skip after a save is
+downstream of that saved fix, while any skip before it is already reflected in
+the slot the fix was written into. Renumbering can therefore never disturb a fix
+already entered into the unit.
 
 ### Slot availability
 

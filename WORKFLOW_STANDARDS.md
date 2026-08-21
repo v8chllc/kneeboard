@@ -35,6 +35,19 @@ When polling in the background for a CodeRabbit review, fix, or reply:
   covering the commit that will merge. Both produced false positives within a
   single section. Counting answers the question "did something arrive", not the
   question the gate asks, which is "was this commit reviewed".
+- Let the commit status decide that a review is finished, not the arrival of a
+  review object. A review object on the current head can be a partial:
+  CodeRabbit published a nitpick-only review while its status still read
+  "Review in progress," and treating that as the result would have reported a
+  clean gate before the actionable findings existed. Matching `commit_id`
+  prevents reading the wrong head; it does not prevent reading the right head
+  too early.
+- Confirm the status settled rather than sampling it once. A single read can
+  race a transition — one `success` was read one second after the status had
+  already flipped to `pending` for a newly started review, so the query returned
+  the previous value. Observe the status reach a terminal state, or require it
+  to hold across two consecutive probes and to postdate the push it should
+  cover.
 - Filter on content, not on counts. Excluding the "Currently processing" notice
   by requiring a second comment also excludes a single substantive reply. Match
   the notice text and ignore it; trip on the first comment that is not it.

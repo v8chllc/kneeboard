@@ -97,11 +97,12 @@ Consult `docs/tracker-behavior.md` before changing tracker logic. In particular:
 - Eligible fixes use repeating slots 1-9, derived from position in the eligible
   sequence. Only Skip and the SID/STAR controls renumber; Save and Pass never do.
   The minimal snapshot depends on the ordering property under §Memory slots in
-  `docs/tracker-behavior.md`: because Save is route-ordered, every skip occurs
-  later in the route than every entered fix, so a saved fix's derived slot can
-  never drift from the slot it was written into. Permitting a saved fix to be
-  skipped, or a save out of route order, would silently produce wrong slots for
-  waypoints already entered into the unit.
+  `docs/tracker-behavior.md`: because Save takes the earliest pending fix, every
+  skip after a save is downstream of that saved fix, while any skip before it is
+  already reflected in the slot the fix was written into. That slot therefore
+  cannot drift once written. Permitting a saved fix to be skipped, or a save out
+  of route order, would silently produce wrong slots for waypoints already
+  entered into the unit.
 - Only the earliest pending fix may be saved.
 - Skip is terminal, applies only to queued or pending fixes, consumes no slot,
   and triggers deterministic recalculation.

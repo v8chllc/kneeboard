@@ -317,11 +317,12 @@ empty headings and was never filled in.
 
 At a section boundary, before the next kickoff, the manager records a
 retrospective and the primary build agent reviews it while that agent still
-holds the section's context. The context is perishable: it is the only place the
-section's implementation detail lives, and it is gone at the next kickoff, so a
-review deferred past the boundary reviews the manager's summary rather than the
-work. In section 5 the build agent's review produced two substantive corrections
-to the manager's draft.
+holds the section's context. The context is perishable: it holds the
+implementation detail that never reached the commits, the tracked files, or the
+pull-request record, and it is gone at the next kickoff, so a review deferred
+past the boundary reviews the manager's summary rather than the work. In
+section 5 the build agent's review produced two substantive corrections to the
+manager's draft.
 
 The output is candidate changes to named documents, each carrying a disposition:
 raised as an issue, folded into an amendment, or dropped with a reason. Without

@@ -181,7 +181,9 @@ across two pull requests when its diff cannot be reviewed safely as one unit)
 and one commit per slice, CodeRabbit as the mandatory review gate on every
 section pull request, interactive bounded goals through sections 4 and 5
 supervised at each checkpoint by the user or a user-authorized read-only manager,
-and a capped loop permitted only from section 6 after both complete cleanly. A
+and a capped loop permitted from section 6 after both complete cleanly. That
+graduation was granted on 2026-08-20; it makes a loop available to authorize
+rather than authorizing one, and section 7 is excepted and stays interactive. A
 manager-supervised run keeps one persistent primary build agent as the sole
 writer and integrator; human-only approval boundaries remain with the user.
 

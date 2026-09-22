@@ -53,6 +53,7 @@ Thumbs.db
 # AI Coding Agent Files
 .remember/turns/
 .remember/memory/
+.remember/local/
 
 # Supervisor and orchestrator drafts; never part of the run's record
 .prompts/

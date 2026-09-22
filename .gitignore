@@ -54,5 +54,8 @@ Thumbs.db
 .remember/turns/
 .remember/memory/
 
+# Supervisor and orchestrator drafts; never part of the run's record
+.prompts/
+
 # Local CodeRabbit review artifacts; the durable audit lives on the pull request
 .code-review/

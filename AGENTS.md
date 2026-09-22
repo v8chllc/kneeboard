@@ -241,6 +241,46 @@ writer and integrator; human-only approval boundaries remain with the user.
   PWA behavior, third-party monitoring, or other deferred infrastructure
   without a deliberate scope change.
 
+## Agent workflow profile
+
+Read by orchestrator skills such as `chore-orchestrate` at resolve. The field
+definitions and defaults are in
+`.agents/skills/chore-orchestrate/references/repository-profile.md`. The profile
+narrows authority and never widens it; the rules elsewhere in this document
+still bind every run, including `docs/build-execution-strategy.md` keeping
+section 7 interactive.
+
+```yaml
+autonomy: autonomous
+tracking: none                # run issues live in this repository; no second issue
+coordination_repository: v8chllc/kneeboard
+branch_naming: "type/short-description"
+commit_style: conventional
+merge_method: rebase          # rebase-only; squash and merge commits are disabled
+required_gates:
+  - CI workflow (.github/workflows/ci.yml) passing on the pull request head
+  - CodeRabbit commit status on the pull request head SHA; poll it as
+    WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
+quality_commands:
+  - mise exec -- pnpm lint
+  - mise exec -- pnpm typecheck
+  - mise exec -- pnpm test
+  - mise exec -- pnpm build
+release_steps: none
+prohibited_actions:
+  - never run a production migration; production migrations are manual only
+  - never contact live SimBrief, Resend, or production infrastructure from tests
+  - never commit raw SimBrief downloads from .local/simbrief/
+  - never add deferred infrastructure without a deliberate scope change
+deploy_triggers:
+  - a push to main, which may reach production at kneeboard.v8ch.com via Vercel
+data_sensitivity:
+  - raw OFPs, coordinates, Pilot IDs, email addresses, sessions, and magic-link
+    tokens; never log, commit, or send them to a live service
+  - everything under .local/
+synchronized_with: none
+```
+
 ## Memory Fast-Track Workflow
 
 When explicitly requested by the user, agents may fast-track memory-only updates

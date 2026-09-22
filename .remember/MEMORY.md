@@ -2,7 +2,8 @@
 
 <!-- This file is read at the start of every session.                  -->
 <!-- Use /remember to record entries, or edit directly.                -->
-<!-- Types: entity | decision | error | context | preference | todo     -->
+<!-- Types: entity | decision | error | preference | todo              -->
+<!-- Context is local-only; it lives in .remember/local/context.md.    -->
 
 ## entity
 
@@ -111,14 +112,6 @@ Date: 2026-08-20
 Rationale: Three options were weighed: materialize everything, materialize slots only, or store facts alone. Derived won because a stored slot is a second copy of a rule the domain already owns, and any consumer reading it can read a stale one. Pending and queued are the deliberate exception, stored in waypoints[].state and recalculated from the remaining facts on every transition; the safeguard is that recalculation never consults their previous values, and recalculateSnapshot is proven idempotent by test at src/domain/engine.test.ts
 Do not reverse: Reversing after section 6 persists snapshots is expensive, because every persisted row would carry the old shape and need migrating
 
-
-## context
-
-<!-- context -->
-Status: Section 5 complete and merged; section 6, persistence, is next and is the first loop-eligible section
-In progress: main is at a7bfd9e. PR #28 is open, adding the two watcher lessons the section 5 window produced. PRs #17 and #18 delivered the domain layer, and #22, #23, #24, #25, and #27 landed the amendments section 5 paid for. Issue #26 is open and carries the stale route-order claim in src/domain/tracker.ts and docs/prototypes/tracker-wireframe.html
-Next: Section 6 — pinned local Postgres with separate development and test databases, Neon and Drizzle configuration, the aggregate schema, indexed recent-load metadata, committed migrations verified against an empty database, optimistic concurrency, and atomic load reservation with cooldown and idempotency. Build the section 6 manager kickoff prompt from the template; loop authorization is now available but is still stated per goal
-Updated: 2026-08-20
 
 ## error
 

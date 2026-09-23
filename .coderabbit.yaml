@@ -1,5 +1,6 @@
-# CodeRabbit is the independent review gate for every section pull request.
-# See docs/build-execution-strategy.md, "Mandatory independent review".
+# CodeRabbit is the independent review gate for every pull request, sections
+# and chore runs alike. See docs/build-execution-strategy.md, "Mandatory
+# independent review".
 #
 # This file must exist on the feature branch being reviewed; CodeRabbit reads it
 # from the head branch, not from main.
@@ -68,6 +69,19 @@ reviews:
         Tests must use the sanitized fixtures under tests/fixtures/simbrief and
         must never contact live SimBrief, Resend, or production infrastructure.
         Flag any weakened assertion that makes a failing gate pass.
+        For every added or changed assertion, ask whether it can fail when the
+        behavior it guards is removed; AGENTS.md "Testing and Delivery" requires
+        that. Flag the shapes that pass while proving nothing: a check that
+        something changed, or that some element matches, where the exact
+        expected value is knowable; a negative assertion satisfied by the code
+        not running at all; a comparison against a mock rather than the real
+        implementation; a branch conditioned on whether a fixture happens to
+        contain the case; a bounded search asserting exhaustion it never
+        reached; and an assertion over a state the implementation cannot
+        produce. A state built directly rather than reached through real
+        commands needs a recorded forward obligation naming the later slice
+        that re-reaches it. Flag a test comment that claims coverage the test
+        body does not exercise.
 
     - path: "tests/tooling/**"
       instructions: >-

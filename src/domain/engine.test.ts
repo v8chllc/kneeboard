@@ -254,6 +254,55 @@ describe("Skip", () => {
     }
   });
 
+  it("keeps the slot of a fix saved after an earlier skip", () => {
+    // docs/tracker-behavior.md §Memory slots: a skip before a save is already
+    // reflected in the slot the fix was written into, and every later skip is
+    // downstream of it, so the saved fix's derived slot never drifts.
+    const slotsOf = (snapshot: TrackerSnapshot) =>
+      slotByRouteIndex(deriveSlotAssignments(deriveEligibleSequenceForSnapshot(navlog, snapshot)));
+    let snapshot = createInitialSnapshot(navlog);
+    expect(slotsOf(snapshot).get(eligible[1])).toBe(2);
+
+    snapshot = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "skipWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[0],
+      }),
+    );
+    snapshot = expectApplied(
+      applyCommand(navlog, snapshot, {
+        type: "saveWaypoint",
+        expectedVersion: 0,
+        routeIndex: eligible[1],
+      }),
+    );
+    const writtenSlot = slotsOf(snapshot).get(eligible[1]);
+    // The earlier skip moved the fix up before it was entered.
+    expect(writtenSlot).toBe(1);
+
+    for (const skippedPosition of [2, 5, 20]) {
+      const before = slotsOf(snapshot);
+      snapshot = expectApplied(
+        applyCommand(navlog, snapshot, {
+          type: "skipWaypoint",
+          expectedVersion: 0,
+          routeIndex: eligible[skippedPosition],
+        }),
+      );
+      const after = slotsOf(snapshot);
+
+      expect(stateOf(snapshot, eligible[1])).toBe("saved");
+      expect(after.get(eligible[1])).toBe(writtenSlot);
+      // The skip did renumber the fixes after it.
+      expect(
+        eligible
+          .slice(skippedPosition + 1)
+          .some((routeIndex) => after.get(routeIndex) !== before.get(routeIndex)),
+      ).toBe(true);
+    }
+  });
+
   it("rejects skipping a saved, passed, or already skipped fix", () => {
     const snapshot = snapshotWithFacts(navlog, [
       { routeIndex: eligible[0], state: "passed" },

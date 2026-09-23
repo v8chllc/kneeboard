@@ -25,8 +25,11 @@ Work that needs proof beyond the diff belongs to a different workflow.
 review phase with `DEPENDENCY_MISSING` rather than reviewing its own work.
 
 **From the repository:** a profile in its steering document
-(`references/profile-template.md`). Every field has a conservative default, so a
-repository with no profile still runs; it just asks the sponsor more often. In a
+(`references/profile-template.md`). Every field but one has a conservative
+default, so a repository with no profile still runs — it just asks the sponsor
+more often — provided a workspace profile states `coordination_repository`.
+That field defaults to `none`, and a run with no coordination repository cannot
+start. In a
 workspace holding several repositories, the repository's own profile wins and the
 workspace profile fills what it does not state. The
 field that changes the run most is `autonomy`:

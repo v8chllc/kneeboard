@@ -11,7 +11,7 @@ Decide, for each acceptance criterion, whether the pull request satisfies it, us
 
 Identifiers only: the run issue URL, the repository, the pull request number, and the head SHA. Fetch everything else yourself:
 
-- the criteria, verbatim, and any evidence plan, from the run issue body and the body of this repository's sub-issue;
+- the criteria, verbatim, and any evidence plan, from the run issue body, and from the body of this repository's sub-issue when it has one — a repository whose profile states `tracking: none` has no sub-issue, and the run issue alone carries its criteria;
 - the diff, from git: the pull request's base branch, the merge base with the head SHA as the baseline, and the head SHA.
 
 If you were given more than identifiers — a summary, what the builder did, where to look — do not use it, and say so in the Inputs line. Do not read the builder's report, the plan comments, or the coordination records. Commit messages and the pull request description are the builder's claims: they may tell you where to look, never whether a criterion is met.

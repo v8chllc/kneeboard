@@ -69,12 +69,12 @@ pushed commit, or a written report, continues.
    Then confirm the run's home, in order. No `coordination_repository` resolves, or repositories resolve different ones: stop `BLOCKED`, naming the field. The run issue is not in it: stop `NEEDS_REFINEMENT`. A repository whose `tracking` is `required` has no issue among the run issue's sub-issues: stop `NEEDS_REFINEMENT`, naming the repository. Otherwise move the run issue's board status to in progress, where it is on a board, and append the record.
 3. **Plan.** Delegate to `agents/plan-agent.md`. The plan covers only decisions that are expensive to reverse. Check it against every acceptance criterion before accepting it: a plan that satisfies fewer criteria than the item states returns to the plan agent once, then stops with `NEEDS_REFINEMENT`. Under `checkpointed` autonomy, the sponsor approves the plan before implementation. Post the accepted plan on the run issue as a plan comment and link it from the record before implementing; a correction round posts the next revision.
 4. **Implement.** Delegate to `agents/build-agent.md`, one per repository, serialized unless each has an exclusive file boundary. The builder is retained for the whole run; corrections go back to the same builder.
-5. **Publish.** Push the branch and open a **draft** pull request per repository, cross-linked where a pair is in scope, with the body `references/run-state.md` defines: closing its own repository issue, and naming the run issue without a closing keyword. Append a record naming each pull request as soon as it opens, before anything else runs against it.
+5. **Publish.** Push the branch and open a **draft** pull request per repository, cross-linked where a pair is in scope, with the body `references/run-state.md` defines: closing its own repository issue when `work_item` is not `null`, and naming the run issue without a closing keyword. Append a record naming each pull request as soon as it opens, before anything else runs against it.
 
    This comes before review on purpose. The review capability never creates a pull request: given one it posts a comment per cycle and runs its own fix-and-re-review loop, and given none it returns a report that exists only in this session, never fixes, and never re-reviews. Reviewing first therefore throws away the run's strongest evidence, disables the fix loop, and spends a whole invocation on every correction. Draft, because an open pull request must not read as ready while review and verification are still running.
 6. **Review.** Invoke the review capability once per repository **against the pull request**, so each cycle posts its comment to the thread. Re-invoke at most once more per repository; a third invocation needs the sponsor. Findings are dispositioned by the builder, never argued with here. Any commit after a review invalidates that review and the verification that followed it.
 7. **Verify.** Delegate to `agents/verify-agent.md`, a fresh agent per repository. Pass identifiers only: the run issue URL, the repository, the pull request number, and the head SHA. Never a summary, a paraphrase of what the builder did, or where to look — the verifier fetches the criteria and the diff itself, and names what it was given in its comment. It posts the verification comment to the pull request.
-8. **Merge-ready.** Take the pull requests out of draft, append the record, and report the state and the profile's merge method. Never merge.
+8. **Merge-ready.** Take the pull requests out of draft, then confirm that every resolved `required_gates` entry passes on each pull request's head SHA, polling each as the profile describes and recording the evidence for each gate. A gate that is missing or failing blocks `READY_TO_MERGE`: stop `BLOCKED`, naming the gate. Append the record, and report the state and the profile's merge method. Never merge.
 9. **Retrospective.** On every terminal path, append the terminal snapshot to the run issue once, move its board status to in review when the signal is `READY_TO_MERGE`, and post one retrospective comment. The sponsor closes the run issue once every pull request has merged.
 
 ## Terminal output
@@ -87,10 +87,10 @@ End with a short report — what changed per repository, the pull-request URLs, 
 
 | Signal | When |
 | --- | --- |
-| `READY_TO_MERGE` | Every repository has an open pull request, review passed, and verification has no `fail` |
+| `READY_TO_MERGE` | Every repository has an open pull request, review passed, every verification criterion is `pass`, and every resolved `required_gates` entry passes on the head SHA |
 | `NEEDS_REFINEMENT` | The run issue, its sub-issues, or the plan cannot satisfy the criteria, or the run has no valid run issue |
 | `BLOCKED` | The sponsor must decide before the run can continue; `details.question` states it |
-| `VERIFICATION_FAILED` | Verification returned `fail` or `not_verified` and the budget is spent |
+| `VERIFICATION_FAILED` | Verification returned `fail`, `not_verified`, or `underived` for any criterion and the budget is spent |
 | `QUALITY_FAILURES` | The profile's quality commands fail and the failures are not attributable to the change |
 | `DEPENDENCY_MISSING` | The review capability is unavailable |
 | `ABORT` | Unrecoverable; `details.reason` and `details.message` state it |

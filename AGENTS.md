@@ -261,6 +261,7 @@ required_gates:
   - CI workflow (.github/workflows/ci.yml) passing on the pull request head
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
+review_capability: coderabbit  # gate of record; see docs/build-execution-strategy.md §4
 quality_commands:
   - mise exec -- pnpm lint
   - mise exec -- pnpm typecheck

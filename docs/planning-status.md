@@ -94,6 +94,11 @@ Resolved section 4 toolchain, pinned on 2026-08-13:
   request, with accepted findings either (a) fixed and affected gates rerun, or
   (b) accepted as-is with a recorded reason, before merge, governed by a
   committed `.coderabbit.yaml`
+- Chores run as one issue per pull request through the `chore-orchestrate`
+  workflow skill, copied byte-identical from `v8chllc/vault`, with CodeRabbit
+  as the gate of record through the profile's `review_capability` and the
+  retained build agent applying every repair; a gap between a skill and the
+  execution strategy is fixed upstream, never in the local copy
 - Interactive bounded goals through sections 4 and 5, supervised by the user or
   authorized manager at every checkpoint; a capped loop permitted from section
   6 only after both complete cleanly

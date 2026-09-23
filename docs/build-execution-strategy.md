@@ -207,7 +207,12 @@ The manager must escalate to the user, rather than decide, when:
   provider configuration is proposed;
 - an external message is proposed, other than the section-branch push, the pull
   request that accompanies it, authoring or updating that pull request's
-  description, and a CodeRabbit review invocation on an open pull request; or
+  description, and a CodeRabbit review invocation on an open pull request. In a
+  [chore run](#chore-runs) or [section run](#section-runs), the records and
+  comments the workflow skill defines are also permitted: coordination records,
+  plan comments, the snapshot, and the retrospective on the run issue, and on
+  the pull request, review dispositions, the scope and result comments, and
+  evidence attached to them; or
 - graduation from interactive execution to capped-loop eligibility is proposed.
 
 ### Routine checkpoint decision
@@ -813,8 +818,9 @@ only. It does not let you resolve product or architecture choices, weaken a
 boundary, authorize parallel writing, merge, push to main, perform production
 operations, use credentials, or configure providers. You may communicate
 externally only by pushing the section branch, opening its pull request,
-authoring and updating that pull request's description, and invoking a
-CodeRabbit review on an open pull request; anything further is escalated.
+authoring and updating that pull request's description, invoking a CodeRabbit
+review on an open pull request, and, in a workflow-skill run, posting the
+records and comments that skill defines; anything further is escalated.
 
 Supervision: require the build agent to bound and report each slice using the
 documented checkpoint fields. Independently inspect enough repository state,

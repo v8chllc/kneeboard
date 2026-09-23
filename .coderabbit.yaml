@@ -84,8 +84,9 @@ reviews:
         for the right reason: at the baseline on the assertion itself, not on a
         missing symbol or setup error, or with the behavior it guards removed,
         which is required when that behavior already exists at the baseline.
-        AGENTS.md "Testing and Delivery" requires this. Flag the shapes that pass while proving nothing: a check that
-        something changed, or that some element matches, where the exact
+        AGENTS.md "Testing and Delivery" requires this. Flag the shapes that
+        pass while proving nothing: a check that something changed, or that
+        some element matches, where the exact
         expected value is knowable; a negative assertion satisfied by the code
         not running at all; a comparison against a mock rather than the real
         implementation; a branch conditioned on whether a fixture happens to

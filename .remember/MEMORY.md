@@ -112,6 +112,13 @@ Date: 2026-08-20
 Rationale: Three options were weighed: materialize everything, materialize slots only, or store facts alone. Derived won because a stored slot is a second copy of a rule the domain already owns, and any consumer reading it can read a stale one. Pending and queued are the deliberate exception, stored in waypoints[].state and recalculated from the remaining facts on every transition; the safeguard is that recalculation never consults their previous values, and recalculateSnapshot is proven idempotent by test at src/domain/engine.test.ts
 Do not reverse: Reversing after section 6 persists snapshots is expensive, because every persisted row would carry the old shape and need migrating
 
+<!-- decision -->
+Decision: CodeRabbit is the review gate of record for workflow-skill runs as well as sections, selected by the profile's review_capability; the retained build agent applies every repair, and pull requests never open as drafts
+Date: 2026-09-23
+Rationale: The vendored chore-orchestrate skill had drifted from docs/build-execution-strategy.md, whose execution strategy originated here. The skill required v8ch:consensus-review and opened draft pull requests, so the first two chore runs (#26 via PR #32, #33 via PR #34) each paid for two reviews, left draft early because CodeRabbit skips drafts, and met a second writer when the review skill's own fixer edited the branch. CodeRabbit won because an independent reviewer does not share the builder's model-family blind spots, it is already the rule this repository wrote, and it removes a review package to maintain
+Residual risk: On PR #34, consensus-review caught a vacuous "some slot changed" assertion that CodeRabbit on its chill profile passed. The **/*.test.ts path instructions in .coderabbit.yaml were tightened with the AGENTS.md list of assertions that pass while proving nothing, rather than keeping a second review system
+Do not reverse: Fix a skill gap upstream in v8chllc/vault and sync it; editing the local copy forks it from its source
+
 
 ## error
 

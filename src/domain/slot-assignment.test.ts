@@ -84,9 +84,10 @@ describe("deriveSlotAssignments", () => {
   it("never disturbs the slot of a fix earlier in the route than the skip", () => {
     // A saved fix's derived slot must never drift from the slot it was written
     // into; docs/tracker-behavior.md §Memory slots gives the reason. This test
-    // covers a skip after a save, which is downstream of every saved fix. A
-    // skip before a save is covered in engine.test.ts by "keeps the slot of a
-    // fix saved after an earlier skip".
+    // covers the derivation premise: a skip never renumbers an earlier fix.
+    // engine.test.ts covers it at the Save level, in "never disturbs the slot
+    // of a fix already entered" for a skip after a save and in "keeps the slot
+    // of a fix saved after an earlier skip" for a skip before one.
     const navlog = navlogFor("valid-multi-page.json");
     const sequence = deriveEligibleSequence(navlog, DEFAULT_PROCEDURE_INCLUSION);
     const before = slotByRouteIndex(deriveSlotAssignments(sequence));

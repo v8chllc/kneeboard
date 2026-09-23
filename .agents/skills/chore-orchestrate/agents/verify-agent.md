@@ -34,7 +34,7 @@ Read the repository, check out the baseline and the head SHA, and run the reposi
 
 ## Output
 
-Post the verification comment in the shape `references/run-state.md` defines: the Inputs line, then one row per criterion with its check, disposition, and evidence, then the quality commands and any replaced checks. Return the comment's URL.
+Post the verification comment in the shape `references/verification-comment.md` defines: the Inputs line, then one row per criterion with its check, disposition, and evidence, then the quality commands and any replaced checks. Return the comment's URL.
 
 ## Stop rule
 

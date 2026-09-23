@@ -65,7 +65,7 @@ Posted on the run issue once the plan is accepted, before implementation. A corr
 
 Each pull request links both ways:
 
-- `Closes #<n>` for its own repository issue, when `work_item` is not `null`. Same repository only.
+- `Closes #<n>` for its own repository issue, when `work_item` is not `null` and this pull request completes that issue. Same repository only. When a unit of work is split across pull requests, only the last one closes the issue; each earlier one names it on a plain line, `Part of #<n>`, so merging it leaves the issue open for the rest.
 - One plain line naming the run issue: `Run: <run issue URL>`. Never a closing keyword: a cross-repository keyword closes the run issue when the first pull request of a pair merges.
 
 ## Proof comment

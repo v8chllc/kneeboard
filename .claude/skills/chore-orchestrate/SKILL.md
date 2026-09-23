@@ -49,9 +49,18 @@ Never, whatever the profile or the repository's steering document says: merge, f
 
 A defect found outside the approved plan is dispositioned once: take it only when the planned change cannot land without it, defer it to a new work item, or decline it with a reason. Record the disposition. Size, proximity, and reviewer preference never justify taking it.
 
+## Run records
+
+Run records follow the shared contract in `${CLAUDE_SKILL_DIR}/references/run-state.md`. For this skill:
+
+- the marker is `chore-orchestrate`, the run identifier prefix is `chore`, and the heading word is `Chore`;
+- `phase` is one of `readiness`, `resolve`, `plan`, `implement`, `publish`, `review`, `verify`, `merge_ready`, `retrospective`;
+- the proof comment is the verification comment in `${CLAUDE_SKILL_DIR}/references/verification-comment.md`; and
+- the record carries no extra fields.
+
 ## Supervision
 
-When a supervisor is watching, end each turn that ends with the status block defined by the `supervise` skill (`.claude/skills/supervise/references/status-block.md`), and append a coordination record at every phase change and whenever a pull request opens. The record is what a supervisor reads between turns; the block only reaches it when a turn ends.
+When a supervisor is watching, end each turn that ends with the status block the `supervise` skill reads (`${CLAUDE_SKILL_DIR}/references/status-block.md`), and append a coordination record at every phase change and whenever a pull request opens. The record is what a supervisor reads between turns; the block only reaches it when a turn ends.
 
 This is optional: a run with no supervisor writes the record anyway, because a resuming manager reads it.
 

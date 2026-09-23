@@ -22,7 +22,7 @@ A repository with no such block states no fields, so every field resolves from t
 
 ## Precedence when a workspace contains the repository
 
-Resolution is per field, not per profile: a repository that states three fields inherits the other ten rather than forfeiting them. A run started from a workspace that holds several repositories reads two profiles, and resolves **each field** in this order:
+Resolution is per field, not per profile: a repository that states three fields inherits the rest rather than forfeiting them. A run started from a workspace that holds several repositories reads two profiles, and resolves **each field** in this order:
 
 1. the profile in the repository being changed;
 2. the workspace steering document, for a field the repository does not state. Where that document separates its own values from the defaults it offers child repositories, read the child block; the workspace's own values describe the workspace repository and are not inherited;
@@ -44,6 +44,8 @@ A repository may forbid more than the workspace does. Neither may permit anythin
 | `merge_method` | The method the sponsor uses; reported, never performed | report only |
 | `required_gates` | Checks that must pass before merge-ready, including external review bots and how to poll them | the quality commands only |
 | `review_capability` | The review the review phase runs: `consensus-review`, the skill invoked against the pull request, or `coderabbit`, the loop in `references/coderabbit-review.md` | `consensus-review` |
+| `journey` | How Journey proof is produced: `none`; `"automated: <command>"`, a scripted journey suite an agent runs, locally or in CI; or `"manual: <where results are recorded>"`, journeys a person performs. Read by skills that prove behavior. | `none` |
+| `loop_ceiling` | The most implementation slices a loop may run without a manager checkpoint. A kickoff may set a lower ceiling, never a higher one. Read by skills that implement in slices. | `0`, every slice checkpointed |
 | `quality_commands` | Lint, format, type, unit, integration, end-to-end | discovered from manifests |
 | `release_steps` | Version bumps, manifest updates, or publication steps a change requires | none |
 | `prohibited_actions` | Commands, branches, and paths this repository forbids | the skill's universal list |

@@ -1,7 +1,7 @@
 /**
  * Slot availability and pending derivation.
  *
- * Governed by `docs/tracker-behavior.md` §Slot availability:
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Slot availability:
  *
  * - a slot is free when it has never been written, or when it holds a passed
  *   fix that is not the most recently passed fix;

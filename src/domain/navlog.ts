@@ -7,7 +7,7 @@
  * construction; eligibility depends additionally on the tracker's SID/STAR
  * inclusion state and is therefore derived, not stored here.
  *
- * Governed by `docs/tracker-behavior.md` §Route scope, §Displayed data, and
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Route scope, §Displayed data, and
  * §Slot eligibility.
  */
 
@@ -23,7 +23,7 @@ export type KnownSourceType = (typeof KNOWN_SOURCE_TYPES)[number];
 
 /**
  * The outcome of the fail-closed classification order in
- * `docs/tracker-behavior.md` §Slot eligibility.
+ * `../project-management/kneeboard/tracker-behavior.md` §Slot eligibility.
  *
  * - `airport` — source type `apt`; never eligible.
  * - `coordinateFix` — `ltlg` whose ident matches `^\d{2}[NS]\d{3}[EW]$`;

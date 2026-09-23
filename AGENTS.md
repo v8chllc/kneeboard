@@ -5,20 +5,26 @@
 Before planning or changing application behavior, read:
 
 1. `README.md`
-2. `docs/product-decisions.md`
-3. `docs/tracker-behavior.md`
-4. `docs/technical-decisions.md`
-5. `docs/planning-status.md`
-6. `docs/task-list.md`
-7. `docs/build-execution-strategy.md`
+2. `../project-management/kneeboard/product-decisions.md`
+3. `../project-management/kneeboard/tracker-behavior.md`
+4. `../project-management/kneeboard/technical-decisions.md`
+5. `../project-management/kneeboard/planning-status.md`
+6. `../project-management/kneeboard/task-list.md`
+7. `../project-management/kneeboard/build-execution-strategy.md`
 8. `WORKFLOW_STANDARDS.md`
 
-The decision documents are the source of truth. `docs/task-list.md` records
-execution order but does not override product, domain, or technical decisions.
+The project documents are in the sibling `project-management` checkout. If it
+is missing, clone `git@github.com:v8chllc/project-management.git` beside this
+repository before changing governed behavior.
 
-`docs/prototypes/tracker-wireframe.html` is a throwaway reference drawing of the
-navlog, waypoint states, and sliding window. Consult it to understand the
-intended display, but do not carry it into application code.
+The decision documents are the source of truth. The sibling
+`project-management/kneeboard/task-list.md` records execution order but does
+not override product, domain, or technical decisions.
+
+The sibling `project-management/kneeboard/prototypes/tracker-wireframe.html` is
+a throwaway reference drawing of the navlog, waypoint states, and sliding
+window. Consult it to understand the intended display, but do not carry it into
+application code.
 
 Application implementation began with task-list section 4. Development tooling
 and planning artifacts may already exist, so inspect the repository and working
@@ -31,7 +37,7 @@ tree before assuming a blank slate.
 - Present findings, options, and trade-offs before making material code or
   architecture changes.
 - Keep changes small, dependency-light, and limited to the approved MVP.
-- Do not silently resolve an open decision from `docs/planning-status.md`.
+- Do not silently resolve an open decision from `../project-management/kneeboard/planning-status.md`.
   Propose a choice and update the governing documentation deliberately after
   approval.
 - If implementation conflicts with documented behavior, stop and surface the
@@ -94,7 +100,8 @@ interpretation has already settled.
 
 ## Domain Invariants
 
-Consult `docs/tracker-behavior.md` before changing tracker logic. In particular:
+Consult `../project-management/kneeboard/tracker-behavior.md` before changing
+tracker logic. In particular:
 
 - Use only the primary origin-to-destination navlog, while displaying every
   point in original route order.
@@ -103,7 +110,8 @@ Consult `docs/tracker-behavior.md` before changing tracker logic. In particular:
 - Eligible fixes use repeating slots 1-9, derived from position in the eligible
   sequence. Only Skip and the SID/STAR controls renumber; Save and Pass never do.
   The minimal snapshot depends on the ordering property under §Memory slots in
-  `docs/tracker-behavior.md`: because Save takes the earliest pending fix, every
+  `../project-management/kneeboard/tracker-behavior.md`: because Save takes the
+  earliest pending fix, every
   skip after a save is downstream of that saved fix, while any skip before it is
   already reflected in the slot the fix was written into. That slot therefore
   cannot drift once written. Permitting a saved fix to be skipped, or a save out
@@ -165,10 +173,10 @@ shared domain implementation.
 - The endpoint returns only the most recent OFP. Verify a generated route covers
   its scenario before fetching, and record each capture in
   `.local/simbrief/manifest.md`.
-- Consult `docs/simbrief-navlog-findings.md` before writing parsing or
+- Consult `../project-management/kneeboard/simbrief-navlog-findings.md` before writing parsing or
   classification code. It records observed payload structure, the evidence
   behind each classification rule, and the gaps between the payload and
-  `docs/tracker-behavior.md`.
+  `../project-management/kneeboard/tracker-behavior.md`.
 - Treat the payload as loosely typed at the boundary. SimBrief collapses
   single-element arrays into bare objects and quotes some numeric values, so
   normalize both shapes rather than assuming consistency.
@@ -178,10 +186,11 @@ shared domain implementation.
 
 ## Implementation Order
 
-Follow `docs/task-list.md` and preserve these dependencies:
+Follow `../project-management/kneeboard/task-list.md` and preserve these dependencies:
 
-The unnumbered pre-build execution gate in `docs/task-list.md` closed on
-2026-08-12. `docs/build-execution-strategy.md` is approved and governs
+The unnumbered pre-build execution gate in the sibling task list closed on
+2026-08-12. `../project-management/kneeboard/build-execution-strategy.md`
+is approved and governs
 orchestration: one pull request per numbered section (with a section split
 across two pull requests when its diff cannot be reviewed safely as one unit)
 and one commit per slice, CodeRabbit as the mandatory review gate on every
@@ -258,7 +267,7 @@ Read by orchestrator skills such as `chore-orchestrate` at resolve. The field
 definitions and defaults are in
 `.agents/skills/chore-orchestrate/references/repository-profile.md`. The profile
 narrows authority and never widens it; the rules elsewhere in this document
-still bind every run, including `docs/build-execution-strategy.md` keeping
+still bind every run, including `../project-management/kneeboard/build-execution-strategy.md` keeping
 section 7 interactive.
 
 ```yaml
@@ -272,7 +281,7 @@ required_gates:
   - CI workflow (.github/workflows/ci.yml) passing on the pull request head
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
-review_capability: coderabbit  # gate of record; see docs/build-execution-strategy.md §4
+review_capability: coderabbit  # gate of record; see ../project-management/kneeboard/build-execution-strategy.md §4
 journey: none                 # until the Playwright harness exists (#40)
 loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:

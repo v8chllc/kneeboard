@@ -256,7 +256,7 @@ describe("Skip", () => {
 
   it("keeps the slot of a fix saved after an earlier skip", () => {
     // A saved fix's derived slot must never drift from the slot it was written
-    // into; docs/tracker-behavior.md §Memory slots gives the reason.
+    // into; ../project-management/kneeboard/tracker-behavior.md §Memory slots gives the reason.
     const slotsOf = (snapshot: TrackerSnapshot) =>
       slotByRouteIndex(deriveSlotAssignments(deriveEligibleSequenceForSnapshot(navlog, snapshot)));
     let snapshot = createInitialSnapshot(navlog);

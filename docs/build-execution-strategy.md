@@ -1,6 +1,7 @@
 # Build execution strategy
 
-Status: **Approved 2026-08-12; manager supervision approved 2026-08-13.** This
+Status: **Approved 2026-08-12; manager supervision approved 2026-08-13;
+workflow skills aligned 2026-09-23.** This
 document describes how an agent or agent team should implement the Kneeboard
 MVP. It is not permission to deploy infrastructure or perform production
 operations; those remain separately authorized. The approved orchestration
@@ -101,6 +102,37 @@ The primary build goal ends at a locally verified release candidate. Vercel,
 Neon, Resend, DNS, production secrets, and production migrations require
 explicit authority and belong to the supervised launch goal even though their
 preparation and validation procedures are part of MVP readiness.
+
+### Chore runs
+
+A chore is work whose diff proves its own completion: tooling, documentation,
+CI, dependency, and refactor work, and test-only follow-ups such as a carried
+item routed to its own issue. A chore is one issue delivered by one pull request
+through the `chore-orchestrate` skill rather than a task-list section. Numbered
+sections stay with the [kickoff prompts](#kickoff-prompts), because their
+completion needs behavioral evidence that the diff alone does not carry.
+
+The workflow skills carry out this document; they do not amend it.
+`chore-orchestrate` and `supervise` are copied from `v8chllc/vault`: the Codex
+copies live under `.agents/skills/`, and the Claude Code copies live under
+`.claude/skills/` with their role agents under `.claude/agents/`. Every copy
+stays byte-identical to its source. Values specific to this repository live in
+the keyed profile under `AGENTS.md` §Agent workflow profile, which a skill reads
+when it resolves the repository. When a skill and this document disagree, this
+document governs the run, the run's retrospective records the disagreement, and
+the fix lands upstream in vault and is synced here. A local copy is never edited
+to close the gap.
+
+The roles map directly:
+
+- the sponsor is the user, as everywhere in this document;
+- the `chore-orchestrate` manager is the read-only manager and never writes to
+  tracked files;
+- its retained `chore-build-agent` is the primary build agent: the sole writer
+  for the run and the agent that applies every review repair;
+- `chore-verify-agent` is the independent verification pass, given identifiers
+  only; and
+- the `supervise` skill is read-only oversight of a run another agent executes.
 
 ## Supervision roles and modes
 
@@ -463,8 +495,9 @@ commits directly to `main`.
 
 ### 4. Mandatory independent review
 
-CodeRabbit is the independent review gate. Every section pull request must carry
-a completed CodeRabbit review before it is eligible to merge. Every finding is
+CodeRabbit is the independent review gate. Every pull request, whether a section
+or a [chore run](#chore-runs) delivers it, must carry a completed CodeRabbit
+review before it is eligible to merge. Every finding is
 triaged: accepted findings are fixed and the affected quality gates re-run, and
 a finding accepted as-is requires a recorded reason in the pull request. An
 unreviewed or partially triaged pull request is not mergeable regardless of
@@ -477,12 +510,20 @@ re-run, and the user merges. The gate is section-level
 either way, so an unattended loop reaches independent review at the same point
 it always would — the section boundary.
 
-The mechanism in this workspace is the `coderabbit-review` skill to run the
-review and post its findings as a durable audit comment on the pull request,
-and the `coderabbit-fix` skill to apply accepted findings and post a
-fixes-applied comment. Both require an open pull request and a clean worktree.
-The requirement is the reviewed and triaged pull request; the tooling that
-produces it may change.
+A pull request never opens as a draft. `.coderabbit.yaml` leaves drafts
+unreviewed, so a draft cannot reach this gate, and a workflow skill that opens
+one does not conform to this document. Every orchestration path delivers its
+pull request merge-ready as defined below; the user merges.
+
+CodeRabbit is the gate of record whatever runs alongside it. A workflow skill
+selects its review step from the profile's `review_capability` field, which
+this repository sets to `coderabbit`. Another review, such as the
+`v8ch:consensus-review` skill, may run in addition at the primary build agent's
+or manager's discretion. It never replaces the CodeRabbit review, and its
+findings are dispositioned like any other. Repairs belong to the primary build
+agent in every case: no review tool's own fixer or autofix writes to the
+branch, which keeps one writer per run. The requirement is the reviewed and
+triaged pull request; the tooling that produces it may change.
 
 Automatic review is enabled in `.coderabbit.yaml`, but it does not always fire.
 On the section 4 pull request it did not, and the review had to be started by
@@ -713,13 +754,21 @@ A record of what happened stays in the description and is not called a risk.
 Section 5 carried eight follow-up items, two of which were records rather than
 risks.
 
+A [chore run](#chore-runs) records the same evidence in the skill's run records
+instead. The plan, coordination record, terminal snapshot, and retrospective live
+on the run issue, and the verification comment lives on the pull request. The
+pull request description links to them rather than restating them, and carried
+items are routed to the same homes listed above.
+
 ## Kickoff prompts
 
 These prompts are compact because the durable requirements already live in the
 repository. Directly supervised work uses only the primary build-agent prompt.
 Manager-supervised work starts with the manager prompt, which gives the primary
 build-agent prompt to one persistent worker through the surface's supported
-communication channel.
+communication channel. A [chore run](#chore-runs) uses neither template: it
+starts from the `supervise` skill's kickoff template, which names the run issue
+and the authority granted for that run.
 
 The rule that follows governs a per-run prompt, not the templates in this
 section. A per-run prompt that restates what its template already covers is a

@@ -30,8 +30,9 @@ export type WaypointState = "queued" | "pending" | "saved" | "passed" | "skipped
  * No slot is stored. A fix's slot follows determinately from its position in
  * the eligible sequence, and a saved fix's derived slot can never drift from
  * the slot it was written into: Skip applies only to queued or pending fixes,
- * and only the earliest pending fix may be saved, so no skip can ever occur
- * earlier in the route than a saved fix.
+ * and only the earliest pending fix may be saved, so every skip after a save is
+ * downstream of that saved fix, while any skip before it is already reflected
+ * in the slot the fix was written into.
  */
 export interface WaypointEntry {
   /** Index into `Navlog.points`. Stable across every renumbering. */

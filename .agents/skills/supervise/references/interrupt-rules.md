@@ -53,7 +53,9 @@ ends; raise it sooner only if asked or if it recurs across runs.
 - Style, naming, and wording preferences.
 - A faster route to the same result the manager is already reaching.
 - A `minor` deviation.
-- Anything unverifiable at the source.
+- A non-actionable observation that is unverifiable at the source. An
+  unverifiable issue that would otherwise be an interrupt or a draft becomes a
+  draft, as above.
 - Retrospective material: friction, repeated corrections, rules that proved
   unclear.
 

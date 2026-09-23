@@ -15,7 +15,7 @@ profile narrows authority and can never widen it.
 ## Agent workflow profile
 
 ```yaml
-autonomy: autonomous          # or: checkpointed
+autonomy: checkpointed        # or: autonomous, to skip sponsor plan approval
 tracking: required            # or: none
 coordination_repository: <owner>/<repository where run issues live>
 branch_naming: "type/short-description"

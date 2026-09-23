@@ -80,9 +80,11 @@ reviews:
         Tests must use the sanitized fixtures under tests/fixtures/simbrief and
         must never contact live SimBrief, Resend, or production infrastructure.
         Flag any weakened assertion that makes a failing gate pass.
-        For every added or changed assertion, ask whether it can fail when the
-        behavior it guards is removed; AGENTS.md "Testing and Delivery" requires
-        that. Flag the shapes that pass while proving nothing: a check that
+        For every added or changed assertion, ask whether it was shown to fail
+        for the right reason: at the baseline on the assertion itself, not on a
+        missing symbol or setup error, or with the behavior it guards removed,
+        which is required when that behavior already exists at the baseline.
+        AGENTS.md "Testing and Delivery" requires this. Flag the shapes that pass while proving nothing: a check that
         something changed, or that some element matches, where the exact
         expected value is knowable; a negative assertion satisfied by the code
         not running at all; a comparison against a mock rather than the real

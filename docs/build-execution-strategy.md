@@ -110,12 +110,22 @@ CI, dependency, and refactor work, and test-only follow-ups such as a carried
 item routed to its own issue. A chore is one issue delivered by one pull request
 through the `chore-orchestrate` skill rather than a task-list section. Its run
 issue is a coordination issue in `v8chllc/project-management`, with the Kneeboard
-issue as its sub-issue, as the `AGENTS.md` profile states. Numbered
-sections stay with the [kickoff prompts](#kickoff-prompts), because their
-completion needs behavioral evidence that the diff alone does not carry.
+issue as its sub-issue, as the `AGENTS.md` profile states.
+
+### Section runs
+
+A numbered section, or each pull request of a section split in two, runs
+through the `feature-orchestrate` skill, because its completion needs
+behavioral evidence that the diff alone does not carry. The skill carries the
+slice lifecycle, checkpoint decisions, review, and proof that this document
+first described. A split section gets one run per pull request on the same run
+issue. Section 6a is the skill's pilot. Until the pilot passes, the
+[kickoff prompts](#kickoff-prompts) remain the fallback, and after it this
+document is cut down to Kneeboard's own policy.
 
 The workflow skills carry out this document; they do not amend it.
-`chore-orchestrate` and `supervise` are copied from `v8chllc/vault`: the Codex
+`chore-orchestrate`, `feature-orchestrate`, and `supervise` are copied from
+`v8chllc/vault`: the Codex
 copies live under `.agents/skills/`, and the Claude Code copies live under
 `.claude/skills/` with their role agents under `.claude/agents/`. Every copy
 stays byte-identical to its source. Values specific to this repository live in
@@ -133,7 +143,10 @@ The roles map directly:
 - its retained `chore-build-agent` is the primary build agent: the sole writer
   for the run and the agent that applies every review repair;
 - `chore-verify-agent` is the independent verification pass, given identifiers
-  only; and
+  only;
+- in a section run, the `feature-orchestrate` manager and its retained
+  `feature-build-agent` take the same two roles, and its scope and proof
+  agents are the independent verification, given identifiers only; and
 - the `supervise` skill is read-only oversight of a run another agent executes.
 
 ## Supervision roles and modes

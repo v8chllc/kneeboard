@@ -6,7 +6,7 @@
  * `Map` or `Set`, no `Date` — because it round-trips through JSON and
  * deterministic replay depends on that round-trip being lossless.
  *
- * Governed by `docs/tracker-behavior.md` §State model, §Sliding window, and
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §State model, §Sliding window, and
  * AGENTS.md §Domain Invariants.
  */
 

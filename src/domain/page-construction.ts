@@ -5,7 +5,7 @@
  * number of displayed rows. Points that hold no slot still appear, on the page
  * the rules below place them.
  *
- * Governed by `docs/tracker-behavior.md` §Page construction:
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Page construction:
  *
  * 1. Page 1 begins at the start of the navlog and includes the excluded origin
  *    and every other excluded point before the fix assigned to slot 1.

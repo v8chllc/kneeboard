@@ -2,7 +2,7 @@
  * Waypoint classification.
  *
  * Implements the fail-closed classification order in
- * `docs/tracker-behavior.md` §Slot eligibility exactly as written. The order
+ * `../project-management/kneeboard/tracker-behavior.md` §Slot eligibility exactly as written. The order
  * matters: airport and `ltlg` classification run before the procedure flag is
  * consulted, because destination, top-of-climb, and top-of-descent rows carry
  * that flag in the accepted captures.

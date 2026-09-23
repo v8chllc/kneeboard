@@ -5,7 +5,7 @@
  * INS unit: the nine most recently saved fixes. It is distinct from a page,
  * which is display grouping, and there is no "active page".
  *
- * Governed by `docs/tracker-behavior.md` §Sliding window:
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Sliding window:
  *
  * - members are always `saved` or `passed`, never `pending` or `queued`;
  * - it holds between one and nine members once entry begins, and is empty

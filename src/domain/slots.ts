@@ -1,7 +1,7 @@
 /**
  * Repeating INS memory slots.
  *
- * Governed by `docs/tracker-behavior.md` §Memory slots.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Memory slots.
  */
 
 /** INS memory slots repeat from 1 through 9. */

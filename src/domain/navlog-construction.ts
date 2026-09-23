@@ -5,7 +5,7 @@
  * synthesized display-only origin row, and derived `RDIS` — because all three
  * are interpretation of the route rather than representation of the payload.
  *
- * Governed by `docs/tracker-behavior.md` §Route scope and §Displayed data.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Route scope and §Displayed data.
  */
 
 import { classifyFix } from "./classification";

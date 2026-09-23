@@ -9,7 +9,7 @@
  * Pages are display grouping only. They are not the sliding window, and there
  * is no "active page".
  *
- * Governed by `docs/tracker-behavior.md` §Page construction.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Page construction.
  */
 
 export interface Page {

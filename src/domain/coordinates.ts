@@ -7,7 +7,7 @@
  * single source, through a single rounded intermediate, so they can never
  * disagree.
  *
- * Governed by `docs/tracker-behavior.md` §Coordinate presentation.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Coordinate presentation.
  */
 
 /** Tenths of a minute in one degree: 60 minutes x 10. */
@@ -156,7 +156,7 @@ export function formatLatitude(latitude: number): CoordinatePresentation {
  * 179°59.97'W becomes 180°00.0' — is therefore normalized to `E 180000`.
  *
  * This diverges deliberately from ISO 6709 §6.5(c), which renders the same
- * meridian `W`. See `docs/tracker-behavior.md` §Coordinate presentation.
+ * meridian `W`. See `../project-management/kneeboard/tracker-behavior.md` §Coordinate presentation.
  */
 export function formatLongitude(longitude: number): CoordinatePresentation {
   assertInRange(longitude, MAX_LONGITUDE_DEGREES, "longitude");

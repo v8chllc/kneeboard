@@ -10,7 +10,7 @@
  * against its expected snapshot version, so a preview taken against stale state
  * cannot be applied.
  *
- * Governed by `docs/tracker-behavior.md` §Domain implementation direction.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Domain implementation direction.
  */
 
 import { selectPassCascade, type PassCascadeSelection } from "./pass-cascade";

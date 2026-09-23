@@ -22,7 +22,7 @@ quality commands, CI command parity, and review configuration are established.
 The pre-build execution gate is closed. The structured agent workflow,
 checkpoint cadence, delegation boundaries, review gates, and the manager and
 primary build-agent kickoff prompts are approved and recorded in
-[Build execution strategy](docs/build-execution-strategy.md). Implementation
+[Build execution strategy](https://github.com/v8chllc/project-management/blob/main/kneeboard/build-execution-strategy.md). Implementation
 proceeds one task-list section per pull request, with a section split across
 two pull requests when its diff cannot be reviewed safely as one unit.
 
@@ -33,15 +33,17 @@ unit tests.
 
 ## About this repository
 
-Kneeboard is built in the open as a demonstration of engineering process, so the
-planning documents are deliberate artifacts rather than scratch notes.
+Kneeboard is built in the open as a demonstration of engineering process. The
+planning documents are deliberate artifacts in the private
+[`project-management` repository](https://github.com/v8chllc/project-management/tree/main/kneeboard),
+so access to that repository is required to read the links below.
 
 - The decision documents record the reasoning behind each choice, not only the
   choice itself. Where a model proved wrong, the correction and its rationale
   are documented rather than quietly replaced. The replacement of the original
   "active page" concept with the sliding window is one such case, caught while
   the cost was a document rather than a transition engine and its test suite.
-- The deferred list in [Planning status](docs/planning-status.md) is scope
+- The deferred list in [Planning status](https://github.com/v8chllc/project-management/blob/main/kneeboard/planning-status.md) is scope
   discipline rather than a backlog. Each entry is something consciously
   excluded from the MVP, recorded so that it stays excluded until it is chosen
   deliberately.
@@ -58,26 +60,26 @@ planning documents are deliberate artifacts rather than scratch notes.
 
 ## Documentation
 
-- [Product decisions](docs/product-decisions.md) — audience, MVP experience,
+- [Product decisions](https://github.com/v8chllc/project-management/blob/main/kneeboard/product-decisions.md) — audience, MVP experience,
   screens, data shown, failure behavior, and explicit non-goals.
-- [Tracker behavior](docs/tracker-behavior.md) — waypoint eligibility,
+- [Tracker behavior](https://github.com/v8chllc/project-management/blob/main/kneeboard/tracker-behavior.md) — waypoint eligibility,
   coordinate formatting, slot sequencing, state transitions, passing semantics,
   and page construction.
-- [Technical decisions](docs/technical-decisions.md) — stack, integration,
+- [Technical decisions](https://github.com/v8chllc/project-management/blob/main/kneeboard/technical-decisions.md) — stack, integration,
   persistence, authentication, security, deployment, testing, and operations.
-- [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
+- [SimBrief navlog findings](https://github.com/v8chllc/project-management/blob/main/kneeboard/simbrief-navlog-findings.md) — observed OFP
   payload structure, classification evidence, and gaps against documented
   tracker behavior.
-- [Planning status](docs/planning-status.md) — confirmed direction, deferred
+- [Planning status](https://github.com/v8chllc/project-management/blob/main/kneeboard/planning-status.md) — confirmed direction, deferred
   work, and the few implementation choices that remain open.
-- [Project task list](docs/task-list.md) — representative SimBrief fixture
+- [Project task list](https://github.com/v8chllc/project-management/blob/main/kneeboard/task-list.md) — representative SimBrief fixture
   scenarios and the ordered path from local development setup through MVP
   release.
-- [Build execution strategy](docs/build-execution-strategy.md) — the approved
+- [Build execution strategy](https://github.com/v8chllc/project-management/blob/main/kneeboard/build-execution-strategy.md) — the approved
   structured-agent workflow, delegation boundaries, quality gates, approved
   orchestration choices, and the manager and primary build-agent kickoff
   prompts.
-- [Tracker wireframe](docs/prototypes/tracker-wireframe.html) — a throwaway
+- [Tracker wireframe](https://github.com/v8chllc/project-management/blob/main/kneeboard/prototypes/tracker-wireframe.html) — a throwaway
   static drawing of the navlog, waypoint states, and sliding window across six
   fixture-derived scenarios. Open it in a browser; it is a reference artifact
   and is not carried into application code.

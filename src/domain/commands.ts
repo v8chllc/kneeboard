@@ -5,7 +5,7 @@
  * through the same pure, deterministic transition engine and the same
  * expected-version persistence path.
  *
- * Governed by `docs/tracker-behavior.md` §Domain implementation direction and
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Domain implementation direction and
  * AGENTS.md §Architecture Guardrails.
  */
 

@@ -9,7 +9,7 @@
  * Only Skip and the SID/STAR inclusion controls change eligibility, so only
  * those operations renumber. Save and Pass never do.
  *
- * Governed by `docs/tracker-behavior.md` §Memory slots.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Memory slots.
  */
 
 import { SLOT_COUNT, type SlotAssignment, type SlotNumber } from "./slots";

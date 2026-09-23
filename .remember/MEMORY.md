@@ -10,7 +10,7 @@
 <!-- entity -->
 Entity: tracker-wireframe.html
 Type: Module
-Location: docs/prototypes/tracker-wireframe.html
+Location: ../project-management/kneeboard/prototypes/tracker-wireframe.html
 Purpose: Static reference drawing of the navlog, waypoint states, and sliding window across six fixture-derived scenarios
 Dependencies: none
 Notes: Throwaway. Plain HTML and CSS, no JavaScript or build step. Rows are transcribed from tests/fixtures/simbrief and were verified programmatically against the fixture JSON. Not carried into application code
@@ -49,7 +49,7 @@ Rationale: Per-action idempotency and a disabled button stop double-submits but 
 Decision: Validate the tracker display model with a throwaway static wireframe before writing domain code
 Date: 2026-07-28
 Rationale: Two domain-model corrections in one session came from visual reasoning — that pages cannot track unit contents, and that passing a fix cannot free its slot. Both would have been expensive to discover after the transition engine and its tests existed. The wireframe needs no domain code, so the cheapest moment to look at the model is before anything depends on it
-Do not reverse: The wireframe is a reference drawing under docs/prototypes and is deliberately not carried into application code
+Do not reverse: The wireframe is a reference drawing under ../project-management/kneeboard/prototypes and is deliberately not carried into application code
 
 <!-- decision -->
 Decision: Keep the build execution strategy surface-neutral, naming required capabilities rather than an agent product
@@ -98,7 +98,7 @@ Do not reverse: A draft-pull-request variant was tried and abandoned. It made th
 Decision: A review finding is accepted as-is only against a governing citation verified by a bounded read-only subagent, never by the manager alone
 Date: 2026-08-17
 Rationale: Letting the manager run the review gate to completion means it triages findings against work it supervised. The old test asked whether acceptance "would weaken a boundary" — a judgment that invites the answer the judge prefers. Acceptance now requires citing the governing document and passage that already sanctions the behavior; no citation means fix or escalate. Safety, privacy, authorization, and test findings are never accepted as-is regardless of citation. The citation is checked by a bounded read-only subagent with no stake in the outcome
-Do not reverse: The subagent prompt is fixed in docs/build-execution-strategy.md rather than authored per finding, because a leading prompt gets a leading answer and that failure is invisible in the output. A skipped or reworded check is itself a reportable deviation, since the cheapest way around the control is never to invoke it
+Do not reverse: The subagent prompt is fixed in ../project-management/kneeboard/build-execution-strategy.md rather than authored per finding, because a leading prompt gets a leading answer and that failure is invisible in the output. A skipped or reworded check is itself a reportable deviation, since the cheapest way around the control is never to invoke it
 
 <!-- decision -->
 Decision: Split SimBrief handling at a representation-versus-interpretation seam, with section 8 owning Zod normalization and section 5 owning domain interpretation
@@ -115,7 +115,7 @@ Do not reverse: Reversing after section 6 persists snapshots is expensive, becau
 <!-- decision -->
 Decision: CodeRabbit is the review gate of record for workflow-skill runs as well as sections, selected by the profile's review_capability; the retained build agent applies every repair, and the orchestrating agent triggers every review with automatic review off
 Date: 2026-09-23
-Rationale: The vendored chore-orchestrate skill had drifted from docs/build-execution-strategy.md, whose execution strategy originated here. The skill required v8ch:consensus-review and opened draft pull requests, so the first two chore runs (#26 via PR #32, #33 via PR #34) each paid for two reviews, left draft early because CodeRabbit's automatic review skips drafts, and met a second writer when the review skill's own fixer edited the branch. CodeRabbit won because an independent reviewer does not share the builder's model-family blind spots, it is already the rule this repository wrote, and it removes a review package to maintain
+Rationale: The vendored chore-orchestrate skill had drifted from ../project-management/kneeboard/build-execution-strategy.md, whose execution strategy originated here. The skill required v8ch:consensus-review and opened draft pull requests, so the first two chore runs (#26 via PR #32, #33 via PR #34) each paid for two reviews, left draft early because CodeRabbit's automatic review skips drafts, and met a second writer when the review skill's own fixer edited the branch. CodeRabbit won because an independent reviewer does not share the builder's model-family blind spots, it is already the rule this repository wrote, and it removes a review package to maintain
 Residual risk: On PR #34, consensus-review caught a vacuous "some slot changed" assertion that CodeRabbit on its chill profile passed. The **/*.test.ts path instructions in .coderabbit.yaml were tightened with the AGENTS.md list of assertions that pass while proving nothing, rather than keeping a second review system
 Resolved sub-question: Drafts were never the conflict; automatic review skipping them was. With auto_review.enabled: false and the orchestrator triggering each review, a chore run keeps the skill's draft-until-merge-ready rule. Removing the key would not fall back to the UI setting, because CodeRabbit does not merge configuration sources by default and an omitted key takes the schema default
 Do not reverse: Fix a skill gap upstream in v8chllc/vault and sync it; editing the local copy forks it from its source

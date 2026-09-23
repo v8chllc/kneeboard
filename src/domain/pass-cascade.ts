@@ -6,7 +6,7 @@
  * agree is the defect this module exists to prevent, so nothing else may
  * reimplement the rule.
  *
- * Governed by `docs/tracker-behavior.md` §Passing and bypassed waypoints:
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Passing and bypassed waypoints:
  * passing a saved waypoint atomically marks that waypoint passed and marks
  * every earlier saved-but-unpassed waypoint passed. A saved waypoint is never
  * changed to `skipped`; bypassed saved waypoints are handled through Pass.

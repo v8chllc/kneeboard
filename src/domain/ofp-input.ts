@@ -12,7 +12,7 @@
  * Section 8's Zod schema must produce exactly these types, which the compiler
  * enforces at the call site.
  *
- * Field mapping is recorded in `docs/simbrief-navlog-findings.md`.
+ * Field mapping is recorded in `../project-management/kneeboard/simbrief-navlog-findings.md`.
  */
 
 /**

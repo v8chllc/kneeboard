@@ -49,7 +49,7 @@ describe("fixture inputs", () => {
 
 describe("formatLatitude", () => {
   it("formats a northern latitude in both representations", () => {
-    // docs/tracker-behavior.md worked example: LIDO N05°23.5' becomes N 05235.
+    // ../project-management/kneeboard/tracker-behavior.md worked example: LIDO N05°23.5' becomes N 05235.
     const result = formatLatitude(5 + 23.5 / 60);
 
     expect(result).toMatchObject({
@@ -155,7 +155,7 @@ describe("formatLongitude", () => {
   });
 
   it("formats a western longitude in both representations", () => {
-    // docs/tracker-behavior.md worked example: LIDO W006°32.7' becomes W 006327.
+    // ../project-management/kneeboard/tracker-behavior.md worked example: LIDO W006°32.7' becomes W 006327.
     expect(formatLongitude(-(6 + 32.7 / 60))).toMatchObject({
       hemisphere: "W",
       keypad: "W 006327",

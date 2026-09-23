@@ -9,10 +9,10 @@
  * The engine validates a command's expected version against the snapshot but
  * does NOT increment it. Version assignment belongs to persistence, which
  * writes the state with compare-and-swap versioning
- * (`docs/technical-decisions.md` §Tracker application layer and §Persistence
+ * (`../project-management/kneeboard/technical-decisions.md` §Tracker application layer and §Persistence
  * requirements).
  *
- * Governed by `docs/tracker-behavior.md` §Domain implementation direction.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Domain implementation direction.
  */
 
 import type { TrackerCommand } from "./commands";

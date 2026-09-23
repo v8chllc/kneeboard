@@ -7,7 +7,7 @@
  * state decides what currently does: SID and STAR fixes drop out when their
  * procedure is excluded before first Save, and skipped fixes consume no slot.
  *
- * Governed by `docs/tracker-behavior.md` §Slot eligibility and §Memory slots.
+ * Governed by `../project-management/kneeboard/tracker-behavior.md` §Slot eligibility and §Memory slots.
  */
 
 import { isSlotEligibleClassification } from "./classification";

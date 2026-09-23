@@ -69,7 +69,7 @@ describe("deriveSlidingWindow", () => {
   });
 
   it("does not change membership when fixes are passed", () => {
-    // The worked example in docs/tracker-behavior.md: nine saved, then the
+    // The worked example in ../project-management/kneeboard/tracker-behavior.md: nine saved, then the
     // first two passed. The window still brackets the same nine fixes.
     const saved = deriveSlidingWindow(savedThrough(navlog, 9));
     const passed = deriveSlidingWindow(savedThrough(navlog, 9, { passedThrough: 2 }));

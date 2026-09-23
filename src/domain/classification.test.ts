@@ -140,10 +140,10 @@ describe("isSlotEligibleClassification", () => {
 
 describe("classification against the tracked fixtures", () => {
   /**
-   * Eligible counts recorded in docs/simbrief-navlog-findings.md:211 as
+   * Eligible counts recorded in ../project-management/kneeboard/simbrief-navlog-findings.md:211 as
    * "21, 39, 24, 9, and 24 in capture order". Capture order is not filename
    * order, so each fixture is mapped to its capture by ROUTE, using the table
-   * at docs/simbrief-navlog-findings.md:12-18, and cross-checked against that
+   * at ../project-management/kneeboard/simbrief-navlog-findings.md:12-18, and cross-checked against that
    * table's navlog entry count. Both agree for all five.
    */
   const DOCUMENTED_ELIGIBLE_COUNTS: ReadonlyArray<{
@@ -174,7 +174,7 @@ describe("classification against the tracked fixtures", () => {
 
   /**
    * The two synthetic fixtures are hand-authored boundary constructions, not
-   * captures, so docs/simbrief-navlog-findings.md records no eligible count for
+   * captures, so ../project-management/kneeboard/simbrief-navlog-findings.md records no eligible count for
    * them. These counts are derived from the documented classification rules and
    * the fixtures' own README descriptions, and are asserted as such.
    */

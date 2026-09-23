@@ -9,7 +9,7 @@ import { derivePendingRouteIndexes } from "./slot-state";
 import type { ProcedureInclusion, TrackerSnapshot } from "./tracker";
 
 /**
- * `docs/tracker-behavior.md` §Slot availability says MVP assumes a contiguous
+ * `../project-management/kneeboard/tracker-behavior.md` §Slot availability says MVP assumes a contiguous
  * active leg and defers the non-contiguous case. The engine does not enforce
  * contiguity, because the documents specify no guard. This suite establishes
  * whether the deferred case is reachable at all.

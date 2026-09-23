@@ -83,7 +83,7 @@ describe("deriveSlotAssignments", () => {
 
   it("never disturbs the slot of a fix earlier in the route than the skip", () => {
     // A saved fix's derived slot must never drift from the slot it was written
-    // into; docs/tracker-behavior.md §Memory slots gives the reason. This test
+    // into; ../project-management/kneeboard/tracker-behavior.md §Memory slots gives the reason. This test
     // covers the derivation premise: a skip never renumbers an earlier fix.
     // engine.test.ts covers it at the Save level, in "never disturbs the slot
     // of a fix already entered" for a skip after a save and in "keeps the slot

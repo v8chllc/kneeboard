@@ -11,18 +11,24 @@ Work that needs proof beyond the diff belongs to a different workflow.
 | Path | What it holds |
 | --- | --- |
 | `SKILL.md` | The lifecycle, authority boundaries, and terminal signals |
-| `references/repository-profile.md` | The thirteen profile fields, their defaults, and the narrow-only rule |
+| `references/repository-profile.md` | The fourteen profile fields, their defaults, and the narrow-only rule |
 | `references/profile-template.md` | A copy-paste profile block and a worked example |
 | `references/run-state.md` | The run issue, the appended coordination record, the plan, verification, snapshot, and retrospective comments |
+| `references/coderabbit-review.md` | The review loop and polling rules when the profile's `review_capability` is `coderabbit` |
 | `agents/plan-agent.md` | Plans only what is expensive to reverse; writes nothing |
 | `agents/build-agent.md` | The sole writer in one repository |
 | `agents/verify-agent.md` | Chooses a falsifying check per criterion and posts the evidence; given identifiers only |
 
 ## What it needs
 
-**From the environment:** `git`, `uv`, and `gh`, authenticated. The
-`consensus-review` skill at 2.0.0 or later — without it the run stops at the
-review phase with `DEPENDENCY_MISSING` rather than reviewing its own work.
+**From the environment:** `git`, `uv`, and `gh`, authenticated, and the review
+capability the profile's `review_capability` names. Under `consensus-review`,
+the default, that is the `consensus-review` skill at 2.0.0 or later — without it the
+run stops at the review phase with `DEPENDENCY_MISSING` rather than reviewing
+its own work. Under `coderabbit`, it is CodeRabbit installed on the repository with
+automatic review off, reviewed through `references/coderabbit-review.md`: the
+orchestrator triggers every review, and the retained builder applies every
+repair.
 
 **From the repository:** a profile in its steering document
 (`references/profile-template.md`). Every field but one has a conservative

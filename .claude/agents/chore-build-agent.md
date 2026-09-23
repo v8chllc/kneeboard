@@ -26,7 +26,7 @@ Run the profile's quality commands from the repository root with its pinned tool
 
 ## Review findings
 
-Each finding ends as `fixed`, `declined` with a technical reason, or `deferred` with the record the manager needs to open a new work item. Do not argue a finding's severity, and do not renumber findings.
+Each finding ends as `fixed`, `declined` with a technical reason, or `deferred` with the record the manager needs to open a new work item. Do not argue a finding's severity, and do not renumber findings. When the findings come from CodeRabbit and at least one is `fixed`, commit the fixes as one commit whose body lists every finding's disposition and the validation you ran, and push it; the orchestrator then triggers CodeRabbit's review of that head. When none is `fixed`, change nothing and push nothing.
 
 ## Output
 

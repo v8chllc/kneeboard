@@ -43,6 +43,7 @@ A repository may forbid more than the workspace does. Neither may permit anythin
 | `commit_style` | The commit convention | Conventional Commits |
 | `merge_method` | The method the sponsor uses; reported, never performed | report only |
 | `required_gates` | Checks that must pass before merge-ready, including external review bots and how to poll them | the quality commands only |
+| `review_capability` | The review the review phase runs: `consensus-review`, the skill invoked against the pull request, or `coderabbit`, the loop in `references/coderabbit-review.md` | `consensus-review` |
 | `quality_commands` | Lint, format, type, unit, integration, end-to-end | discovered from manifests |
 | `release_steps` | Version bumps, manifest updates, or publication steps a change requires | none |
 | `prohibited_actions` | Commands, branches, and paths this repository forbids | the skill's universal list |

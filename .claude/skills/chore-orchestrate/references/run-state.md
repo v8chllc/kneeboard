@@ -8,11 +8,22 @@ Every fact has one owner. The run issue owns what belongs to the run: why it exi
 
 An issue in the resolved `coordination_repository`, created by the sponsor before kickoff. Each repository issue the run needs is one of its sub-issues. The manager reads it and writes comments on it, and never creates, edits, or closes an issue.
 
-A run issue can hold several runs: a retry after `NEEDS_REFINEMENT` is a new `run_id` on the same issue. Every comment below carries its `run_id`.
+A run issue can hold several runs: a retry after `NEEDS_REFINEMENT` is a new `run_id` on the same issue, and a unit of work split across two pull requests gets one run per pull request. Every comment below carries its `run_id`.
+
+## What each skill names
+
+This contract is shared by every orchestrator skill. Each skill's `SKILL.md` has a "Run records" section that names four things:
+
+- its **marker**, the skill's own name, used in `<!-- <marker>` and `<!-- <marker>-snapshot`;
+- its **run identifier prefix**;
+- its **heading word**, used in the plan and retrospective headings;
+- its **phases**, the values `phase` may take, in workflow order;
+
+plus any **extra record fields** it adds, and its proof comment. The examples below use `chore-orchestrate`, whose marker is `chore-orchestrate`, whose prefix is `chore`, and whose heading word is `Chore`.
 
 ## Run identifier
 
-One `run_id` per invocation: `chore-<UTC YYYYMMDDTHHMMSSZ>`. A correction after a terminal signal starts a new `run_id` and never edits an earlier record.
+One `run_id` per invocation: `<prefix>-<UTC YYYYMMDDTHHMMSSZ>`, such as `chore-20260915T142530Z`. A correction after a terminal signal starts a new `run_id` and never edits an earlier record.
 
 ## Coordination record
 
@@ -27,7 +38,7 @@ A marker comment on the run issue, **appended** at every phase change and whenev
 ```
 
 - The visible line is for a reader scrolling the issue; the marker below it is what a manager parses.
-- `phase` is one of `readiness`, `resolve`, `plan`, `implement`, `publish`, `review`, `verify`, `merge_ready`, `retrospective`. Publish precedes review: the review capability posts to a pull request and cannot create one, so a run that reviews first has no thread to post to, no fix loop, and no re-review.
+- `phase` is one of the phases the skill names. Publish precedes review in every skill: the review capability posts to a pull request and cannot create one, so a run that reviews first has no thread to post to, no fix loop, and no re-review.
 - `work_item` is the repository's issue, a sub-issue of the run issue, or `null` where that repository's `tracking` is `none`.
 - `plan` links the current plan revision. The plan's text lives only in that comment.
 - `profile_inherited` lists fields the repository did not state that came from the workspace profile.
@@ -36,6 +47,7 @@ A marker comment on the run issue, **appended** at every phase change and whenev
   The three sources are recorded separately because they carry different weight. A defaulted field means nobody decided; an inherited one means the workspace decided for a repository that may later disagree. Collapsing them hides which is which, and a later phase — or a fresh manager resuming from this record — then reads an inherited value as a repository requirement.
 - `review_invocations` counts review invocations per repository, against the budget of two: calls of the review skill under `consensus-review`, and passes of the loop in `references/coderabbit-review.md` under `coderabbit`. It does not count the review-and-fix cycles inside one invocation, of which there are up to three. The field is named for what it counts because the shorter name read as cycles and misled both a sponsor and a supervisor during the first pilot.
 - `deferred` holds records of scope pushed out of this run: `{"summary": "...", "reason": "...", "work_item": null}`.
+- A skill's extra record fields sit beside these. They never rename or repurpose a shared one.
 - The record holds identity — URLs, SHAs, branch names — and the run's own state. It never copies a pull request's state, such as open, a review score, or check results; read those from the pull request.
 - Only the manager writes markers, one at a time.
 
@@ -44,7 +56,7 @@ A marker comment on the run issue, **appended** at every phase change and whenev
 Posted on the run issue once the plan is accepted, before implementation. A correction round posts the next revision as a new comment; an earlier revision is never edited.
 
 ```markdown
-### Chore plan — run <run_id>, revision <n>
+### <heading word> plan — run <run_id>, revision <n>
 
 <the accepted plan, as the plan agent returned it>
 ```
@@ -56,26 +68,9 @@ Each pull request links both ways:
 - `Closes #<n>` for its own repository issue, when `work_item` is not `null`. Same repository only.
 - One plain line naming the run issue: `Run: <run issue URL>`. Never a closing keyword: a cross-repository keyword closes the run issue when the first pull request of a pair merges.
 
-## Verification comment
+## Proof comment
 
-One comment per pull request, posted by the verify agent:
-
-```markdown
-### Chore verification — run <run_id>
-
-**Inputs:** <exactly what the verifier was given: run issue URL, repository, pull request, head SHA>
-
-| Criterion | Check | Disposition | Evidence |
-| --- | --- | --- | --- |
-| <criterion text, verbatim> | <the check that would show it unmet> | pass \| fail \| not_verified \| underived | <command and inspected output, path:line, or link> |
-
-**Quality commands:** <source that supplied them: repository profile, workspace profile, or manifest> — <command> — <result>
-**Replaced checks:** <criterion — old check — reason tied to the criterion's text, or none>
-```
-
-- A disposition with no evidence is invalid. An exit code counts only when the agent inspected the output it refers to.
-- `underived` means no check could falsify the criterion; it states why and is never a pass.
-- A check that passes against the baseline commit proves nothing and is replaced, with the reason recorded.
+Each skill defines the comment that records its verification or proof of one pull request, and names it in its `SKILL.md` "Run records" section. The terminal snapshot links that comment as `verification_comment`.
 
 ## Terminal snapshot
 
@@ -96,7 +91,7 @@ Merge commits are not recorded: the sponsor merges after the run ends, and the p
 One comment on the run issue per terminal path, including failures and blocked runs:
 
 ```markdown
-### Chore retrospective — run <run_id>
+### <heading word> retrospective — run <run_id>
 
 **Outcome:** <signal>
 

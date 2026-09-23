@@ -11,9 +11,10 @@ Work that needs proof beyond the diff belongs to a different workflow.
 | Path | What it holds |
 | --- | --- |
 | `SKILL.md` | The lifecycle, authority boundaries, and terminal signals |
-| `references/repository-profile.md` | The fourteen profile fields, their defaults, and the narrow-only rule |
+| `references/repository-profile.md` | The sixteen profile fields, their defaults, and the narrow-only rule |
 | `references/profile-template.md` | A copy-paste profile block and a worked example |
-| `references/run-state.md` | The run issue, the appended coordination record, the plan, verification, snapshot, and retrospective comments |
+| `references/run-state.md` | The shared run-state contract: the run issue, the appended coordination record, the plan comment, snapshot, and retrospective |
+| `references/verification-comment.md` | This skill's verification comment |
 | `references/coderabbit-review.md` | The review loop and polling rules when the profile's `review_capability` is `coderabbit` |
 | `agents/plan-agent.md` | Plans only what is expensive to reverse; writes nothing |
 | `agents/build-agent.md` | The sole writer in one repository |

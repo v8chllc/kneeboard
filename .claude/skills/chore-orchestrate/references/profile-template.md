@@ -4,7 +4,7 @@ Copy this block into the repository's agent steering document, under the heading
 shown. The manager reads it at resolve; `references/repository-profile.md`
 defines what each field means and what happens when one is absent.
 
-A keyed block, rather than prose, for three reasons: the manager reads fourteen
+A keyed block, rather than prose, for three reasons: the manager reads sixteen
 values without inferring them, a reader can tell a stated value from a default,
 and each key can be checked against the skill's universal prohibitions — a
 profile narrows authority and can never widen it.
@@ -24,6 +24,8 @@ merge_method: rebase          # reported to the sponsor; the run never merges
 required_gates:
   - <external check that must pass, and how to poll it>
 review_capability: consensus-review  # or: coderabbit
+journey: none                 # or: "automated: <command>", or "manual: <where results are recorded>"
+loop_ceiling: 0               # the most slices a loop may run without a checkpoint
 quality_commands:
   - <lint>
   - <format check>

@@ -82,10 +82,11 @@ describe("deriveSlotAssignments", () => {
   });
 
   it("never disturbs the slot of a fix earlier in the route than the skip", () => {
-    // docs/tracker-behavior.md: Save is route-ordered and Skip applies only to
-    // queued or pending fixes, so every skip is later in the route than every
-    // entered fix. The minimal snapshot depends on this: a saved fix's derived
-    // slot must never drift from the slot it was written into.
+    // A saved fix's derived slot must never drift from the slot it was written
+    // into; docs/tracker-behavior.md §Memory slots gives the reason. This test
+    // covers a skip after a save, which is downstream of every saved fix. A
+    // skip before a save is covered in engine.test.ts by "keeps the slot of a
+    // fix saved after an earlier skip".
     const navlog = navlogFor("valid-multi-page.json");
     const sequence = deriveEligibleSequence(navlog, DEFAULT_PROCEDURE_INCLUSION);
     const before = slotByRouteIndex(deriveSlotAssignments(sequence));
@@ -97,8 +98,8 @@ describe("deriveSlotAssignments", () => {
         ),
       );
 
-      // Every fix ahead of the skip — the only ones that can already be saved —
-      // keeps the exact slot it had.
+      // Every fix earlier in the route than the skip — the only ones that can
+      // already be saved — keeps the exact slot it had.
       for (let position = 0; position < skippedPosition; position += 1) {
         const routeIndex = sequence[position];
         expect(after.get(routeIndex)).toBe(before.get(routeIndex));

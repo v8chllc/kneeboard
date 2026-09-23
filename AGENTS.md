@@ -220,15 +220,20 @@ writer and integrator; human-only approval boundaries remain with the user.
   states, concurrency conflicts, and load idempotency.
 - Run relevant lint, type, and test checks for every change and report exactly
   what was and was not verified.
-- Confirm a new assertion can fail before trusting it: remove the behavior it
-  guards, watch the assertion fail, then restore. Lint, type checks, and a green
-  suite all report success on a test that asserts nothing, so no gate catches
-  this. Recurring shapes that pass while proving nothing are a negative
-  assertion satisfied by the code not running at all, a comparison against a
-  mocked rather than the real implementation, a branch conditioned on whether a
-  fixture happens to contain the case, a bounded search asserting exhaustion it
-  never reached, and an assertion over a state the implementation cannot
-  produce.
+- Confirm a new assertion fails for the right reason before trusting it, in
+  one of two ways. Either it fails at the baseline on the assertion itself,
+  never on a missing symbol, an import, or a setup error. Or you remove the
+  behavior it guards, watch the assertion fail, then restore it. Removal is
+  required when the behavior already exists at the baseline, because a
+  baseline run cannot tell a meaningful assertion from an empty one there.
+  Lint, type checks, and a green suite all report success on a test that
+  asserts nothing, so no gate catches this. Recurring shapes that pass while
+  proving nothing are a negative assertion satisfied by the code not running
+  at all, a comparison against a mocked rather than the real implementation,
+  a branch conditioned on whether a fixture happens to contain the case, a
+  bounded search asserting exhaustion it never reached, an assertion over a
+  state the implementation cannot produce, and a check that something changed
+  or some element matches where the exact value is knowable.
 - When a slice must handle a state before the operation that produces it
   exists, build that state directly in its tests and record a forward
   obligation in the slice bound naming the later slice that re-reaches every
@@ -268,6 +273,8 @@ required_gates:
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
 review_capability: coderabbit  # gate of record; see docs/build-execution-strategy.md §4
+journey: none                 # until the Playwright harness exists (#40)
+loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:
   - mise exec -- pnpm lint
   - mise exec -- pnpm typecheck

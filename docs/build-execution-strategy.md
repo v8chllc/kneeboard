@@ -503,17 +503,20 @@ a finding accepted as-is requires a recorded reason in the pull request. An
 unreviewed or partially triaged pull request is not mergeable regardless of
 whether the local gates pass.
 
-CodeRabbit reviews an open pull request, so the sequence at a section boundary
-is: local gates pass, the branch is pushed and its pull request opens ready for
-review, CodeRabbit reviews, findings are triaged and fixed, affected gates
-re-run, and the user merges. The gate is section-level
-either way, so an unattended loop reaches independent review at the same point
-it always would — the section boundary.
-
-A pull request never opens as a draft. `.coderabbit.yaml` leaves drafts
-unreviewed, so a draft cannot reach this gate, and a workflow skill that opens
-one does not conform to this document. Every orchestration path delivers its
-pull request merge-ready as defined below; the user merges.
+The agent orchestrating a pull request triggers every review of it, whichever
+review runs. `.coderabbit.yaml` turns CodeRabbit's automatic review off, so a
+review runs only when the manager or orchestrator asks for one by commenting
+`@coderabbitai review` on the pull request, or `@coderabbitai full review` when
+the whole diff needs a fresh pass. Nothing reviews a pull request on its own,
+so a pull request's draft state never decides whether a review runs, and every
+review is one the review cap counts. The sequence at a section boundary is:
+local gates pass, the branch is pushed and its pull request opens ready for
+review, the manager triggers CodeRabbit's review, findings are triaged and
+fixed, affected gates re-run, the manager triggers the review of the new head,
+and the user merges. The gate is section-level either way, so an unattended
+loop reaches independent review at the same point it always would — the
+section boundary. A [chore run](#chore-runs) may keep its pull request a draft
+until it is merge-ready; that changes nothing about when the review runs.
 
 CodeRabbit is the gate of record whatever runs alongside it. A workflow skill
 selects its review step from the profile's `review_capability` field, which
@@ -525,24 +528,18 @@ agent in every case: no review tool's own fixer or autofix writes to the
 branch, which keeps one writer per run. The requirement is the reviewed and
 triaged pull request; the tooling that produces it may change.
 
-Automatic review is enabled in `.coderabbit.yaml`, but it does not always fire.
-On the section 4 pull request it did not, and the review had to be started by
-hand. A review invoked manually by commenting `@coderabbitai review` on the open
-pull request satisfies this gate exactly as an automatic review does. What the
-gate requires is a completed review of the branch state submitted for review with
-every finding triaged, not the mechanism that started it. An agent may invoke the
-review this way; it still may not merge.
+What the gate requires is a completed review of the branch state submitted for
+review with every finding triaged. An agent may trigger the review; it still may
+not merge. Absence of a review is an unreviewed pull request, so confirm a
+review actually completed on the current head rather than inferring it from the
+trigger. When more than one review exists on a pull request — a CodeRabbit
+review and a separate tool-run review, for example — name which is the gate of
+record in the pull request description and record the disposition of every
+finding from all of them. A finding does not become invalid because a review
+other than the gate of record raised it.
 
-Do not treat a silent auto-review as a passed gate. Absence of a review is an
-unreviewed pull request, so confirm a review actually completed rather than
-inferring it from the configuration. When more than one review exists on a pull
-request — a manual invocation and a separate tool-run review, for example —
-name which is the gate of record in the pull request description and record the
-disposition of every finding from all of them. A finding does not become
-invalid because a review other than the gate of record raised it.
-
-If a manually invoked review also produces nothing, the gate is unavailable.
-Stop and report it. An unreviewed pull request remains ineligible to merge, and
+If a triggered review produces nothing, trigger it once more. If that also
+produces nothing, the gate is unavailable. Stop and report it. An unreviewed pull request remains ineligible to merge, and
 a stalled gate is never grounds for merging without one.
 
 When a finding identifies a class of defect rather than a single instance,
@@ -813,10 +810,11 @@ applies, and the proposed next slice follows dependency order. Otherwise request
 an in-scope correction or escalate to the user.
 
 Section boundary: push the branch, open the pull request ready for review, and
-run the review gate to completion. Confirm a review actually ran rather than
-inferring it; invoke it by hand if auto-review is silent, and stop and report if
-that produces nothing either. Every finding gets a recorded disposition. Accept
-a finding as-is only under the rules in docs/build-execution-strategy.md, which
+run the review gate to completion. Trigger every CodeRabbit review yourself by
+commenting @coderabbitai review, since automatic review is off; confirm the
+review actually completed on the current head, and stop and report if a second
+trigger produces nothing either. Every finding gets a recorded disposition.
+Accept a finding as-is only under the rules in docs/build-execution-strategy.md, which
 require a governing citation verified by a bounded read-only subagent using the
 prompt given there, and which never permit accepting a safety, privacy,
 authorization, or test finding. Repairs are the build agent's; you do not write.
@@ -857,9 +855,11 @@ rather than authority. Parallel writing requires explicit approval first.
 
 Verification: run focused checks while iterating, then every applicable
 canonical quality gate, then inspect your own combined diff before opening the
-section pull request. CodeRabbit reviews the open pull request and its findings
-must be triaged, fixed where accepted, and the affected gates re-run before
-merge. Update a task-list checkbox only when the evidence for it exists.
+section pull request. CodeRabbit's automatic review is off: the manager, or you
+when the user supervises directly, triggers each review with an @coderabbitai
+review comment. Its findings must be triaged, fixed where accepted, and the
+affected gates re-run before merge. Update a task-list checkbox only when the
+evidence for it exists.
 
 Boundaries: preserve the MVP exclusions in docs/planning-status.md and do not
 build deferred features or infrastructure early. Automated tests never contact

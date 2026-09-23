@@ -20,6 +20,13 @@ reviews:
   poem: false
   in_progress_fortune: false
 
+  # The merge gate polls CodeRabbit's commit status on the head SHA (AGENTS.md
+  # required_gates, WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response").
+  # review_progress defaults to check runs and would suppress that status, so
+  # pin the legacy commit-status surface the gate reads.
+  review_progress: false
+  commit_status: true
+
   auto_review:
     enabled: true
     drafts: false

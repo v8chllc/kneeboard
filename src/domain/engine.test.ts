@@ -255,9 +255,8 @@ describe("Skip", () => {
   });
 
   it("keeps the slot of a fix saved after an earlier skip", () => {
-    // docs/tracker-behavior.md §Memory slots: a skip before a save is already
-    // reflected in the slot the fix was written into, and every later skip is
-    // downstream of it, so the saved fix's derived slot never drifts.
+    // A saved fix's derived slot must never drift from the slot it was written
+    // into; docs/tracker-behavior.md §Memory slots gives the reason.
     const slotsOf = (snapshot: TrackerSnapshot) =>
       slotByRouteIndex(deriveSlotAssignments(deriveEligibleSequenceForSnapshot(navlog, snapshot)));
     let snapshot = createInitialSnapshot(navlog);
@@ -294,12 +293,10 @@ describe("Skip", () => {
 
       expect(stateOf(snapshot, eligible[1])).toBe("saved");
       expect(after.get(eligible[1])).toBe(writtenSlot);
-      // The skip did renumber the fixes after it.
-      expect(
-        eligible
-          .slice(skippedPosition + 1)
-          .some((routeIndex) => after.get(routeIndex) !== before.get(routeIndex)),
-      ).toBe(true);
+      // Every fix after the skip moves up exactly one position.
+      for (let position = skippedPosition + 1; position < eligible.length; position += 1) {
+        expect(after.get(eligible[position])).toBe(before.get(eligible[position - 1]));
+      }
     }
   });
 

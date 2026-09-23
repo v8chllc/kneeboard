@@ -14,7 +14,7 @@ Route by the proof the work needs. Work whose own diff proves it belongs to `cho
 ## Success criteria
 
 - The run issue's acceptance criteria are jointly satisfiable, and the approved plan satisfies every one of them.
-- One retained builder writes to the repository; the only other writer is consensus-review's fixer, while `consensus-review` is the gate of record.
+- One retained builder writes to the repository. The gate of record is whichever review the profile's `review_capability` names: under `coderabbit` the builder is the only writer, and under `consensus-review` that skill's own fixer also writes, and only then.
 - Review runs through the declared review capability, and every finding is dispositioned.
 - What must be proved is derived after review by an agent that did not build or review the change, and proved by agents given identifiers only.
 - Every current claim has a verdict with a locator a reader can follow, against one frozen head.

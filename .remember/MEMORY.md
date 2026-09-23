@@ -121,6 +121,12 @@ Resolved sub-question: Drafts were never the conflict; automatic review skipping
 Do not reverse: Fix a skill gap upstream in v8chllc/vault and sync it; editing the local copy forks it from its source
 
 
+<!-- decision -->
+Decision: Track Kneeboard work on the Project Management board through coordination issues in v8chllc/project-management, with tracking: required, and close the Kneeboard board
+Date: 2026-09-23
+Rationale: The Kneeboard board (project 3) kept losing items: the board listing omitted issues that the issue side showed as on the board, and cards seemed to vanish after being added. No workflow or script removed them; every removal in the timelines was a deliberate one. Moving to the board every other v8chllc repository already uses gives one tracking convention. The board holds project-management issues only, each Kneeboard change is a Kneeboard sub-issue under one coordination issue, and all nine Kneeboard issues were given coordination parents (project-management#26 to #34) so the history is complete
+Residual risk: The Project Management board's item listing also omitted items added on 2026-09-23, so the listing gap looks GitHub-wide rather than specific to project 3. Verify board state from the issue side (projectItems) as well as the board listing
+
 ## error
 
 <!-- error -->

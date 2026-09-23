@@ -108,7 +108,9 @@ preparation and validation procedures are part of MVP readiness.
 A chore is work whose diff proves its own completion: tooling, documentation,
 CI, dependency, and refactor work, and test-only follow-ups such as a carried
 item routed to its own issue. A chore is one issue delivered by one pull request
-through the `chore-orchestrate` skill rather than a task-list section. Numbered
+through the `chore-orchestrate` skill rather than a task-list section. Its run
+issue is a coordination issue in `v8chllc/project-management`, with the Kneeboard
+issue as its sub-issue, as the `AGENTS.md` profile states. Numbered
 sections stay with the [kickoff prompts](#kickoff-prompts), because their
 completion needs behavioral evidence that the diff alone does not carry.
 

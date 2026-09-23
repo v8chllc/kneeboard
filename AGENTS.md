@@ -40,6 +40,12 @@ tree before assuming a blank slate.
 - Do not implement deferred features or infrastructure "for later."
 - Use the authenticated `gh` CLI directly for GitHub operations in this
   repository. Do not attempt the connected GitHub app first.
+- Track work on the Project Management board
+  (https://github.com/orgs/v8chllc/projects/4). Work starts with a coordination
+  issue in `v8chllc/project-management` on that board, and each Kneeboard change
+  has a Kneeboard issue as its sub-issue. Never add a Kneeboard issue or pull
+  request to the board: the parent carries the board status. The former
+  Kneeboard board is closed.
 
 ## Product and Safety Boundary
 
@@ -252,8 +258,8 @@ section 7 interactive.
 
 ```yaml
 autonomy: autonomous
-tracking: none                # run issues live in this repository; no second issue
-coordination_repository: v8chllc/kneeboard
+tracking: required            # a Kneeboard issue, a sub-issue of the run issue
+coordination_repository: v8chllc/project-management
 branch_naming: "type/short-description"
 commit_style: conventional
 merge_method: rebase          # rebase-only; squash and merge commits are disabled

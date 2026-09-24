@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17@sha256:29e0bb09c8e7e7fc265ea9f4367de9622e55bae6b0b97e7cce740c2d63c2ebc0
+    environment:
+      POSTGRES_USER: kneeboard
+      POSTGRES_PASSWORD: local_only_kneeboard
+      POSTGRES_DB: kneeboard_dev
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/local-db-init.sql:/docker-entrypoint-initdb.d/01-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U kneeboard -d kneeboard_dev -Atqc 'SELECT 1' >/dev/null && psql -U kneeboard -d kneeboard_test -Atqc 'SELECT 1' >/dev/null"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  postgres_data:

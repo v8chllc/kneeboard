@@ -24,6 +24,14 @@ BEGIN
   INSERT INTO "user" (id, name, email) VALUES
     ('schema-user-a', 'Synthetic A', 'a@example.invalid'),
     ('schema-user-b', 'Synthetic B', 'b@example.invalid');
+  INSERT INTO account (id, account_id, provider_id, user_id, updated_at)
+    VALUES ('provider-a', 'subject-1', 'synthetic-provider', 'schema-user-a', now());
+  BEGIN
+    INSERT INTO account (id, account_id, provider_id, user_id, updated_at)
+      VALUES ('provider-b', 'subject-1', 'synthetic-provider', 'schema-user-b', now());
+    RAISE EXCEPTION 'duplicate provider identity was accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
   INSERT INTO account_settings (user_id, pilot_id) VALUES ('schema-user-a', '00001234');
   INSERT INTO load_reservation (user_id, active_key, accepted_at)
     VALUES ('schema-user-a', 'action-1', now());

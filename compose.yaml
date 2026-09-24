@@ -11,7 +11,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/local-db-init.sql:/docker-entrypoint-initdb.d/01-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "psql -U kneeboard -d kneeboard_dev -Atqc 'SELECT 1' >/dev/null && psql -U kneeboard -d kneeboard_test -Atqc 'SELECT 1' >/dev/null"]
+      test: ["CMD-SHELL", "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U kneeboard -d kneeboard_dev -Atqc 'SELECT 1' >/dev/null && PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U kneeboard -d kneeboard_test -Atqc 'SELECT 1' >/dev/null"]
       interval: 2s
       timeout: 2s
       retries: 15

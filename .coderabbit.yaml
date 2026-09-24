@@ -41,7 +41,6 @@ reviews:
   # application code.
   path_filters:
     - "!tests/fixtures/simbrief/*.json"
-    - "!.remember/**"
     - "!pnpm-lock.yaml"
 
   path_instructions:

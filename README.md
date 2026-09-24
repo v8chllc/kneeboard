@@ -18,6 +18,9 @@ display model has been validated against a static wireframe.
 
 Task-list section 4 is complete. The pinned Next.js scaffold, canonical local
 quality commands, CI command parity, and review configuration are established.
+Task-list section 5 is complete. The framework-independent domain layer and its
+unit tests cover route interpretation, coordinates, slot and page assignment,
+and tracker transitions.
 
 The pre-build execution gate is closed. The structured agent workflow,
 checkpoint cadence, delegation boundaries, review gates, and the manager and
@@ -26,10 +29,9 @@ primary build-agent kickoff prompts are approved and recorded in
 proceeds one task-list section per pull request, with a section split across
 two pull requests when its diff cannot be reviewed safely as one unit.
 
-The next milestone is the framework-independent domain layer under
-`src/domain/`: types and typed commands, coordinate conversion, waypoint
-classification, slot and page assignment, and the pure transition engine with
-unit tests.
+The next milestone is task-list section 6: local PostgreSQL and the persistence
+schema in one pull request, followed by concurrent tracker and OFP-load behavior
+in a second pull request. Section 6a pilots the `feature-orchestrate` workflow.
 
 ## About this repository
 
@@ -53,10 +55,10 @@ so access to that repository is required to read the links below.
   synthetic coordinates, distances, and flight identities. Only public aviation
   reference data — airport codes, published procedure identifiers, and waypoint
   names — is retained.
-- `.remember/MEMORY.md` holds curated notes kept alongside the documents. They
-  record how decisions were reached, including revisions and false starts. The
-  dated session journals and lifecycle segments in the same directory are local
-  working notes and are deliberately not tracked.
+- The private [Kneeboard workspace](https://github.com/v8chllc/kneeboard-workspace)
+  holds curated decision history in `.remember/MEMORY.md`. It records revisions
+  and false starts; workspace journals and lifecycle segments stay local and
+  are not tracked. Access to that repository is required to read the memory.
 
 ## Documentation
 

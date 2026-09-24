@@ -157,6 +157,26 @@ mise exec -- pnpm build
 mise exec -- pnpm start
 ```
 
+### Local PostgreSQL
+
+Docker Compose runs PostgreSQL 17.6 on `127.0.0.1:54329`. It creates separate
+`kneeboard_dev` and `kneeboard_test` databases in a project-owned Docker volume.
+The fixed credentials in `.env.example` are for this local container only.
+
+From this repository root:
+
+```bash
+sh scripts/local-db.sh start
+sh scripts/local-db.sh stop
+sh scripts/local-db.sh reset dev  # destroys only the local development database
+sh scripts/local-db.sh reset test # destroys only the local test database
+```
+
+Reset drops and recreates the selected database. The first start creates both
+databases; later starts preserve them. Run migrations after a reset once they
+are added. These commands address the local Compose service and do not accept a
+remote database URL.
+
 ### Fetch a SimBrief OFP
 
 After generating an OFP in SimBrief with the LIDO plan format and detailed

@@ -7,6 +7,7 @@ import {
   boolean,
   integer,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 
 // Generated with auth@1.7.6 for Better Auth 1.7.6 (database rate-limit
@@ -65,7 +66,10 @@ export const account = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => [
+    index("account_userId_idx").on(table.userId),
+    unique("account_provider_account_unique").on(table.providerId, table.accountId),
+  ],
 );
 
 export const verification = pgTable(

@@ -8,6 +8,24 @@ case "${1:-}" in
   stop)
     docker compose stop postgres
     ;;
+  migrate)
+    case "${2:-}" in
+      dev) database=kneeboard_dev ;;
+      test) database=kneeboard_test ;;
+      *) echo 'Usage: scripts/local-db.sh migrate dev|test' >&2; exit 2 ;;
+    esac
+    DATABASE_URL="postgresql://kneeboard:local_only_kneeboard@127.0.0.1:54329/$database" \
+      mise exec -- pnpm db:migrate
+    ;;
+  verify)
+    case "${2:-}" in
+      dev) database=kneeboard_dev ;;
+      test) database=kneeboard_test ;;
+      *) echo 'Usage: scripts/local-db.sh verify dev|test' >&2; exit 2 ;;
+    esac
+    docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U kneeboard -d "$database" \
+      < scripts/verify-local-schema.sql
+    ;;
   reset)
     database="${2:-}"
     case "$database" in
@@ -21,7 +39,7 @@ case "${1:-}" in
       -c "CREATE DATABASE \"$database\""
     ;;
   *)
-    echo 'Usage: scripts/local-db.sh start|stop|reset dev|test' >&2
+    echo 'Usage: scripts/local-db.sh start|stop|migrate dev|test|verify dev|test|reset dev|test' >&2
     exit 2
     ;;
 esac

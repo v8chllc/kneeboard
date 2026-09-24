@@ -167,15 +167,22 @@ From this repository root:
 
 ```bash
 sh scripts/local-db.sh start
+sh scripts/local-db.sh migrate dev
+sh scripts/local-db.sh migrate test
+sh scripts/local-db.sh verify test
 sh scripts/local-db.sh stop
 sh scripts/local-db.sh reset dev  # destroys only the local development database
 sh scripts/local-db.sh reset test # destroys only the local test database
 ```
 
 Reset drops and recreates the selected database. The first start creates both
-databases; later starts preserve them. Run migrations after a reset once they
-are added. These commands address the local Compose service and do not accept a
-remote database URL.
+databases; later starts preserve them. Run the matching migration command after
+a reset. These commands address the local Compose service, set the local URL
+themselves, and do not accept a remote database URL. `pnpm db:generate` creates
+reviewable SQL from `src/db/schema.ts`; commit the generated migration. The
+generic `pnpm db:migrate` requires an explicit `DATABASE_URL` and is reserved
+for a separately authorized, manual production migration. `verify` runs
+synthetic schema probes in a rolled-back transaction.
 
 ### Fetch a SimBrief OFP
 

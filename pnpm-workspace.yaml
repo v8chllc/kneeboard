@@ -1,4 +1,5 @@
 allowBuilds:
+  esbuild: true
   sharp: false
   unrs-resolver: false
 minimumReleaseAgeExclude:
@@ -14,3 +15,11 @@ minimumReleaseAgeExclude:
   - '@next/swc-win32-x64-msvc@16.3.1'
   - eslint-config-next@16.3.1
   - next@16.3.1
+  - '@better-auth/core@1.7.6'
+  - '@better-auth/drizzle-adapter@1.7.6'
+  - '@better-auth/kysely-adapter@1.7.6'
+  - '@better-auth/memory-adapter@1.7.6'
+  - '@better-auth/mongo-adapter@1.7.6'
+  - '@better-auth/prisma-adapter@1.7.6'
+  - '@better-auth/telemetry@1.7.6'
+  - better-auth@1.7.6

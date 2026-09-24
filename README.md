@@ -180,9 +180,12 @@ databases; later starts preserve them. Run the matching migration command after
 a reset. These commands address the local Compose service, set the local URL
 themselves, and do not accept a remote database URL. `pnpm db:generate` creates
 reviewable SQL from `src/db/schema.ts`; commit the generated migration. The
-generic `pnpm db:migrate` requires an explicit `DATABASE_URL` and is reserved
-for a separately authorized, manual production migration. `verify` runs
+generic `pnpm db:migrate` requires an explicit `DATABASE_URL`; the local script
+sets it to a fixed loopback URL. Direct invocation against production requires
+separate authorization. `verify` runs
 synthetic schema probes in a rolled-back transaction.
+The [migration runbook](docs/database-migrations.md) covers empty-database
+validation, manual production migration, and rollback.
 
 ### Fetch a SimBrief OFP
 

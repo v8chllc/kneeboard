@@ -19,6 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_MIGRATIONS = [1790293061053, 1790294641213]
+COMPOSE_CLEANUP_TIMEOUT_SECONDS = 60
 
 
 def free_port() -> int:
@@ -65,6 +66,22 @@ def report_cleanup_failure(message: str, earlier: BaseException | None) -> None:
         print(f"{message}; original failure: {earlier}", file=sys.stderr)
     else:
         raise AssertionError(message)
+
+
+def cleanup_compose(env: dict[str, str], earlier: BaseException | None) -> None:
+    try:
+        cleanup = subprocess.run(
+            ["docker", "compose", "down", "-v", "--remove-orphans"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=COMPOSE_CLEANUP_TIMEOUT_SECONDS,
+        )
+        if cleanup.returncode != 0:
+            report_cleanup_failure(f"isolated Compose cleanup failed: {cleanup.stderr.strip()}", earlier)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        report_cleanup_failure(f"isolated Compose cleanup failed: {error}", earlier)
 
 
 def journal(database: str, env: dict[str, str]) -> str:
@@ -218,12 +235,7 @@ def main() -> None:
     finally:
         earlier = sys.exc_info()[1]
         if compose_started:
-            try:
-                cleanup = subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=ROOT, env=env, capture_output=True, text=True)
-                if cleanup.returncode != 0:
-                    report_cleanup_failure(f"isolated Compose cleanup failed: {cleanup.stderr.strip()}", earlier)
-            except OSError as error:
-                report_cleanup_failure(f"isolated Compose cleanup failed: {error}", earlier)
+            cleanup_compose(env, earlier)
     print("Database Journey passed; disposable project removed on exit.")
 
 

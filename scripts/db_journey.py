@@ -60,6 +60,13 @@ def require(actual: str, expected: str, claim: str) -> None:
     print(f"{claim}: pass")
 
 
+def report_cleanup_failure(message: str, earlier: BaseException | None) -> None:
+    if earlier is not None:
+        print(f"{message}; original failure: {earlier}", file=sys.stderr)
+    else:
+        raise AssertionError(message)
+
+
 def journal(database: str, env: dict[str, str]) -> str:
     return psql(database, "SELECT string_agg(created_at::text, ',' ORDER BY created_at) FROM drizzle.__drizzle_migrations;", env)
 
@@ -111,24 +118,29 @@ def app_runtime(env: dict[str, str]) -> None:
                     body = response.read().decode()
                     if response.status != 200 or "For home flight simulation only." not in body:
                         raise AssertionError("C-17: runtime page or simulation warning missing")
-                    print("C-17: application responded with simulation warning")
-                    return
+                    break
             except (urllib.error.URLError, TimeoutError):
                 time.sleep(0.2)
-        raise AssertionError("C-17: application startup timed out")
+        else:
+            raise AssertionError("C-17: application startup timed out")
     finally:
+        earlier = sys.exc_info()[1]
         try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
-            process.wait()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=5)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            report_cleanup_failure(f"application process cleanup failed: {error}", earlier)
+    print("C-17: application responded with simulation warning")
 
 
 def main() -> None:
@@ -203,12 +215,16 @@ def main() -> None:
         require(psql("kneeboard_dev", "SELECT count(*) FROM pg_constraint WHERE conname = 'account_provider_account_unique';", env), "1", "C-14 upgraded constraint")
         verify_clean("kneeboard_dev", env)
         app_runtime(env)
-        print("Database Journey passed; disposable project removed on exit.")
     finally:
+        earlier = sys.exc_info()[1]
         if compose_started:
-            cleanup = subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=ROOT, env=env, capture_output=True, text=True)
-            if cleanup.returncode != 0:
-                raise AssertionError(f"isolated Compose cleanup failed: {cleanup.stderr.strip()}")
+            try:
+                cleanup = subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=ROOT, env=env, capture_output=True, text=True)
+                if cleanup.returncode != 0:
+                    report_cleanup_failure(f"isolated Compose cleanup failed: {cleanup.stderr.strip()}", earlier)
+            except OSError as error:
+                report_cleanup_failure(f"isolated Compose cleanup failed: {error}", earlier)
+    print("Database Journey passed; disposable project removed on exit.")
 
 
 if __name__ == "__main__":

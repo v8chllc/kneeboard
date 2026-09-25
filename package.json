@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && python3 -m unittest discover -s tests/tooling -p 'test_db_journey_cleanup.py'",
+    "test": "vitest run && python3 -m unittest discover -s tests/journey -p 'test_db_journey_cleanup.py'",
     "test:watch": "vitest watch",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

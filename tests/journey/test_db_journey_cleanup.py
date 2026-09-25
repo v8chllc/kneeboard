@@ -30,12 +30,38 @@ class CleanupFailureTests(TestCase):
             with self.assertRaisesRegex(AssertionError, "C-11: recent-load order wrong"):
                 journey.main()
         self.assertEqual(run.call_args.args[0], ["docker", "compose", "down", "-v", "--remove-orphans"])
+        self.assertEqual(run.call_args.kwargs["timeout"], journey.COMPOSE_CLEANUP_TIMEOUT_SECONDS)
         self.assertIn("isolated Compose cleanup failed: cleanup refused", stderr.getvalue())
         self.assertIn("original failure: C-11: recent-load order wrong", stderr.getvalue())
 
     def test_compose_cleanup_failure_alone_is_reported(self) -> None:
-        with self.assertRaisesRegex(AssertionError, "isolated Compose cleanup failed: cleanup refused"):
-            journey.report_cleanup_failure("isolated Compose cleanup failed: cleanup refused", None)
+        with patch.object(journey.subprocess, "run", return_value=SimpleNamespace(returncode=1, stderr="cleanup refused")):
+            with self.assertRaisesRegex(AssertionError, "isolated Compose cleanup failed: cleanup refused"):
+                journey.cleanup_compose({}, None)
+
+    def test_claim_failure_survives_compose_cleanup_timeout(self) -> None:
+        stderr = StringIO()
+        timeout = journey.subprocess.TimeoutExpired(["docker", "compose", "down"], 60)
+        with (
+            patch.object(journey, "free_port", return_value=54339),
+            patch.object(journey, "command", return_value="unix:///local/docker.sock"),
+            patch.object(journey, "local", side_effect=AssertionError("C-11: recent-load order wrong")),
+            patch.object(journey.subprocess, "run", side_effect=timeout) as run,
+            redirect_stderr(stderr),
+        ):
+            with self.assertRaisesRegex(AssertionError, "C-11: recent-load order wrong"):
+                journey.main()
+        self.assertEqual(run.call_args.kwargs["timeout"], journey.COMPOSE_CLEANUP_TIMEOUT_SECONDS)
+        self.assertIn("isolated Compose cleanup failed", stderr.getvalue())
+        self.assertIn("timed out after 60 seconds", stderr.getvalue())
+        self.assertIn("original failure: C-11: recent-load order wrong", stderr.getvalue())
+
+    def test_compose_cleanup_timeout_alone_is_reported(self) -> None:
+        timeout = journey.subprocess.TimeoutExpired(["docker", "compose", "down"], 60)
+        with patch.object(journey.subprocess, "run", side_effect=timeout) as run:
+            with self.assertRaisesRegex(AssertionError, "isolated Compose cleanup failed:.*timed out after 60 seconds"):
+                journey.cleanup_compose({}, None)
+        self.assertEqual(run.call_args.kwargs["timeout"], journey.COMPOSE_CLEANUP_TIMEOUT_SECONDS)
 
     def test_runtime_claim_survives_process_cleanup_failure(self) -> None:
         process = MagicMock()

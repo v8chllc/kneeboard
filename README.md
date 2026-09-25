@@ -157,6 +157,42 @@ mise exec -- pnpm build
 mise exec -- pnpm start
 ```
 
+### Local PostgreSQL
+
+Docker Compose runs PostgreSQL 17.6 on `127.0.0.1:54329`. It creates separate
+`kneeboard_dev` and `kneeboard_test` databases in a project-owned Docker volume.
+The fixed credentials in `.env.example` are for this local container only.
+
+From this repository root:
+
+```bash
+sh scripts/local-db.sh start
+sh scripts/local-db.sh migrate dev
+sh scripts/local-db.sh migrate test
+sh scripts/local-db.sh verify test
+sh scripts/local-db.sh stop
+sh scripts/local-db.sh reset dev  # destroys only the local development database
+sh scripts/local-db.sh reset test # destroys only the local test database
+```
+
+Reset drops and recreates the selected database. The first start creates both
+databases; later starts preserve them. Run the matching migration command after
+a reset. These commands address the local Compose service, set the local URL
+themselves, and do not accept a remote database URL. `pnpm db:generate` creates
+reviewable SQL from `src/db/schema.ts`; commit the generated migration. The
+generic `pnpm db:migrate` requires an explicit `DATABASE_URL`; the local script
+sets it to a fixed loopback URL. Direct invocation against production requires
+separate authorization. `verify` runs
+synthetic schema probes in a rolled-back transaction.
+The [migration runbook](docs/database-migrations.md) covers empty-database
+validation, manual production migration, and rollback.
+
+For the section 6a database Journey, run `mise exec -- pnpm journey:db`. It
+creates and removes its own Compose project and volume on a temporary loopback
+port, exercises migration and database behavior, and checks the built local
+application. Existing development and test databases are left intact. The
+manual Playwright harness remains planned in issue #40.
+
 ### Fetch a SimBrief OFP
 
 After generating an OFP in SimBrief with the LIDO plan format and detailed

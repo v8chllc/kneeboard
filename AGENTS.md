@@ -288,7 +288,7 @@ required_gates:
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
 review_capability: coderabbit  # gate of record; see ../project-management/kneeboard/build-execution-strategy.md §4
-journey: none                 # until the Playwright harness exists (#40)
+journey: "automated: mise exec -- pnpm journey:db" # local database Journey; #40 owns the later manual Playwright harness
 loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:
   - mise exec -- pnpm lint

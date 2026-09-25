@@ -8,19 +8,28 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest watch"
+    "test": "vitest run && python3 -m unittest discover -s tests/journey -p 'test_db_journey_cleanup.py'",
+    "test:watch": "vitest watch",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "journey:db": "python3 scripts/db_journey.py"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.6",
+    "better-auth": "1.7.6",
+    "drizzle-orm": "0.45.3",
     "next": "16.3.1",
+    "pg": "8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.13.3",
+    "@types/pg": "8.23.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "drizzle-kit": "0.31.11",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "4.3.3",

@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: local_only_kneeboard
       POSTGRES_DB: kneeboard_dev
     ports:
-      - "127.0.0.1:54329:5432"
+      - "127.0.0.1:${KNEEBOARD_DB_PORT:-54329}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/local-db-init.sql:/docker-entrypoint-initdb.d/01-test-db.sql:ro

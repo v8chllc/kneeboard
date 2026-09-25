@@ -187,6 +187,12 @@ synthetic schema probes in a rolled-back transaction.
 The [migration runbook](docs/database-migrations.md) covers empty-database
 validation, manual production migration, and rollback.
 
+For the section 6a database Journey, run `mise exec -- pnpm journey:db`. It
+creates and removes its own Compose project and volume on a temporary loopback
+port, exercises migration and database behavior, and checks the built local
+application. Existing development and test databases are left intact. The
+manual Playwright harness remains planned in issue #40.
+
 ### Fetch a SimBrief OFP
 
 After generating an OFP in SimBrief with the LIDO plan format and detailed

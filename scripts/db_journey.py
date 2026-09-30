@@ -45,14 +45,18 @@ def command(args: list[str], env: dict[str, str], *, input_text: str | None = No
 
 def psql(database: str, sql: str, env: dict[str, str]) -> str:
     return command(
-        ["docker", "compose", "exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "kneeboard", "-d", database, "-Atq"],
+        compose_args(env) + ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "kneeboard", "-d", database, "-Atq"],
         env,
         input_text=sql,
     )
 
 
 def local(action: str, env: dict[str, str], database: str | None = None) -> None:
-    command(["sh", "scripts/local-db.sh", action, *([database] if database else [])], env)
+    command(["sh", "scripts/local-db.sh", "--journey-project", env["KNEEBOARD_DB_PROJECT"], action, *([database] if database else [])], env)
+
+
+def compose_args(env: dict[str, str]) -> list[str]:
+    return ["docker", "compose", "--project-directory", str(ROOT), "-f", str(ROOT / "compose.yaml"), "-p", env["KNEEBOARD_DB_PROJECT"]]
 
 
 def require(actual: str, expected: str, claim: str) -> None:
@@ -71,7 +75,7 @@ def report_cleanup_failure(message: str, earlier: BaseException | None) -> None:
 def cleanup_compose(env: dict[str, str], earlier: BaseException | None) -> None:
     try:
         cleanup = subprocess.run(
-            ["docker", "compose", "down", "-v", "--remove-orphans"],
+            compose_args(env) + ["down", "-v", "--remove-orphans"],
             cwd=ROOT,
             env=env,
             capture_output=True,
@@ -164,7 +168,7 @@ def main() -> None:
     port = free_port()
     project = f"kneeboard_journey_{uuid.uuid4().hex[:12]}"
     env = os.environ.copy()
-    env.update(COMPOSE_PROJECT_NAME=project, KNEEBOARD_DB_PORT=str(port))
+    env.update(KNEEBOARD_DB_PROJECT=project, KNEEBOARD_DB_PORT=str(port))
     env.pop("DATABASE_URL", None)
     env.pop("COMPOSE_FILE", None)
     (ROOT / ".local").mkdir(exist_ok=True)
@@ -176,7 +180,7 @@ def main() -> None:
             raise AssertionError("database Journey requires a local Docker socket")
         compose_started = True
         local("start", env)
-        container = command(["docker", "compose", "ps", "-q", "postgres"], env)
+        container = command(compose_args(env) + ["ps", "-q", "postgres"], env)
         running_image = command(["docker", "inspect", "--format", "{{.Config.Image}}", container], env)
         pinned_image = re.search(r"^    image: (.+)$", (ROOT / "compose.yaml").read_text(), re.MULTILINE)
         if not pinned_image or not re.fullmatch(r"postgres:17@sha256:[0-9a-f]{64}", pinned_image.group(1)):
@@ -184,6 +188,17 @@ def main() -> None:
         require(running_image, pinned_image.group(1), "C-1 pinned image")
         require(psql("kneeboard_dev", "SELECT current_database();", env), "kneeboard_dev", "C-1 development database")
         require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "C-1 test database")
+
+        with tempfile.TemporaryDirectory(dir=ROOT / ".local") as directory:
+            decoy = Path(directory) / "compose.yaml"
+            decoy.write_text("services:\n  postgres:\n    image: postgres:17\n    entrypoint: ['sh', '-c', 'sleep 600']\n")
+            decoy_env = Path(directory) / "alternate.env"
+            decoy_env.write_text("COMPOSE_PROJECT_NAME=alternate_target\n")
+            local("start", env | {"COMPOSE_FILE": str(decoy), "COMPOSE_PROJECT_NAME": "alternate_target", "COMPOSE_ENV_FILES": str(decoy_env)})
+        selected_container = command(compose_args(env) + ["ps", "-q", "postgres"], env)
+        require(command(["docker", "inspect", "--format", "{{.Config.Image}}", selected_container], env), pinned_image.group(1), "C-2b pinned Postgres image")
+        require(command(["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project"}}', selected_container], env), project, "C-2b adversarial Compose project ignored")
+        require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "C-2b adversarial Compose file ignored")
 
         for database in ("dev", "test"):
             local("migrate", env, database)
@@ -214,6 +229,10 @@ def main() -> None:
         if remote_docker.returncode != 2:
             raise AssertionError("C-2: remote Docker endpoint accepted")
         print("C-2: remote Docker endpoint rejected")
+        invalid_project = subprocess.run(["sh", "scripts/local-db.sh", "--journey-project", "alternate_target", "reset", "test"], cwd=ROOT, env=env, capture_output=True, text=True)
+        if invalid_project.returncode != 2:
+            raise AssertionError("C-2b: arbitrary Compose project accepted")
+        print("C-2b: arbitrary Compose project rejected")
 
         local("migrate", env, "test")
         require(journal("kneeboard_test", env), ",".join(map(str, EXPECTED_MIGRATIONS)), "C-13 migration rerun")

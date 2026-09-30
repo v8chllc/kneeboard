@@ -177,11 +177,13 @@ sh scripts/local-db.sh reset test # destroys only the local test database
 
 Reset drops and recreates the selected database. The first start creates both
 databases; later starts preserve them. Run the matching migration command after
-a reset. These commands address the local Compose service, set the local URL
-themselves, and do not accept a remote database URL. `pnpm db:generate` creates
-reviewable SQL from `src/db/schema.ts`; commit the generated migration. The
-generic `pnpm db:migrate` requires an explicit `DATABASE_URL`; the local script
-sets it to a fixed loopback URL. Direct invocation against production requires
+a reset. Routine commands pin this repository's `compose.yaml` and `kneeboard`
+project, set the local URL themselves, and do not accept a remote database URL.
+The Journey uses a separate validated project name and temporary loopback port.
+`pnpm db:generate` creates reviewable SQL from `src/db/schema.ts`; commit the
+generated migration. The generic `pnpm db:migrate` requires an explicit
+`DATABASE_URL`; the local script sets it to a fixed loopback URL. Direct
+invocation against production requires
 separate authorization. `verify` runs
 synthetic schema probes in a rolled-back transaction.
 The [migration runbook](docs/database-migrations.md) covers empty-database

@@ -1,6 +1,28 @@
 #!/bin/sh
 set -eu
 
+repo_root="$(CDPATH= cd "$(dirname "$0")/.." && pwd -P)"
+cd "$repo_root"
+
+compose_project=kneeboard
+if [ "${1:-}" = '--journey-project' ]; then
+  case "${2:-}" in
+    kneeboard_journey_????????????)
+      journey_suffix="${2#kneeboard_journey_}"
+      case "$journey_suffix" in
+        *[!0123456789abcdef]*) echo 'Invalid isolated database Journey project' >&2; exit 2 ;;
+      esac
+      compose_project="$2"
+      shift 2
+      ;;
+    *) echo 'Invalid isolated database Journey project' >&2; exit 2 ;;
+  esac
+fi
+
+compose() {
+  docker compose --project-directory "$repo_root" -f "$repo_root/compose.yaml" -p "$compose_project" "$@"
+}
+
 local_port="${KNEEBOARD_DB_PORT:-54329}"
 case "$local_port" in
   ''|*[!0-9]*|??????*) echo 'KNEEBOARD_DB_PORT must be a local TCP port from 1024 to 65535' >&2; exit 2 ;;
@@ -9,6 +31,7 @@ if [ "$local_port" -lt 1024 ] || [ "$local_port" -gt 65535 ]; then
   echo 'KNEEBOARD_DB_PORT must be a local TCP port from 1024 to 65535' >&2
   exit 2
 fi
+export KNEEBOARD_DB_PORT="$local_port"
 
 case "${DOCKER_HOST:-}" in
   ''|unix://*|npipe://*) ;;
@@ -22,10 +45,10 @@ esac
 
 case "${1:-}" in
   start)
-    docker compose up -d --wait postgres
+    compose up -d --wait postgres
     ;;
   stop)
-    docker compose stop postgres
+    compose stop postgres
     ;;
   migrate)
     case "${2:-}" in
@@ -42,7 +65,7 @@ case "${1:-}" in
       test) database=kneeboard_test ;;
       *) echo 'Usage: scripts/local-db.sh verify dev|test' >&2; exit 2 ;;
     esac
-    docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U kneeboard -d "$database" \
+    compose exec -T postgres psql -v ON_ERROR_STOP=1 -U kneeboard -d "$database" \
       < scripts/verify-local-schema.sql
     ;;
   reset)
@@ -52,7 +75,7 @@ case "${1:-}" in
       test) database=kneeboard_test ;;
       *) echo 'Usage: scripts/local-db.sh reset dev|test' >&2; exit 2 ;;
     esac
-    docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U kneeboard -d postgres \
+    compose exec -T postgres psql -v ON_ERROR_STOP=1 -U kneeboard -d postgres \
       -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid()" \
       -c "DROP DATABASE \"$database\"" \
       -c "CREATE DATABASE \"$database\""

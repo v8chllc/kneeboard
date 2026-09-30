@@ -239,6 +239,7 @@ def main() -> None:
         verify_clean("kneeboard_test", env)
         psql("kneeboard_test", (ROOT / "scripts/db-journey.sql").read_text(), env)
         print("C-4 through C-11: exact database assertions passed")
+        print("C-7a positive versions and C-8a orphan/cascade assertions passed")
         require(psql("kneeboard_test", "SELECT count(*) FROM \"user\" WHERE id LIKE 'journey-%';", env), "0", "C-15 journey rollback")
 
         local("reset", env, "dev")

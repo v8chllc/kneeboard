@@ -12,6 +12,11 @@ DECLARE
   v_plan text;
   v_uses_index boolean := false;
   v_bad_timestamps integer;
+  v_nonpositive integer;
+  v_orphan record;
+  v_constraint text;
+  v_account_counts integer[];
+  v_load_counts integer[];
 BEGIN
   IF (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'
       AND table_name IN ('user','session','account','verification','rate_limit',
@@ -98,6 +103,23 @@ BEGIN
     RAISE EXCEPTION 'C-7: mismatched snapshot version accepted';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
+  FOREACH v_nonpositive IN ARRAY ARRAY[0,-1] LOOP
+    BEGIN
+      UPDATE tracker SET version=v_nonpositive,
+        snapshot=jsonb_set(v_snapshot,'{version}',to_jsonb(v_nonpositive))
+      WHERE load_id=v_load;
+      RAISE EXCEPTION 'C-7a: nonpositive row and snapshot version % accepted', v_nonpositive;
+    EXCEPTION WHEN check_violation THEN
+      GET STACKED DIAGNOSTICS v_constraint=CONSTRAINT_NAME;
+      IF v_constraint <> 'tracker_version_positive' THEN
+        RAISE EXCEPTION 'C-7a: version % rejected by %, expected tracker_version_positive',
+          v_nonpositive,v_constraint;
+      END IF;
+    END;
+  END LOOP;
+  IF (SELECT count(*) FROM tracker WHERE load_id=v_load AND version=1 AND snapshot=v_snapshot) <> 1 THEN
+    RAISE EXCEPTION 'C-7a: rejected versions changed the tracker';
+  END IF;
 
   BEGIN
     INSERT INTO ofp_load (user_id,idempotency_key,flight_number,origin_icao_code,
@@ -122,6 +144,81 @@ BEGIN
     RAISE EXCEPTION 'C-8: cross-account tracker accepted';
   EXCEPTION WHEN foreign_key_violation THEN NULL;
   END;
+
+  FOR v_orphan IN SELECT * FROM (VALUES
+    ('session', $probe$INSERT INTO session (id,expires_at,token,updated_at,user_id)
+      VALUES ('journey-orphan-session',now()+interval '1 hour','journey-orphan-token',now(),'journey-missing')$probe$,
+      'session_user_id_user_id_fk'),
+    ('account', $probe$INSERT INTO account (id,account_id,provider_id,user_id,updated_at)
+      VALUES ('journey-orphan-account','orphan','synthetic-provider','journey-missing',now())$probe$,
+      'account_user_id_user_id_fk'),
+    ('account_settings', $probe$INSERT INTO account_settings (user_id) VALUES ('journey-missing')$probe$,
+      'account_settings_user_id_user_id_fk'),
+    ('load_reservation', $probe$INSERT INTO load_reservation (user_id) VALUES ('journey-missing')$probe$,
+      'load_reservation_user_id_user_id_fk'),
+    ('ofp_load', $probe$INSERT INTO ofp_load (user_id,idempotency_key,flight_number,origin_icao_code,destination_icao_code,generated_at)
+      VALUES ('journey-missing','orphan','TEST','KORD','KJFK',now())$probe$,
+      'ofp_load_user_id_user_id_fk'),
+    ('ofp_raw', $probe$INSERT INTO ofp_raw (load_id,payload)
+      VALUES ('00000000-0000-0000-0000-000000000999','{}')$probe$,
+      'ofp_raw_load_id_ofp_load_id_fk'),
+    ('tracker', $probe$INSERT INTO tracker (user_id,load_id,navlog,snapshot)
+      VALUES ('journey-a','00000000-0000-0000-0000-000000000999','{}','{"version":1}')$probe$,
+      'tracker_load_id_user_id_ofp_load_id_user_id_fk')
+  ) AS probe(label,statement,expected_constraint) LOOP
+    BEGIN
+      EXECUTE v_orphan.statement;
+      RAISE EXCEPTION 'C-8a: orphan % accepted', v_orphan.label;
+    EXCEPTION WHEN foreign_key_violation THEN
+      GET STACKED DIAGNOSTICS v_constraint=CONSTRAINT_NAME;
+      IF v_constraint <> v_orphan.expected_constraint THEN
+        RAISE EXCEPTION 'C-8a: orphan % rejected by %, expected %',
+          v_orphan.label,v_constraint,v_orphan.expected_constraint;
+      END IF;
+    END;
+  END LOOP;
+
+  INSERT INTO "user" (id,name,email)
+    VALUES ('journey-cascade-account','Synthetic Cascade','journey-cascade@example.invalid');
+  INSERT INTO session (id,expires_at,token,updated_at,user_id)
+    VALUES ('journey-cascade-session',now()+interval '1 hour','journey-cascade-token',now(),'journey-cascade-account');
+  INSERT INTO account (id,account_id,provider_id,user_id,updated_at)
+    VALUES ('journey-cascade-provider','cascade','synthetic-provider','journey-cascade-account',now());
+  INSERT INTO account_settings (user_id) VALUES ('journey-cascade-account');
+  INSERT INTO load_reservation (user_id) VALUES ('journey-cascade-account');
+  INSERT INTO ofp_load (id,user_id,idempotency_key,flight_number,origin_icao_code,destination_icao_code,generated_at)
+    VALUES ('00000000-0000-0000-0000-000000000099','journey-cascade-account','cascade','TEST','KORD','KJFK',now());
+  INSERT INTO ofp_raw (load_id,payload) VALUES ('00000000-0000-0000-0000-000000000099',v_payload);
+  INSERT INTO tracker (user_id,load_id,navlog,snapshot)
+    VALUES ('journey-cascade-account','00000000-0000-0000-0000-000000000099',v_navlog,v_snapshot);
+  DELETE FROM "user" WHERE id='journey-cascade-account';
+  SELECT ARRAY[
+    (SELECT count(*) FROM session WHERE id='journey-cascade-session'),
+    (SELECT count(*) FROM account WHERE id='journey-cascade-provider'),
+    (SELECT count(*) FROM account_settings WHERE user_id='journey-cascade-account'),
+    (SELECT count(*) FROM load_reservation WHERE user_id='journey-cascade-account'),
+    (SELECT count(*) FROM ofp_load WHERE id='00000000-0000-0000-0000-000000000099'),
+    (SELECT count(*) FROM ofp_raw WHERE load_id='00000000-0000-0000-0000-000000000099'),
+    (SELECT count(*) FROM tracker WHERE load_id='00000000-0000-0000-0000-000000000099')
+  ] INTO v_account_counts;
+  IF v_account_counts IS DISTINCT FROM ARRAY[0,0,0,0,0,0,0] THEN
+    RAISE EXCEPTION 'C-8a: account cascade left dependent rows: %', v_account_counts;
+  END IF;
+
+  INSERT INTO ofp_load (id,user_id,idempotency_key,flight_number,origin_icao_code,destination_icao_code,generated_at)
+    VALUES ('00000000-0000-0000-0000-000000000100','journey-b','cascade-load','TEST','KORD','KJFK',now());
+  INSERT INTO ofp_raw (load_id,payload) VALUES ('00000000-0000-0000-0000-000000000100',v_payload);
+  INSERT INTO tracker (user_id,load_id,navlog,snapshot)
+    VALUES ('journey-b','00000000-0000-0000-0000-000000000100',v_navlog,v_snapshot);
+  DELETE FROM ofp_load WHERE id='00000000-0000-0000-0000-000000000100';
+  SELECT ARRAY[
+    (SELECT count(*) FROM ofp_raw WHERE load_id='00000000-0000-0000-0000-000000000100'),
+    (SELECT count(*) FROM tracker WHERE load_id='00000000-0000-0000-0000-000000000100')
+  ] INTO v_load_counts;
+  IF v_load_counts IS DISTINCT FROM ARRAY[0,0] THEN
+    RAISE EXCEPTION 'C-8a: load cascade left dependent rows: %', v_load_counts;
+  END IF;
+  RAISE NOTICE 'C-7a positive versions and C-8a orphan/cascade assertions passed';
 
   SELECT count(*) INTO v_bad_timestamps
   FROM (VALUES

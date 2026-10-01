@@ -21,6 +21,7 @@ import os
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -38,6 +39,8 @@ GRACE = 0.5
 SLACK = 1.5
 WATCHDOG_SECONDS = 10
 WATCHDOG_REPEAT_SECONDS = 0.2
+PS = shutil.which("ps") or "/bin/ps"
+PS_TIMEOUT_SECONDS = 2
 SECRET = "fixture-secret-7f3a91"
 
 
@@ -78,10 +81,20 @@ class FixtureTestCase(TestCase):
         return pids
 
     def is_fixture(self, pid: int) -> bool:
-        """Accept only a live process running a script from this test's fixture directory."""
+        """Accept only a live process running a script from this test's fixture directory.
+
+        The lookup is bounded; a pid whose lookup fails or times out is reported
+        and left unsignalled, and the caller's loop continues.
+        """
         if pid <= 1 or pid in (os.getpid(), os.getpgrp()):
             return False
-        result = subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True, check=False)
+        try:
+            result = subprocess.run(  # noqa: S603 - fixed argv; the pid is an int
+                [PS, "-o", "args=", "-p", str(pid)], capture_output=True, text=True, check=False, timeout=PS_TIMEOUT_SECONDS
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            print(f"fixture cleanup could not verify pid {pid}; not signalled: {error}", file=sys.stderr)
+            return False
         return str(self.directory) in result.stdout
 
     def kill_fixtures(self) -> None:

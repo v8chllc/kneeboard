@@ -1,9 +1,13 @@
 """Real-process tests for the database Journey's bounded command execution.
 
 Fixtures are POSIX shell scripts under a temporary directory whose name contains
-``kbjfixture``. Each records its pid, every test arms an independent watchdog
-that SIGKILLs the recorded processes if the code under test hangs, and a final
-cleanup does the same whether or not the test passed.
+``kbjfixture``. Each fixture process records its pid in its own file. Every test
+arms an independent watchdog: once it expires it keeps SIGKILLing recorded
+processes until the test ends, so a test containing several hangs still
+finishes. A final cleanup does the same whether or not the test passed. Neither
+signals a process group: cleanup must stay safe even if a regression stops the
+code under test from creating its own session, when a fixture would share the
+test runner's group.
 """
 
 from contextlib import redirect_stderr, redirect_stdout
@@ -32,7 +36,8 @@ BUDGET = "FIXTURE_TIMEOUT_SECONDS"
 LIMIT = 0.5
 GRACE = 0.5
 SLACK = 1.5
-WATCHDOG_SECONDS = 15
+WATCHDOG_SECONDS = 10
+WATCHDOG_REPEAT_SECONDS = 0.2
 SECRET = "fixture-secret-7f3a91"
 
 
@@ -44,8 +49,8 @@ class FixtureTestCase(TestCase):
         self.pids = self.directory / "pids"
         self.pids.mkdir()
         self.watchdog_fired = threading.Event()
-        self.watchdog = threading.Timer(WATCHDOG_SECONDS, self.kill_fixtures, kwargs={"from_watchdog": True})
-        self.watchdog.daemon = True
+        self.finished = threading.Event()
+        self.watchdog = threading.Thread(target=self.watch, daemon=True)
         self.watchdog.start()
         self.addCleanup(self.cleanup)
         patcher = patch.multiple(journey, create=True, FIXTURE_TIMEOUT_SECONDS=LIMIT, TERMINATION_GRACE_SECONDS=GRACE)
@@ -55,7 +60,7 @@ class FixtureTestCase(TestCase):
         self.script(
             "stubborn_child.sh",
             "trap '' TERM\n"
-            "echo $$ > \"$PIDS/child\"\n"
+            "echo $$ > \"$PIDS/child.$$\"\n"
             "while :; do sleep 0.1; done\n",
         )
 
@@ -72,19 +77,33 @@ class FixtureTestCase(TestCase):
                 pids[path.name] = int(text)
         return pids
 
-    def kill_fixtures(self, from_watchdog: bool = False) -> None:
-        if from_watchdog:
-            self.watchdog_fired.set()
-        for name, pid in self.recorded().items():
-            # Leaders were started in their own session, so pid == pgid.
-            sender = os.killpg if name.startswith("leader") else os.kill
-            try:
-                sender(pid, signal.SIGKILL)
-            except OSError:
-                pass
+    def is_fixture(self, pid: int) -> bool:
+        """Accept only a live process running a script from this test's fixture directory."""
+        if pid <= 1 or pid in (os.getpid(), os.getpgrp()):
+            return False
+        result = subprocess.run(["ps", "-o", "args=", "-p", str(pid)], capture_output=True, text=True, check=False)
+        return str(self.directory) in result.stdout
+
+    def kill_fixtures(self) -> None:
+        for pid in self.recorded().values():
+            if self.is_fixture(pid):
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    pass
+
+    def watch(self) -> None:
+        if self.finished.wait(WATCHDOG_SECONDS):
+            return
+        self.watchdog_fired.set()
+        while True:
+            self.kill_fixtures()
+            if self.finished.wait(WATCHDOG_REPEAT_SECONDS):
+                return
 
     def cleanup(self) -> None:
-        self.watchdog.cancel()
+        self.finished.set()
+        self.watchdog.join(timeout=5)
         self.kill_fixtures()
         shutil.rmtree(self.directory, ignore_errors=True)
 
@@ -100,20 +119,23 @@ class FixtureTestCase(TestCase):
         return result, elapsed
 
     def assert_gone(self, *names: str) -> None:
+        """Each name matches a pid file of that name or ``<name>.<pid>``; all must have exited."""
         pids = self.recorded()
         for name in names:
-            self.assertIn(name, pids, f"fixture {name} never recorded its pid")
-            deadline = time.monotonic() + 2
-            while True:
-                try:
-                    os.kill(pids[name], 0)
-                except ProcessLookupError:
-                    break
-                except PermissionError:
-                    break  # macOS reports an unreaped zombie this way
-                if time.monotonic() > deadline:
-                    self.fail(f"fixture {name} (pid {pids[name]}) is still running")
-                time.sleep(0.05)
+            matches = {key: pid for key, pid in pids.items() if key == name or key.startswith(f"{name}.")}
+            self.assertTrue(matches, f"fixture {name} never recorded its pid")
+            for key, pid in matches.items():
+                deadline = time.monotonic() + 2
+                while True:
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        break
+                    except PermissionError:
+                        break  # macOS reports an unreaped zombie this way
+                    if time.monotonic() > deadline:
+                        self.fail(f"fixture {key} (pid {pid}) is still running")
+                    time.sleep(0.05)
 
     def assert_timeout(self, result: object, elapsed: float) -> None:
         self.assertIsInstance(result, journey.JourneyTimeout, f"expected a timeout, got {result!r}")
@@ -275,7 +297,6 @@ class JourneyRoutingTests(FixtureTestCase):
             "  *\" $step \"*)\n"
             "    trap '' TERM\n"
             "    echo $$ > \"$PIDS/docker-$step\"\n"
-            "    ps -o pgid= -p $$ | tr -d ' ' > \"$PIDS/leader-$step\"\n"
             "    sh \"$FIXTURE_DIR/stubborn_child.sh\" &\n"
             "    while :; do sleep 0.1; done ;;\n"
             "esac\n"

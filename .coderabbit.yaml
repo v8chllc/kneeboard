@@ -48,7 +48,7 @@ reviews:
       instructions: >-
         This layer must stay framework-independent: no React, Next.js, database,
         or network imports. Check tracker rules against the domain invariants in
-        AGENTS.md, especially deferred slot release
+        CODING_STANDARDS.md, especially deferred slot release
         (the most recently passed fix keeps its slot), cascading Pass, terminal
         Skip, slot renumbering only on Skip and SID/STAR changes, and the
         sliding window changing membership only on Save. Transitions must be
@@ -82,7 +82,7 @@ reviews:
         for the right reason: at the baseline on the assertion itself, not on a
         missing symbol or setup error, or with the behavior it guards removed,
         which is required when that behavior already exists at the baseline.
-        AGENTS.md "Testing and Delivery" requires this. Flag the shapes that
+        CODING_STANDARDS.md "Testing" requires this. Flag the shapes that
         pass while proving nothing: a check that something changed, or that
         some element matches, where the exact
         expected value is knowable; a negative assertion satisfied by the code
@@ -143,3 +143,4 @@ knowledge_base:
     enabled: true
     filePatterns:
       - "AGENTS.md"
+      - "CODING_STANDARDS.md"

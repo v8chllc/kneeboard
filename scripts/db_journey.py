@@ -132,14 +132,21 @@ def leader_exited(process: subprocess.Popen) -> bool:
 
     An unreaped leader keeps its pid, and so its process-group id, from being
     reused, which keeps a later group signal aimed at the group this Journey
-    created. Python before 3.13 on macOS lacks os.waitid; there the leader is
-    reaped as soon as it exits, and a later group signal relies on surviving
-    members keeping the group id in use.
+    created. Python before 3.13 on macOS lacks os.waitid; there this reports
+    True only once the whole group has exited, which macOS signals by refusing
+    signal 0 to a group whose only member is the unreaped leader. Until then
+    callers wait out their grace period instead of ending it early.
     """
     if process.returncode is not None:
         return True
     if not hasattr(os, "waitid"):
-        return process.poll() is not None
+        try:
+            os.killpg(process.pid, 0)
+        except (PermissionError, ProcessLookupError):
+            return True
+        except OSError:
+            return False
+        return False
     try:
         return os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
     except ChildProcessError:
@@ -147,6 +154,9 @@ def leader_exited(process: subprocess.Popen) -> bool:
 
 
 def signal_group(process: subprocess.Popen, sig: signal.Signals, problems: list[str]) -> None:
+    if process.returncode is not None:
+        # The leader was reaped, so its pid may now identify an unrelated group.
+        return
     try:
         os.killpg(process.pid, sig)
     except ProcessLookupError:
@@ -165,8 +175,8 @@ def terminate_process_group(process: subprocess.Popen, grace: float) -> list[str
     Sends SIGTERM to the group, waits up to ``grace`` seconds for the leader to
     exit, then sends SIGKILL to the group so descendants that ignore SIGTERM or
     outlive the leader also stop, and finally reaps the leader within ``grace``.
-    Both signals are sent before the leader is reaped. Signals go only to the
-    group led by ``process``. Returns problems, such as a refused signal or a
+    Both signals are sent before the leader is reaped, and no signal is sent
+    once it has been, so they go only to the group led by ``process``. Returns problems, such as a refused signal or a
     leader that never exited, as text for the caller to report; never raises for
     them. Descendants are reparented and reaped by the system, not here.
     """
@@ -368,7 +378,7 @@ def app_runtime(env: dict[str, str]) -> None:
     try:
         # Bounded startup window: 60 polls of at most a 1 s request plus 0.2 s.
         for _ in range(60):
-            if process.poll() is not None:
+            if leader_exited(process):
                 raise AssertionError("C-17: application exited before responding")
             try:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=1) as response:

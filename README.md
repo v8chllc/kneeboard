@@ -201,11 +201,14 @@ measured basis are in `scripts/db_journey.py`. A command that exceeds its budget
 is stopped with its child processes, and the Journey fails with the command and
 budget it exceeded. Once database startup begins, a failure or timeout still
 removes the Journey's own Compose project; if that removal fails or times out,
-the run reports it rather than claiming the project was removed. Remove a
-leftover project manually with
-`docker compose -p kneeboard_journey_<id> down -v --remove-orphans`, using the
-project name from `docker compose ls -a`. The Journey supports macOS and Linux
-only.
+the run reports it rather than claiming the project was removed. A failed
+removal can leave containers, a volume, or both. List leftover projects with
+`docker compose ls -a`, which finds containers, and with
+`docker volume ls --filter label=com.docker.compose.project --format '{{.Label "com.docker.compose.project"}}'`,
+which finds a volume whose containers are already gone. Remove each
+`kneeboard_journey_<id>` project from the repository root with
+`docker compose -p kneeboard_journey_<id> down -v --remove-orphans`. The Journey
+supports macOS and Linux only.
 
 ### Fetch a SimBrief OFP
 

@@ -1,4 +1,30 @@
-"""Run the 6a database journey in a disposable, loopback-only Compose project."""
+"""Run the 6a database journey in a disposable, loopback-only Compose project.
+
+Resources: the Journey creates one Compose project named
+``kneeboard_journey_<12 hex>`` on a free loopback port, with its own containers
+and volume, plus temporary files under ``.local/``. The only destructive actions
+are database resets inside that project and ``docker compose down -v`` of that
+project; the developer's ``kneeboard`` project and databases are never targeted.
+
+Processes: every command runs through run_bounded in a new session, so the
+command and its descendants form one process group the Journey owns. Each command
+has a named budget below; on expiry the group receives SIGTERM, then SIGKILL after
+TERMINATION_GRACE_SECONDS, and JourneyTimeout is raised. The C-17 application
+server is the one long-lived process; it is polled for a bounded startup window
+and stopped through the same termination routine. Only groups the Journey
+started are signalled.
+
+Errors and cleanup: an assertion, timeout, or interruption after startup still
+reaches the bounded Compose teardown in ``main``. The first failure stays primary
+and a cleanup failure is printed beside it; a cleanup failure alone fails the
+run. Removal is claimed only when ``down`` exits 0. A timeout before startup
+skips teardown. An assertion, timeout, or OS error exits 1 with a one-line
+reason; diagnostics include command lines and a redacted stderr tail, never the
+environment or stdin.
+
+Environment: POSIX only (macOS and Linux); it relies on sessions, process groups,
+and a local Docker socket, and needs ``mise``, ``pnpm``, and Docker Compose.
+"""
 
 from __future__ import annotations
 
@@ -24,20 +50,25 @@ EXPECTED_MIGRATIONS = [1790293061053, 1790294641213]
 
 # Execution budgets, in seconds, for every subprocess the Journey owns. Each is a
 # deadline for one command, from launch until it exits and closes its output.
-# Tests inject short limits by patching these names.
-DOCKER_QUERY_TIMEOUT_SECONDS = 30  # docker context/inspect and compose ps
-PSQL_TIMEOUT_SECONDS = 30  # one short query through compose exec
-JOURNEY_SQL_TIMEOUT_SECONDS = 60  # scripts/db-journey.sql
-VALIDATION_TIMEOUT_SECONDS = 30  # local-db.sh argument rejections
-LOCAL_START_TIMEOUT_SECONDS = 300  # compose up --wait, including an image pull
-LOCAL_COMMAND_TIMEOUT_SECONDS = 60  # local-db.sh stop, reset, and verify
-MIGRATE_TIMEOUT_SECONDS = 120  # drizzle-kit migrate through mise and pnpm
-INSTALL_TIMEOUT_SECONDS = 600  # pnpm install --frozen-lockfile
-LINT_TIMEOUT_SECONDS = 300
-TYPECHECK_TIMEOUT_SECONDS = 300
-TEST_TIMEOUT_SECONDS = 600  # the full pnpm test suite
-BUILD_TIMEOUT_SECONDS = 900  # next build
-COMPOSE_CLEANUP_TIMEOUT_SECONDS = 60
+# Tests inject short limits by patching these names; there is no runtime override.
+# Calibrated on 2026-10-01 against an Apple Silicon Mac with Docker Desktop and
+# against CI step times on ubuntu-latest. Every limit is at least ten times the
+# slowest observed run of its operation, so a slow machine or network does not
+# time out a healthy run, while a stalled command still ends within minutes.
+DOCKER_QUERY_TIMEOUT_SECONDS = 30  # context/inspect and compose ps; observed under 0.1 s
+PSQL_TIMEOUT_SECONDS = 30  # one short query through compose exec; observed under 0.2 s
+JOURNEY_SQL_TIMEOUT_SECONDS = 60  # scripts/db-journey.sql; observed under 0.1 s
+VALIDATION_TIMEOUT_SECONDS = 30  # local-db.sh argument rejections; observed under 0.1 s
+# compose up --wait: 22 s with a cold pull of the 668 MB pinned image, 3 s warm.
+LOCAL_START_TIMEOUT_SECONDS = 300
+LOCAL_COMMAND_TIMEOUT_SECONDS = 60  # local-db.sh stop, reset, verify; observed under 0.3 s
+MIGRATE_TIMEOUT_SECONDS = 120  # drizzle-kit migrate through mise and pnpm; observed under 1.3 s
+INSTALL_TIMEOUT_SECONDS = 600  # pnpm install --frozen-lockfile; 8 s cold in CI, 20 s locally
+LINT_TIMEOUT_SECONDS = 300  # observed 3 s in CI
+TYPECHECK_TIMEOUT_SECONDS = 300  # observed 4 s in CI
+TEST_TIMEOUT_SECONDS = 600  # full suite, including these timeout tests; observed 15 s
+BUILD_TIMEOUT_SECONDS = 900  # next build; observed 10 s in CI
+COMPOSE_CLEANUP_TIMEOUT_SECONDS = 60  # down -v --remove-orphans; observed under 0.4 s
 # Time an owned process group gets after SIGTERM before SIGKILL, and the bound on
 # each later wait: reaping the leader and draining its output pipes.
 TERMINATION_GRACE_SECONDS = 5
@@ -335,6 +366,7 @@ def app_runtime(env: dict[str, str]) -> None:
         start_new_session=True,
     )
     try:
+        # Bounded startup window: 60 polls of at most a 1 s request plus 0.2 s.
         for _ in range(60):
             if process.poll() is not None:
                 raise AssertionError("C-17: application exited before responding")

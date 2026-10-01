@@ -195,6 +195,18 @@ port, exercises migration and database behavior, and checks the built local
 application. Existing development and test databases are left intact. The
 manual Playwright harness remains planned in issue #40.
 
+Every command the Journey runs has a finite time budget, from 30 seconds for a
+Docker query to 15 minutes for the production build; the values and their
+measured basis are in `scripts/db_journey.py`. A command that exceeds its budget
+is stopped with its child processes, and the Journey fails with the command and
+budget it exceeded. Once database startup begins, a failure or timeout still
+removes the Journey's own Compose project; if that removal fails or times out,
+the run reports it rather than claiming the project was removed. Remove a
+leftover project manually with
+`docker compose -p kneeboard_journey_<id> down -v --remove-orphans`, using the
+project name from `docker compose ls -a`. The Journey supports macOS and Linux
+only.
+
 ### Fetch a SimBrief OFP
 
 After generating an OFP in SimBrief with the LIDO plan format and detailed

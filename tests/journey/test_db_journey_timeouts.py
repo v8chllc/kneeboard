@@ -6,9 +6,12 @@ that SIGKILLs the recorded processes if the code under test hangs, and a final
 cleanup does the same whether or not the test passed.
 """
 
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
+import ast
 import importlib.util
 import os
 import shutil
@@ -247,3 +250,186 @@ class BoundedCommandTests(FixtureTestCase):
         self.assert_timeout(result, elapsed)
         self.assertNotIn(SECRET, str(result))
         self.assertIn("postgresql://***@127.0.0.1:5432/db", str(result))
+
+
+class JourneyRoutingTests(FixtureTestCase):
+    """Drive main() and cleanup_compose() against a fake docker on PATH; no daemon is contacted."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.log = self.directory / "docker.log"
+        self.log.touch()
+        bin_directory = self.directory / "bin"
+        bin_directory.mkdir()
+        docker = bin_directory / "docker"
+        docker.write_text(
+            "#!/bin/sh\n"
+            "printf '%s\\n' \"$*\" >> \"$DOCKER_LOG\"\n"
+            "case \"$1 $*\" in\n"
+            "  context*) step=context ;;\n"
+            "  *' up '*) step=up ;;\n"
+            "  *' down '*) step=down ;;\n"
+            "  *) step=other ;;\n"
+            "esac\n"
+            "case \" $FAKE_DOCKER_HANG \" in\n"
+            "  *\" $step \"*)\n"
+            "    trap '' TERM\n"
+            "    echo $$ > \"$PIDS/docker-$step\"\n"
+            "    ps -o pgid= -p $$ | tr -d ' ' > \"$PIDS/leader-$step\"\n"
+            "    sh \"$FIXTURE_DIR/stubborn_child.sh\" &\n"
+            "    while :; do sleep 0.1; done ;;\n"
+            "esac\n"
+            "if [ \"$step\" = context ]; then echo unix:///fake/docker.sock; exit 0; fi\n"
+            "if [ \"$step\" = down ] && [ -n \"$FAKE_DOWN_STATUS\" ]; then echo down refused >&2; exit \"$FAKE_DOWN_STATUS\"; fi\n"
+            "exit 0\n"
+        )
+        docker.chmod(0o755)
+        self.env |= {"PATH": f"{bin_directory}:{os.environ['PATH']}", "DOCKER_LOG": str(self.log)}
+        self.env.pop("DOCKER_HOST", None)
+        self.project_env = self.env | {"KNEEBOARD_DB_PROJECT": "kneeboard_journey_0123456789ab"}
+
+    def run_main(self, hang: str, *, down_status: str = "", **budgets: float) -> tuple[object, float, str, str]:
+        stdout, stderr = StringIO(), StringIO()
+        environ = self.env | {"FAKE_DOCKER_HANG": hang, "FAKE_DOWN_STATUS": down_status}
+        started = time.monotonic()
+        with (
+            patch.dict(os.environ, environ, clear=True),
+            patch.multiple(journey, **budgets),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            try:
+                journey.main()
+                result: object = None
+            except BaseException as error:  # noqa: BLE001 - the test inspects any outcome
+                result = error
+        elapsed = time.monotonic() - started
+        self.assertFalse(self.watchdog_fired.is_set(), "Journey did not return before the watchdog")
+        self.assertNotIn("Database Journey passed", stdout.getvalue())
+        return result, elapsed, stdout.getvalue(), stderr.getvalue()
+
+    def logged(self) -> list[str]:
+        return self.log.read_text().splitlines()
+
+    def down_lines(self) -> list[str]:
+        return [line for line in self.logged() if " down " in f"{line} "]
+
+    def test_timeout_before_startup_skips_compose_cleanup(self) -> None:
+        result, elapsed, _, _ = self.run_main("context", DOCKER_QUERY_TIMEOUT_SECONDS=LIMIT)
+        self.assert_timeout(result, elapsed)
+        self.assertEqual(result.budget, "DOCKER_QUERY_TIMEOUT_SECONDS")
+        self.assert_gone("docker-context", "child")
+        self.assertEqual(self.logged(), ["context inspect --format {{.Endpoints.docker.Host}}"])
+        self.assertEqual(self.down_lines(), [])
+
+    def test_timeout_after_startup_cleans_up_only_the_journey_project(self) -> None:
+        result, elapsed, _, stderr = self.run_main("up", LOCAL_START_TIMEOUT_SECONDS=LIMIT)
+        self.assert_timeout(result, elapsed)
+        self.assertEqual(result.budget, "LOCAL_START_TIMEOUT_SECONDS")
+        self.assert_gone("docker-up", "child")
+        project = result.command_args[3]
+        self.assertRegex(project, r"^kneeboard_journey_[0-9a-f]{12}$")
+        self.assertEqual(result.command_args, ["sh", "scripts/local-db.sh", "--journey-project", project, "start"])
+        root = journey.ROOT
+        prefix = f"compose --project-directory {root} -f {root / 'compose.yaml'} -p {project}"
+        self.assertIn(f"{prefix} up -d --wait postgres", self.logged())
+        self.assertEqual(self.down_lines(), [f"{prefix} down -v --remove-orphans"])
+        self.assertEqual(stderr, "")
+
+    def test_timeout_stays_primary_when_cleanup_fails(self) -> None:
+        result, elapsed, _, stderr = self.run_main("up", down_status="1", LOCAL_START_TIMEOUT_SECONDS=LIMIT)
+        self.assert_timeout(result, elapsed)
+        self.assertEqual(result.budget, "LOCAL_START_TIMEOUT_SECONDS")
+        project = result.command_args[3]
+        self.assertIn(f"isolated Compose cleanup failed: down refused; removal of {project} not confirmed; original failure: ", stderr)
+        self.assertIn("timed out after 0.5 seconds (LOCAL_START_TIMEOUT_SECONDS)", stderr)
+
+    def test_timeout_stays_primary_when_cleanup_times_out(self) -> None:
+        result, elapsed, _, stderr = self.run_main("up down", LOCAL_START_TIMEOUT_SECONDS=LIMIT, COMPOSE_CLEANUP_TIMEOUT_SECONDS=LIMIT)
+        self.assertIsInstance(result, journey.JourneyTimeout, f"expected the start timeout, got {result!r}")
+        self.assertEqual(result.budget, "LOCAL_START_TIMEOUT_SECONDS")
+        self.assertLess(elapsed, 2 * (LIMIT + 2 * GRACE) + SLACK)
+        self.assert_gone("docker-up", "docker-down", "child")
+        project = result.command_args[3]
+        self.assertRegex(stderr, rf"isolated Compose cleanup failed: .* down -v --remove-orphans timed out after 0.5 seconds \(COMPOSE_CLEANUP_TIMEOUT_SECONDS\); removal of {project} not confirmed; original failure: ")
+
+    def test_stalled_compose_teardown_alone_fails_without_claiming_removal(self) -> None:
+        environ = self.project_env | {"FAKE_DOCKER_HANG": "down"}
+        started = time.monotonic()
+        with patch.object(journey, "COMPOSE_CLEANUP_TIMEOUT_SECONDS", LIMIT), redirect_stdout(StringIO()) as stdout:
+            with self.assertRaises(AssertionError) as raised:
+                journey.cleanup_compose(environ, None)
+        elapsed = time.monotonic() - started
+        self.assertFalse(self.watchdog_fired.is_set(), "cleanup did not return before the watchdog")
+        self.assertLess(elapsed, LIMIT + 2 * GRACE + SLACK)
+        self.assert_gone("docker-down", "child")
+        message = str(raised.exception)
+        self.assertTrue(message.startswith("isolated Compose cleanup failed: "), message)
+        self.assertIn("timed out after 0.5 seconds (COMPOSE_CLEANUP_TIMEOUT_SECONDS)", message)
+        self.assertTrue(message.endswith("; removal of kneeboard_journey_0123456789ab not confirmed"), message)
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_compose_cleanup_failure_alone_fails(self) -> None:
+        environ = self.project_env | {"FAKE_DOWN_STATUS": "1"}
+        with self.assertRaises(AssertionError) as raised:
+            journey.cleanup_compose(environ, None)
+        self.assertEqual(str(raised.exception), "isolated Compose cleanup failed: down refused; removal of kneeboard_journey_0123456789ab not confirmed")
+
+    def test_successful_compose_cleanup_reports_nothing(self) -> None:
+        with redirect_stderr(StringIO()) as stderr:
+            journey.cleanup_compose(self.project_env, None)
+        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(len(self.down_lines()), 1)
+
+    def test_termination_problems_are_appended_to_the_timeout(self) -> None:
+        real = journey.terminate_process_group
+
+        def refusing(process: subprocess.Popen, grace: float) -> list[str]:
+            return real(process, grace) + ["fixture: SIGKILL refused"]
+
+        args = self.script("hang_again.sh", "echo $$ > \"$PIDS/leader\"\nwhile :; do sleep 0.1; done\n")
+        with patch.object(journey, "terminate_process_group", refusing):
+            result, elapsed = self.outcome(args)
+        self.assert_timeout(result, elapsed)
+        self.assertEqual(result.problems, ["fixture: SIGKILL refused"])
+        self.assertIn(f"timed out after 0.5 seconds ({BUDGET}); termination problems: fixture: SIGKILL refused", str(result))
+
+
+class ExecutionRoutingTests(TestCase):
+    def test_only_the_bounded_helper_and_app_runtime_launch_processes(self) -> None:
+        tree = ast.parse(SCRIPT.read_text())
+        launchers = {"run", "Popen", "call", "check_call", "check_output", "getoutput", "getstatusoutput", "system", "popen"}
+        found = set()
+        for function in ast.walk(tree):
+            if not isinstance(function, ast.FunctionDef):
+                continue
+            for node in ast.walk(function):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id in {"subprocess", "os"}
+                    and (node.func.attr in launchers or node.func.attr.startswith(("spawn", "exec")))
+                ):
+                    found.add((function.name, f"{node.func.value.id}.{node.func.attr}"))
+        self.assertEqual(found, {("run_bounded", "subprocess.Popen"), ("app_runtime", "subprocess.Popen")})
+        self.assertNotIn("subprocess.run(", SCRIPT.read_text())
+
+    def test_app_runtime_uses_the_shared_termination_routine(self) -> None:
+        process = journey.subprocess.Popen(["true"], start_new_session=True)
+        process.wait()
+        response_body = b"For home flight simulation only."
+        with (
+            patch.object(journey, "command", return_value=""),
+            patch.object(journey, "free_port", return_value=54341),
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey.urllib.request, "urlopen") as urlopen,
+            patch.object(journey, "terminate_process_group", return_value=[]) as terminate,
+            redirect_stdout(StringIO()),
+        ):
+            urlopen.return_value.__enter__.return_value.status = 200
+            urlopen.return_value.__enter__.return_value.read.return_value = response_body
+            # The fake leader has exited, so the startup loop must not see poll() first.
+            with patch.object(process, "poll", return_value=None):
+                journey.app_runtime({})
+        terminate.assert_called_once_with(process, float(journey.TERMINATION_GRACE_SECONDS))

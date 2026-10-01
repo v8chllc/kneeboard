@@ -271,19 +271,25 @@ def report_cleanup_failure(message: str, earlier: BaseException | None) -> None:
 
 
 def cleanup_compose(env: dict[str, str], earlier: BaseException | None) -> None:
+    """Remove the Journey's own Compose project, containers, and volumes.
+
+    Destroys only the uniquely named project in ``env``. The command is bounded
+    by COMPOSE_CLEANUP_TIMEOUT_SECONDS and its process group is terminated on
+    expiry. Only exit status 0 counts as removal; a nonzero exit, launch failure,
+    or timeout is reported as unconfirmed removal through report_cleanup_failure,
+    so an earlier failure stays primary. A Docker CLI exit does not prove the
+    daemon finished; a stalled daemon is reported, not waited out.
+    """
+    project = env["KNEEBOARD_DB_PROJECT"]
     try:
-        cleanup = subprocess.run(
-            compose_args(env) + ["down", "-v", "--remove-orphans"],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=COMPOSE_CLEANUP_TIMEOUT_SECONDS,
-        )
-        if cleanup.returncode != 0:
-            report_cleanup_failure(f"isolated Compose cleanup failed: {cleanup.stderr.strip()}", earlier)
-    except (OSError, subprocess.TimeoutExpired) as error:
-        report_cleanup_failure(f"isolated Compose cleanup failed: {error}", earlier)
+        cleanup = run_bounded(compose_args(env) + ["down", "-v", "--remove-orphans"], env, budget="COMPOSE_CLEANUP_TIMEOUT_SECONDS")
+    except (OSError, JourneyTimeout) as error:
+        detail = str(error)
+    else:
+        if cleanup.returncode == 0:
+            return
+        detail = cleanup.stderr.strip()
+    report_cleanup_failure(f"isolated Compose cleanup failed: {detail}; removal of {project} not confirmed", earlier)
 
 
 def journal(database: str, env: dict[str, str]) -> str:
@@ -344,21 +350,9 @@ def app_runtime(env: dict[str, str]) -> None:
             raise AssertionError("C-17: application startup timed out")
     finally:
         earlier = sys.exc_info()[1]
-        try:
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait(timeout=5)
-        except (OSError, subprocess.TimeoutExpired) as error:
-            report_cleanup_failure(f"application process cleanup failed: {error}", earlier)
+        problems = terminate_process_group(process, float(TERMINATION_GRACE_SECONDS))
+        if problems:
+            report_cleanup_failure(f"application process cleanup failed: {'; '.join(problems)}", earlier)
     print("C-17: application responded with simulation warning")
 
 
@@ -413,21 +407,21 @@ def main() -> None:
         local("start", env)
         require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "C-2 restart")
         for invalid in ("production", "postgresql://remote.example.invalid/db"):
-            result = subprocess.run(["sh", "scripts/local-db.sh", "reset", invalid], cwd=ROOT, env=env, capture_output=True, text=True)
+            result = run_bounded(["sh", "scripts/local-db.sh", "reset", invalid], env, budget="VALIDATION_TIMEOUT_SECONDS")
             if result.returncode != 2:
                 raise AssertionError("C-2: remote or unknown target accepted")
         print("C-2: unknown/remote reset targets rejected")
         invalid_port_env = env | {"KNEEBOARD_DB_PORT": "54329/remote"}
-        invalid_port = subprocess.run(["sh", "scripts/local-db.sh", "start"], cwd=ROOT, env=invalid_port_env, capture_output=True, text=True)
+        invalid_port = run_bounded(["sh", "scripts/local-db.sh", "start"], invalid_port_env, budget="VALIDATION_TIMEOUT_SECONDS")
         if invalid_port.returncode != 2:
             raise AssertionError("C-2: invalid local port accepted")
         print("C-2: invalid port rejected")
         remote_docker_env = env | {"DOCKER_HOST": "tcp://example.invalid:2375"}
-        remote_docker = subprocess.run(["sh", "scripts/local-db.sh", "start"], cwd=ROOT, env=remote_docker_env, capture_output=True, text=True)
+        remote_docker = run_bounded(["sh", "scripts/local-db.sh", "start"], remote_docker_env, budget="VALIDATION_TIMEOUT_SECONDS")
         if remote_docker.returncode != 2:
             raise AssertionError("C-2: remote Docker endpoint accepted")
         print("C-2: remote Docker endpoint rejected")
-        invalid_project = subprocess.run(["sh", "scripts/local-db.sh", "--journey-project", "alternate_target", "reset", "test"], cwd=ROOT, env=env, capture_output=True, text=True)
+        invalid_project = run_bounded(["sh", "scripts/local-db.sh", "--journey-project", "alternate_target", "reset", "test"], env, budget="VALIDATION_TIMEOUT_SECONDS")
         if invalid_project.returncode != 2:
             raise AssertionError("C-2b: arbitrary Compose project accepted")
         print("C-2b: arbitrary Compose project rejected")

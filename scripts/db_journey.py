@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import signal
@@ -15,11 +16,210 @@ import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
+from typing import NamedTuple
 
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_MIGRATIONS = [1790293061053, 1790294641213]
+
+# Execution budgets, in seconds, for every subprocess the Journey owns. Each is a
+# deadline for one command, from launch until it exits and closes its output.
+# Tests inject short limits by patching these names.
+DOCKER_QUERY_TIMEOUT_SECONDS = 30  # docker context/inspect and compose ps
+PSQL_TIMEOUT_SECONDS = 30  # one short query through compose exec
+JOURNEY_SQL_TIMEOUT_SECONDS = 60  # scripts/db-journey.sql
+VALIDATION_TIMEOUT_SECONDS = 30  # local-db.sh argument rejections
+LOCAL_START_TIMEOUT_SECONDS = 300  # compose up --wait, including an image pull
+LOCAL_COMMAND_TIMEOUT_SECONDS = 60  # local-db.sh stop, reset, and verify
+MIGRATE_TIMEOUT_SECONDS = 120  # drizzle-kit migrate through mise and pnpm
+INSTALL_TIMEOUT_SECONDS = 600  # pnpm install --frozen-lockfile
+LINT_TIMEOUT_SECONDS = 300
+TYPECHECK_TIMEOUT_SECONDS = 300
+TEST_TIMEOUT_SECONDS = 600  # the full pnpm test suite
+BUILD_TIMEOUT_SECONDS = 900  # next build
 COMPOSE_CLEANUP_TIMEOUT_SECONDS = 60
+# Time an owned process group gets after SIGTERM before SIGKILL, and the bound on
+# each later wait: reaping the leader and draining its output pipes.
+TERMINATION_GRACE_SECONDS = 5
+
+LOCAL_BUDGETS = {
+    "start": "LOCAL_START_TIMEOUT_SECONDS",
+    "migrate": "MIGRATE_TIMEOUT_SECONDS",
+    "stop": "LOCAL_COMMAND_TIMEOUT_SECONDS",
+    "reset": "LOCAL_COMMAND_TIMEOUT_SECONDS",
+    "verify": "LOCAL_COMMAND_TIMEOUT_SECONDS",
+}
+GATE_BUDGETS = {
+    "lint": "LINT_TIMEOUT_SECONDS",
+    "typecheck": "TYPECHECK_TIMEOUT_SECONDS",
+    "test": "TEST_TIMEOUT_SECONDS",
+}
+STDERR_TAIL_CHARACTERS = 500
+
+
+class JourneyTimeout(AssertionError):
+    """A Journey command exceeded its budget and its process group was terminated.
+
+    Subclasses AssertionError so the existing exit-1 path and cleanup precedence
+    apply unchanged. The message names the command line, the budget and its
+    limit, any termination problems, and a capped, credential-redacted tail of
+    the command's stderr; it never includes the environment or stdin.
+    """
+
+    def __init__(self, args: list[str], budget: str, seconds: float, stderr_tail: str = "", problems: list[str] | None = None) -> None:
+        self.command_args = list(args)
+        self.budget = budget
+        self.seconds = seconds
+        self.stderr_tail = stderr_tail
+        self.problems = list(problems or [])
+        message = f"{' '.join(args)} timed out after {seconds:g} seconds ({budget})"
+        if self.problems:
+            message += f"; termination problems: {'; '.join(self.problems)}"
+        if stderr_tail:
+            message += f"; stderr tail: {stderr_tail}"
+        super().__init__(message)
+
+
+class Completed(NamedTuple):
+    """Exit status and captured text output of a bounded command."""
+
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+def budget_seconds(budget: str) -> float:
+    """Return the current value of a named budget constant, which must be finite and positive."""
+    value = globals().get(budget) if budget.endswith("_TIMEOUT_SECONDS") else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        raise ValueError(f"unknown or unbounded Journey budget: {budget}")
+    return float(value)
+
+
+def leader_exited(process: subprocess.Popen) -> bool:
+    """Report whether the group leader has exited, without reaping it.
+
+    An unreaped leader keeps its pid, and so its process-group id, from being
+    reused, which keeps a later group signal aimed at the group this Journey
+    created. Python before 3.13 on macOS lacks os.waitid; there the leader is
+    reaped as soon as it exits, and a later group signal relies on surviving
+    members keeping the group id in use.
+    """
+    if process.returncode is not None:
+        return True
+    if not hasattr(os, "waitid"):
+        return process.poll() is not None
+    try:
+        return os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+    except ChildProcessError:
+        return True
+
+
+def signal_group(process: subprocess.Popen, sig: signal.Signals, problems: list[str]) -> None:
+    try:
+        os.killpg(process.pid, sig)
+    except ProcessLookupError:
+        pass
+    except PermissionError as error:
+        # macOS refuses to signal a group whose only member is an unreaped leader.
+        if not leader_exited(process):
+            problems.append(f"{error} ({sig.name} to process group {process.pid})")
+    except OSError as error:
+        problems.append(f"{error} ({sig.name} to process group {process.pid})")
+
+
+def terminate_process_group(process: subprocess.Popen, grace: float) -> list[str]:
+    """Stop and reap a process group the Journey started with start_new_session.
+
+    Sends SIGTERM to the group, waits up to ``grace`` seconds for the leader to
+    exit, then sends SIGKILL to the group so descendants that ignore SIGTERM or
+    outlive the leader also stop, and finally reaps the leader within ``grace``.
+    Both signals are sent before the leader is reaped. Signals go only to the
+    group led by ``process``. Returns problems, such as a refused signal or a
+    leader that never exited, as text for the caller to report; never raises for
+    them. Descendants are reparented and reaped by the system, not here.
+    """
+    problems: list[str] = []
+    signal_group(process, signal.SIGTERM, problems)
+    deadline = time.monotonic() + grace
+    while not leader_exited(process) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    signal_group(process, signal.SIGKILL, problems)
+    try:
+        process.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        problems.append(f"process {process.pid} did not exit within {grace:g} seconds of SIGKILL")
+    return problems
+
+
+def output_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+    return value or ""
+
+
+def safe_tail(text: str) -> str:
+    redacted = re.sub(r"([A-Za-z][A-Za-z0-9+.-]*://)[^\s/@]+@", r"\1***@", text.strip())
+    return redacted[-STDERR_TAIL_CHARACTERS:]
+
+
+def run_bounded(args: list[str], env: dict[str, str], *, budget: str, input_text: str | None = None) -> Completed:
+    """Run one command from the repository root under a named, finite budget.
+
+    The command runs in a new session, so it and every descendant form one
+    process group that this call owns. stdin is ``input_text`` or /dev/null;
+    stdout and stderr are captured as text. The budget covers launch through the
+    leader's exit and EOF on both output pipes, so a descendant that holds an
+    inherited pipe open also counts against it.
+
+    On expiry the group is terminated (see terminate_process_group), output is
+    drained for at most TERMINATION_GRACE_SECONDS more, the pipes are closed, and
+    JourneyTimeout is raised. An interruption such as KeyboardInterrupt also
+    terminates the group before propagating, because a new session no longer
+    receives the terminal's signals. Launch failures raise OSError. A nonzero
+    exit is returned, not raised. The worst case is the budget plus three grace
+    periods (signal wait, leader reap, pipe drain).
+    """
+    seconds = budget_seconds(budget)
+    grace = float(TERMINATION_GRACE_SECONDS)
+    process = subprocess.Popen(
+        args,
+        cwd=ROOT,
+        env=env,
+        stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = process.communicate(input_text, timeout=seconds)
+    except subprocess.TimeoutExpired as expired:
+        problems = terminate_process_group(process, grace)
+        stderr = output_text(expired.stderr)
+        try:
+            # A retried communicate keeps the output already read.
+            stderr = output_text(process.communicate(timeout=grace)[1])
+        except subprocess.TimeoutExpired as held:
+            stderr = output_text(held.stderr) or stderr
+            problems.append(f"output pipes still open {grace:g} seconds after termination")
+        finally:
+            close_pipes(process)
+        raise JourneyTimeout(args, budget, seconds, safe_tail(stderr), problems) from None
+    except BaseException:
+        terminate_process_group(process, grace)
+        close_pipes(process)
+        raise
+    return Completed(process.returncode, stdout, stderr)
+
+
+def close_pipes(process: subprocess.Popen) -> None:
+    for stream in (process.stdin, process.stdout, process.stderr):
+        if stream is not None:
+            try:
+                stream.close()
+            except OSError:
+                pass
 
 
 def free_port() -> int:
@@ -28,31 +228,29 @@ def free_port() -> int:
         return sock.getsockname()[1]
 
 
-def command(args: list[str], env: dict[str, str], *, input_text: str | None = None) -> str:
-    result = subprocess.run(
-        args,
-        cwd=ROOT,
-        env=env,
-        input=input_text,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+def command(args: list[str], env: dict[str, str], *, budget: str, input_text: str | None = None) -> str:
+    """Run a bounded command and return its stripped stdout; raise AssertionError on a nonzero exit."""
+    result = run_bounded(args, env, budget=budget, input_text=input_text)
     if result.returncode != 0:
         raise AssertionError(f"{' '.join(args)} failed: {result.stderr.strip()} {result.stdout.strip()}")
     return result.stdout.strip()
 
 
-def psql(database: str, sql: str, env: dict[str, str]) -> str:
+def psql(database: str, sql: str, env: dict[str, str], *, budget: str = "PSQL_TIMEOUT_SECONDS") -> str:
     return command(
         compose_args(env) + ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", "kneeboard", "-d", database, "-Atq"],
         env,
+        budget=budget,
         input_text=sql,
     )
 
 
 def local(action: str, env: dict[str, str], database: str | None = None) -> None:
-    command(["sh", "scripts/local-db.sh", "--journey-project", env["KNEEBOARD_DB_PROJECT"], action, *([database] if database else [])], env)
+    command(
+        ["sh", "scripts/local-db.sh", "--journey-project", env["KNEEBOARD_DB_PROJECT"], action, *([database] if database else [])],
+        env,
+        budget=LOCAL_BUDGETS[action],
+    )
 
 
 def compose_args(env: dict[str, str]) -> list[str]:
@@ -111,15 +309,15 @@ def old_migration(env: dict[str, str], port: int, temporary: Path) -> None:
         f'export default defineConfig({{ dialect: "postgresql", schema: "./src/db/schema.ts", out: {json.dumps(str(old))}, '
         f'dbCredentials: {{ url: "postgresql://kneeboard:local_only_kneeboard@127.0.0.1:{port}/kneeboard_dev" }} }});\n'
     )
-    command(["mise", "exec", "--", "pnpm", "exec", "drizzle-kit", "migrate", f"--config={config}"], env)
+    command(["mise", "exec", "--", "pnpm", "exec", "drizzle-kit", "migrate", f"--config={config}"], env, budget="MIGRATE_TIMEOUT_SECONDS")
 
 
 def app_runtime(env: dict[str, str]) -> None:
-    command(["mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"], env)
+    command(["mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"], env, budget="INSTALL_TIMEOUT_SECONDS")
     for gate in ("lint", "typecheck", "test"):
-        command(["mise", "exec", "--", "pnpm", gate], env)
+        command(["mise", "exec", "--", "pnpm", gate], env, budget=GATE_BUDGETS[gate])
         print(f"C-17 {gate}: pass")
-    command(["mise", "exec", "--", "pnpm", "build"], env)
+    command(["mise", "exec", "--", "pnpm", "build"], env, budget="BUILD_TIMEOUT_SECONDS")
     print("C-17 build: pass")
     port = free_port()
     process = subprocess.Popen(
@@ -175,13 +373,13 @@ def main() -> None:
     compose_started = False
     try:
         docker_host = env.get("DOCKER_HOST", "")
-        context_host = command(["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"], env)
+        context_host = command(["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS")
         if (docker_host and not docker_host.startswith(("unix://", "npipe://"))) or not context_host.startswith(("unix://", "npipe://")):
             raise AssertionError("database Journey requires a local Docker socket")
         compose_started = True
         local("start", env)
-        container = command(compose_args(env) + ["ps", "-q", "postgres"], env)
-        running_image = command(["docker", "inspect", "--format", "{{.Config.Image}}", container], env)
+        container = command(compose_args(env) + ["ps", "-q", "postgres"], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS")
+        running_image = command(["docker", "inspect", "--format", "{{.Config.Image}}", container], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS")
         pinned_image = re.search(r"^    image: (.+)$", (ROOT / "compose.yaml").read_text(), re.MULTILINE)
         if not pinned_image or not re.fullmatch(r"postgres:17@sha256:[0-9a-f]{64}", pinned_image.group(1)):
             raise AssertionError("C-1: image pin absent")
@@ -195,9 +393,9 @@ def main() -> None:
             decoy_env = Path(directory) / "alternate.env"
             decoy_env.write_text("COMPOSE_PROJECT_NAME=alternate_target\n")
             local("start", env | {"COMPOSE_FILE": str(decoy), "COMPOSE_PROJECT_NAME": "alternate_target", "COMPOSE_ENV_FILES": str(decoy_env)})
-        selected_container = command(compose_args(env) + ["ps", "-q", "postgres"], env)
-        require(command(["docker", "inspect", "--format", "{{.Config.Image}}", selected_container], env), pinned_image.group(1), "C-2b pinned Postgres image")
-        require(command(["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project"}}', selected_container], env), project, "C-2b adversarial Compose project ignored")
+        selected_container = command(compose_args(env) + ["ps", "-q", "postgres"], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS")
+        require(command(["docker", "inspect", "--format", "{{.Config.Image}}", selected_container], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS"), pinned_image.group(1), "C-2b pinned Postgres image")
+        require(command(["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project"}}', selected_container], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS"), project, "C-2b adversarial Compose project ignored")
         require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "C-2b adversarial Compose file ignored")
 
         for database in ("dev", "test"):
@@ -211,7 +409,7 @@ def main() -> None:
         require(psql("kneeboard_dev", "SELECT label FROM journey_marker;", env), "dev", "C-2 test reset preserves dev")
         local("migrate", env, "test")
         local("stop", env)
-        require(command(["docker", "inspect", "--format", "{{.State.Running}}", container], env), "false", "C-2 stop")
+        require(command(["docker", "inspect", "--format", "{{.State.Running}}", container], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS"), "false", "C-2 stop")
         local("start", env)
         require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "C-2 restart")
         for invalid in ("production", "postgresql://remote.example.invalid/db"):
@@ -237,7 +435,7 @@ def main() -> None:
         local("migrate", env, "test")
         require(journal("kneeboard_test", env), ",".join(map(str, EXPECTED_MIGRATIONS)), "C-13 migration rerun")
         verify_clean("kneeboard_test", env)
-        psql("kneeboard_test", (ROOT / "scripts/db-journey.sql").read_text(), env)
+        psql("kneeboard_test", (ROOT / "scripts/db-journey.sql").read_text(), env, budget="JOURNEY_SQL_TIMEOUT_SECONDS")
         print("C-4 through C-11: exact database assertions passed")
         print("C-7a positive versions and C-8a orphan/cascade assertions passed")
         require(psql("kneeboard_test", "SELECT count(*) FROM \"user\" WHERE id LIKE 'journey-%';", env), "0", "C-15 journey rollback")

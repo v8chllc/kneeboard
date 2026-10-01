@@ -35,6 +35,13 @@ indexed metadata, a separate `ofp_raw` table for the complete payload, and a
 `tracker` row holding the immutable navlog, the mutable snapshot, and an integer
 version. Do not express slot, page, or sliding-window rules in SQL.
 
+Keep `TrackerSnapshot` minimal: persist the facts needed to reconstruct tracker
+state, and derive slots, pages, the sliding window, and the procedure lock.
+Pending and queued waypoint states are stored, but recompute them from the
+remaining facts on every transition without consulting their previous values.
+Keep `recalculateSnapshot` idempotent. Persist the complete minimal snapshot;
+do not add redundant derived state to it.
+
 Representation and interpretation are separate concerns with a fixed seam.
 Representation is the shape of the incoming payload — string-to-number
 coercion, collapsed single-element arrays, empty sections — and is validated

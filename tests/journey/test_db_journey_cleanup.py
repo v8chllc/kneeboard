@@ -67,6 +67,7 @@ class CleanupFailureTests(TestCase):
     def test_runtime_claim_survives_process_cleanup_failure(self) -> None:
         process = MagicMock()
         process.pid = 12345
+        process.returncode = None
         process.poll.return_value = None
         response = MagicMock()
         response.status = 200
@@ -78,6 +79,8 @@ class CleanupFailureTests(TestCase):
             patch.object(journey.subprocess, "Popen", return_value=process),
             patch.object(journey.urllib.request, "urlopen") as urlopen,
             patch.object(journey.os, "killpg", side_effect=OSError("terminate refused")),
+            patch.object(journey, "leader_exited", return_value=False),
+            patch.object(journey, "TERMINATION_GRACE_SECONDS", 0),
             redirect_stderr(stderr),
             redirect_stdout(StringIO()),
         ):

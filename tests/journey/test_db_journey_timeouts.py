@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import ast
 import importlib.util
 import os
@@ -449,21 +449,68 @@ class ExecutionRoutingTests(TestCase):
         self.assertEqual(found, {("run_bounded", "subprocess.Popen"), ("app_runtime", "subprocess.Popen")})
         self.assertNotIn("subprocess.run(", SCRIPT.read_text())
 
-    def test_app_runtime_uses_the_shared_termination_routine(self) -> None:
-        process = journey.subprocess.Popen(["true"], start_new_session=True)
-        process.wait()
-        response_body = b"For home flight simulation only."
+    def live_server(self, script: str) -> subprocess.Popen:
+        process = subprocess.Popen(["sh", "-c", script], start_new_session=True)
+
+        def stop() -> None:
+            if process.returncode is None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except OSError:
+                    pass
+                process.wait(timeout=5)
+
+        self.addCleanup(stop)
+        return process
+
+    def run_app_runtime(self, process: subprocess.Popen, urlopen_effect: object) -> tuple[object, list[tuple[int, int, object]]]:
+        """Run app_runtime against ``process``, recording each killpg as (pgid, signal, leader returncode)."""
+        calls: list[tuple[int, int, object]] = []
+        real_killpg, real_sleep = os.killpg, time.sleep
+
+        def recording_killpg(pgid: int, sig: int) -> None:
+            calls.append((pgid, sig, process.returncode))
+            real_killpg(pgid, sig)
+
         with (
             patch.object(journey, "command", return_value=""),
             patch.object(journey, "free_port", return_value=54341),
             patch.object(journey.subprocess, "Popen", return_value=process),
-            patch.object(journey.urllib.request, "urlopen") as urlopen,
-            patch.object(journey, "terminate_process_group", return_value=[]) as terminate,
+            patch.object(journey.urllib.request, "urlopen", **urlopen_effect),
+            patch.object(journey.time, "sleep", side_effect=lambda seconds: real_sleep(min(seconds, 0.05))),
+            patch.object(journey.os, "killpg", side_effect=recording_killpg),
             redirect_stdout(StringIO()),
         ):
-            urlopen.return_value.__enter__.return_value.status = 200
-            urlopen.return_value.__enter__.return_value.read.return_value = response_body
-            # The fake leader has exited, so the startup loop must not see poll() first.
-            with patch.object(process, "poll", return_value=None):
+            try:
                 journey.app_runtime({})
-        terminate.assert_called_once_with(process, float(journey.TERMINATION_GRACE_SECONDS))
+                outcome: object = None
+            except BaseException as error:  # noqa: BLE001 - the test inspects any outcome
+                outcome = error
+        return outcome, calls
+
+    def test_app_runtime_stops_a_responding_server_through_the_group(self) -> None:
+        process = self.live_server("sleep 30")
+        response = MagicMock(status=200)
+        response.read.return_value = b"For home flight simulation only."
+        urlopen = MagicMock()
+        urlopen.return_value.__enter__.return_value = response
+        outcome, calls = self.run_app_runtime(process, {"new": urlopen})
+        self.assertIsNone(outcome)
+        self.assertIn((process.pid, signal.SIGTERM, None), calls)
+        self.assertIsNotNone(process.returncode)
+
+    def test_server_exiting_during_startup_is_signalled_only_before_it_is_reaped(self) -> None:
+        process = self.live_server("exit 3")
+        refused = {"side_effect": journey.urllib.error.URLError("connection refused")}
+        outcome, calls = self.run_app_runtime(process, refused)
+        self.assertEqual(str(outcome), "C-17: application exited before responding")
+        self.assertEqual(process.returncode, 3)
+        self.assertIn(signal.SIGTERM, [sig for _, sig, _ in calls], "the exited server's group was never signalled before reaping")
+        self.assertEqual([call for call in calls if call[2] is not None], [], "a reaped leader's pid was signalled")
+
+    def test_reaped_leader_is_never_signalled(self) -> None:
+        process = subprocess.Popen(["true"], start_new_session=True)
+        process.wait()
+        with patch.object(journey.os, "killpg") as killpg:
+            self.assertEqual(journey.terminate_process_group(process, 5), [])
+        killpg.assert_not_called()

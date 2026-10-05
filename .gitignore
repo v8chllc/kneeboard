@@ -20,6 +20,9 @@ next-env.d.ts
 /.cache/
 .eslintcache
 
+# Python bytecode caches from scripts/ and tests/journey/
+__pycache__/
+
 # Environment files and secrets
 .env*
 !.env.example

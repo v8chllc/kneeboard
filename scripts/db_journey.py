@@ -68,6 +68,7 @@ LINT_TIMEOUT_SECONDS = 300  # observed 3 s in CI
 TYPECHECK_TIMEOUT_SECONDS = 300  # observed 4 s in CI
 TEST_TIMEOUT_SECONDS = 600  # full suite, including these timeout tests; observed 15 s
 BUILD_TIMEOUT_SECONDS = 900  # next build; observed 10 s in CI
+OPERATION_TEST_TIMEOUT_SECONDS = 180  # isolated PostgreSQL operation claims; local run under 15 s
 COMPOSE_CLEANUP_TIMEOUT_SECONDS = 60  # down -v --remove-orphans; observed under 0.4 s
 # Time an owned process group gets after SIGTERM before SIGKILL, and the bound on
 # each later wait: reaping the leader and draining its output pipes.
@@ -398,6 +399,23 @@ def app_runtime(env: dict[str, str]) -> None:
     print("C-17: application responded with simulation warning")
 
 
+def operation_journey(env: dict[str, str], port: int) -> None:
+    """Exercise 6b operations only against this Journey's disposable test database."""
+    operation_env = env.copy()
+    operation_env["TEST_DATABASE_URL"] = f"postgresql://kneeboard:local_only_kneeboard@127.0.0.1:{port}/kneeboard_test"
+    operation_env["DB_JOURNEY_ISOLATED"] = "1"
+    output = command(
+        ["mise", "exec", "--", "pnpm", "exec", "vitest", "run", "src/db/db-journey.test.ts", "--reporter=verbose"],
+        operation_env,
+        budget="OPERATION_TEST_TIMEOUT_SECONDS",
+    )
+    for claim in range(1, 15):
+        if not any(re.search(rf"\bC-{claim}\b", line) and ("✓" in line or "passed" in line)
+                   for line in output.splitlines()):
+            raise AssertionError(f"6b operation C-{claim} did not report a passing assertion")
+        print(f"6b C-{claim}: pass")
+
+
 def main() -> None:
     port = free_port()
     project = f"kneeboard_journey_{uuid.uuid4().hex[:12]}"
@@ -475,6 +493,7 @@ def main() -> None:
         print("C-4 through C-11: exact database assertions passed")
         print("C-7a positive versions and C-8a orphan/cascade assertions passed")
         require(psql("kneeboard_test", "SELECT count(*) FROM \"user\" WHERE id LIKE 'journey-%';", env), "0", "C-15 journey rollback")
+        operation_journey(env, port)
 
         local("reset", env, "dev")
         with tempfile.TemporaryDirectory(dir=ROOT / ".local") as directory:

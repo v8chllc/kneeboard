@@ -64,6 +64,7 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
     if (result.outcome !== "applied") throw new Error("command not applied");
     const { trackers } = await state(id);
     expect(trackers).toHaveLength(1);
+    expect(trackers[0].id).toBe(trackerId);
     expect(trackers[0].version).toBe(2);
     expect(trackers[0].snapshot).toEqual(result.snapshot);
     expect(result.snapshot.version).toBe(2);
@@ -80,8 +81,13 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
       outcome: "stale", message: "tracker changed; reload and try again",
     });
     const { trackers } = await state(id);
+    expect(trackers).toHaveLength(1);
+    expect(trackers[0].id).toBe(trackerId);
     expect(trackers[0].version).toBe(2);
     expect(trackers[0].snapshot.version).toBe(2);
+    const applied = results.find((result) => result.outcome === "applied");
+    if (applied?.outcome !== "applied") throw new Error("no applied command");
+    expect(trackers[0].snapshot).toEqual(applied.snapshot);
     expect(trackers[0].snapshot.waypoints.filter((point) => point.routeIndex === fix && point.state === "saved")).toHaveLength(1);
   }, 15000);
 
@@ -158,7 +164,13 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
       expect(secondCalls).toBe(0);
       expect((await state(id)).reservation).toEqual({ activeKey: "first", acceptedAt: accepted });
       finish.release();
-      expect((await first).outcome).toBe("created");
+      const created = await first;
+      expect(created.outcome).toBe("created");
+      if (created.outcome !== "created") throw new Error("first load not created");
+      const after = await state(id);
+      expect(after.loads).toHaveLength(1);
+      expect(after.raws).toHaveLength(1);
+      expect(after.trackers.map((row) => row.id)).toEqual([created.trackerId]);
     } finally { finish.release(); }
   }, 15000);
 
@@ -166,7 +178,9 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
     const id = await account();
     const first = await reserveOfpLoad(a, id, "same");
     expect(first.outcome).toBe("claimed");
+    if (first.outcome !== "claimed") throw new Error("first claim not accepted");
     const before = (await state(id)).reservation;
+    expect(before.acceptedAt).toBe(first.acceptedAt);
     let calls = 0;
     const result = await loadOfpForAccount(b, id, "same", async () => { calls += 1; return work(); });
     expect(result.outcome).toBe("inProgress");
@@ -179,8 +193,11 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
 
   it("C-8 waits on a different active key without replacing it", async () => {
     const id = await account();
-    expect((await reserveOfpLoad(a, id, "one")).outcome).toBe("claimed");
+    const first = await reserveOfpLoad(a, id, "one");
+    expect(first.outcome).toBe("claimed");
+    if (first.outcome !== "claimed") throw new Error("first claim not accepted");
     const before = (await state(id)).reservation;
+    expect(before.acceptedAt).toBe(first.acceptedAt);
     let calls = 0;
     const result = await loadOfpForAccount(b, id, "two", async () => { calls += 1; return work(); });
     expect(result.outcome).toBe("wait");
@@ -201,8 +218,15 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
       .toEqual({ outcome: "completed", trackerId });
     expect(calls).toBe(0);
     expect(await state(id)).toEqual(before);
-    expect((await loadOfpForAccount(b, other, "shared", work)).outcome).toBe("created");
-    expect((await state(other)).trackers[0].id).not.toBe(trackerId);
+    const otherResult = await loadOfpForAccount(b, other, "shared", work);
+    expect(otherResult.outcome).toBe("created");
+    if (otherResult.outcome !== "created") throw new Error("other account load not created");
+    expect(otherResult.trackerId).not.toBe(trackerId);
+    const otherState = await state(other);
+    expect(otherState.loads).toHaveLength(1);
+    expect(otherState.raws).toHaveLength(1);
+    expect(otherState.trackers.map((row) => row.id)).toEqual([otherResult.trackerId]);
+    expect(await state(id)).toEqual(before);
   }, 15000);
 
   it("C-10 cleans failed work and invalid prepared JSON while retaining cooldown", async () => {

@@ -7,9 +7,9 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { navlogFor } from "../../tests/support/tracker-scenarios";
 import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
-import { createInitialSnapshot } from "../domain/engine";
 import { reserveOfpLoad } from "./load-reservation";
-import { loadReservation, ofpLoad, tracker, user } from "./schema";
+import { loadOfpForAccount } from "./ofp-load";
+import { loadReservation, user } from "./schema";
 
 const testUrl = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
 const pool = testUrl ? new Pool({ connectionString: testUrl }) : undefined;
@@ -27,18 +27,11 @@ async function account() {
 
 async function completedTracker(accountId: string, key: string) {
   if (!db) throw new Error("TEST_DATABASE_URL is required");
-  const loadId = randomUUID();
-  const trackerId = randomUUID();
-  await db.insert(ofpLoad).values({
-    id: loadId, userId: accountId, idempotencyKey: key,
-    flightNumber: "TEST1", originIcaoCode: "KORD", destinationIcaoCode: "KJFK",
-    generatedAt: new Date("2026-01-01T00:00:00Z"),
-  });
-  await db.insert(tracker).values({
-    id: trackerId, userId: accountId, loadId, navlog,
-    snapshot: { ...createInitialSnapshot(navlog), version: 1 }, version: 1,
-  });
-  return trackerId;
+  const result = await loadOfpForAccount(db, accountId, key, async () => ({
+    rawPayload: { source: "synthetic" }, navlog,
+  }));
+  if (result.outcome !== "created") throw new Error("expected created");
+  return result.trackerId;
 }
 
 describe.runIf(Boolean(testUrl))("OFP load reservation against local PostgreSQL", () => {
@@ -87,7 +80,6 @@ describe.runIf(Boolean(testUrl))("OFP load reservation against local PostgreSQL"
 
   it("replays a completed same-key load ahead of cooldown", async () => {
     const accountId = await account();
-    await reserveOfpLoad(db!, accountId, "replay");
     const trackerId = await completedTracker(accountId, "replay");
     expect(await reserveOfpLoad(db!, accountId, "replay"))
       .toEqual({ outcome: "completed", trackerId });
@@ -102,9 +94,13 @@ describe.runIf(Boolean(testUrl))("OFP load reservation against local PostgreSQL"
 
   it("retains cooldown after failure and allows a new claim after expiry", async () => {
     const accountId = await account();
-    await reserveOfpLoad(db!, accountId, "failed");
-    await db!.update(loadReservation).set({ activeKey: null })
-      .where(eq(loadReservation.userId, accountId));
+    const failed = await loadOfpForAccount(db!, accountId, "failed", async () => {
+      throw new Error("synthetic failure");
+    });
+    expect(failed).toEqual({ outcome: "failed" });
+    const [cleared] = await db!.select({ activeKey: loadReservation.activeKey })
+      .from(loadReservation).where(eq(loadReservation.userId, accountId));
+    expect(cleared.activeKey).toBeNull();
     expect((await reserveOfpLoad(db!, accountId, "failed")).outcome).toBe("wait");
     await db!.update(loadReservation).set({ acceptedAt: sql`now() - interval '31 seconds'` })
       .where(eq(loadReservation.userId, accountId));

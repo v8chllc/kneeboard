@@ -145,7 +145,13 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
     expect((await state(owner)).trackers[0]).toEqual(before);
   }, 15000);
 
-  it("C-5 fails closed on each malformed persisted representation", async () => {
+  // These states are deliberate SQL fault injections into this disposable
+  // database. Normal 6b writes validate JSON and cannot produce them.
+  // Forward obligation — task-list section 8 authenticated tracker operation:
+  // after the same controlled corruption setup, reach each malformed state
+  // through the authenticated tracker action and compare its generic failure
+  // and unchanged persisted row. This tests the transport boundary when it exists.
+  it("C-5 fails closed through the real mutation on corrupted persisted JSON", async () => {
     for (const patch of [
       { navlog: { ...navlog, points: [{ ...navlog.points[0], latitude: "INVALID" }] } },
       { snapshot: { ...createInitialSnapshot(navlog), version: 1, waypoints: [{ routeIndex: fix, state: "INVALID" }] } },
@@ -155,7 +161,7 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
       await a.update(tracker).set(patch as never).where(eq(tracker.id, trackerId));
       const before = (await state(id)).trackers[0];
       await expect(mutateTracker(a, id, trackerId, { type: "saveWaypoint", routeIndex: fix, expectedVersion: 1 }))
-        .rejects.toThrow("invalid persisted tracker data");
+        .rejects.toThrow(/^invalid persisted tracker data$/);
       expect((await state(id)).trackers[0]).toEqual(before);
     }
     // The production CHECK normally forbids this drift. Remove it only inside
@@ -167,7 +173,7 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
       await a.update(tracker).set({ version: 2 }).where(eq(tracker.id, trackerId));
       const before = (await state(id)).trackers[0];
       await expect(mutateTracker(a, id, trackerId, { type: "saveWaypoint", routeIndex: fix, expectedVersion: 1 }))
-        .rejects.toThrow("invalid persisted tracker data");
+        .rejects.toThrow(/^invalid persisted tracker data$/);
       expect((await state(id)).trackers[0]).toEqual(before);
     } finally {
       await a.update(tracker).set({ version: 1 }).where(eq(tracker.id, trackerId));

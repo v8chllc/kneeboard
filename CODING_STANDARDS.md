@@ -157,7 +157,11 @@ shared domain implementation.
   a branch conditioned on whether a fixture happens to contain the case, a
   bounded search asserting exhaustion it never reached, an assertion over a
   state the implementation cannot produce, and a check that something changed
-  or some element matches where the exact value is knowable.
+  or some element matches where the exact value is knowable, and a
+  concurrency test whose writers never overlap: `Promise.all` over separate
+  connections may run them in sequence, so an application check rejects the
+  second write before the guarded predicate matters. Hold a row lock or
+  barrier until both writers reach the write.
 - When a slice must handle a state before the operation that produces it
   exists, build that state directly in its tests and record a forward
   obligation in the slice bound naming the later slice that re-reaches every

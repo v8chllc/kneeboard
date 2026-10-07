@@ -7,8 +7,8 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { eligibleOf, navlogFor } from "../../tests/support/tracker-scenarios";
 import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
-import { createInitialSnapshot } from "../domain/engine";
-import { ofpLoad, tracker, user } from "./schema";
+import { loadOfpForAccount } from "./ofp-load";
+import { tracker, user } from "./schema";
 import { compareAndSwapTrackerSnapshot, mutateTracker } from "./tracker-operations";
 
 const testUrl = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
@@ -22,19 +22,12 @@ afterAll(async () => { await pool?.end(); });
 async function seededTracker() {
   if (!db) throw new Error("TEST_DATABASE_URL is required");
   const accountId = randomUUID();
-  const trackerId = randomUUID();
-  const loadId = randomUUID();
   await db.insert(user).values({ id: accountId, name: "Test Pilot", email: `${accountId}@example.invalid` });
-  await db.insert(ofpLoad).values({
-    id: loadId, userId: accountId, idempotencyKey: randomUUID(),
-    flightNumber: "TEST1", originIcaoCode: "KORD", destinationIcaoCode: "KJFK",
-    generatedAt: new Date("2026-01-01T00:00:00Z"),
-  });
-  await db.insert(tracker).values({
-    id: trackerId, userId: accountId, loadId, navlog,
-    snapshot: { ...createInitialSnapshot(navlog), version: 1 }, version: 1,
-  });
-  return { accountId, trackerId };
+  const result = await loadOfpForAccount(db, accountId, randomUUID(), async () => ({
+    rawPayload: { source: "synthetic" }, navlog,
+  }));
+  if (result.outcome !== "created") throw new Error("expected created");
+  return { accountId, trackerId: result.trackerId };
 }
 
 describe.runIf(Boolean(testUrl))("tracker compare-and-swap against local PostgreSQL", () => {
@@ -68,7 +61,9 @@ describe.runIf(Boolean(testUrl))("tracker compare-and-swap against local Postgre
 
   it("rejects a lost compare-and-swap race at the write boundary", async () => {
     const { accountId, trackerId } = await seededTracker();
-    const proposed = { ...createInitialSnapshot(navlog), version: 1 };
+    const [storedBefore] = await db!.select({ snapshot: tracker.snapshot }).from(tracker)
+      .where(eq(tracker.id, trackerId));
+    const proposed = storedBefore.snapshot;
     const first = await compareAndSwapTrackerSnapshot(db!, accountId, trackerId, 1, proposed);
     const second = await compareAndSwapTrackerSnapshot(db!, accountId, trackerId, 1, proposed);
     expect(first?.version).toBe(2);
@@ -81,7 +76,9 @@ describe.runIf(Boolean(testUrl))("tracker compare-and-swap against local Postgre
 
   it("scopes the conditional write to its account", async () => {
     const { trackerId } = await seededTracker();
-    const proposed = { ...createInitialSnapshot(navlog), version: 1 };
+    const [storedBefore] = await db!.select({ snapshot: tracker.snapshot }).from(tracker)
+      .where(eq(tracker.id, trackerId));
+    const proposed = storedBefore.snapshot;
     const result = await compareAndSwapTrackerSnapshot(db!, randomUUID(), trackerId, 1, proposed);
     expect(result).toBeNull();
     const [stored] = await db!.select({ version: tracker.version }).from(tracker)

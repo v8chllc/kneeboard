@@ -6,11 +6,12 @@ import { Pool } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { eligibleOf, navlogFor } from "../../tests/support/tracker-scenarios";
+import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
 import { createInitialSnapshot } from "../domain/engine";
 import { ofpLoad, tracker, user } from "./schema";
 import { compareAndSwapTrackerSnapshot, mutateTracker } from "./tracker-operations";
 
-const testUrl = process.env.TEST_DATABASE_URL;
+const testUrl = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
 const pool = testUrl ? new Pool({ connectionString: testUrl }) : undefined;
 const db = pool ? drizzle(pool) : undefined;
 const navlog = navlogFor("valid-domestic.json");

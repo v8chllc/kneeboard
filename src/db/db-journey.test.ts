@@ -211,21 +211,35 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
     } finally { finish.release(); }
   }, 15000);
 
-  it("C-7 preserves an active same-key attempt and reports bounded progress", async () => {
+  it("C-7 preserves a running same-key load and reports bounded progress", async () => {
     const id = await account();
-    const first = await reserveOfpLoad(a, id, "same");
-    expect(first.outcome).toBe("claimed");
-    if (first.outcome !== "claimed") throw new Error("first claim not accepted");
-    const before = (await state(id)).reservation;
-    expect(before.acceptedAt).toBe(first.acceptedAt);
-    let calls = 0;
-    const result = await loadOfpForAccount(b, id, "same", async () => { calls += 1; return work(); });
-    expect(result.outcome).toBe("inProgress");
-    if (result.outcome !== "inProgress") throw new Error("not in progress");
-    expect(result.remainingMs).toBeGreaterThan(0);
-    expect(result.remainingMs).toBeLessThanOrEqual(30000);
-    expect(calls).toBe(0);
-    expect((await state(id)).reservation).toEqual(before);
+    const started = barrier();
+    const finish = barrier();
+    let workCalls = 0;
+    const first = loadOfpForAccount(a, id, "same", async () => {
+      workCalls += 1;
+      started.release();
+      await finish.promise;
+      return work();
+    });
+    try {
+      await started.promise;
+      const before = (await state(id)).reservation;
+      expect(before.activeKey).toBe("same");
+      const result = await loadOfpForAccount(b, id, "same", async () => {
+        workCalls += 1;
+        return work();
+      });
+      expect(workCalls).toBe(1);
+      expect((await state(id)).reservation).toEqual(before);
+      expect(result.outcome).toBe("inProgress");
+      if (result.outcome !== "inProgress") throw new Error("not in progress");
+      expect(result.remainingMs).toBeGreaterThan(0);
+      expect(result.remainingMs).toBeLessThanOrEqual(30000);
+      finish.release();
+      const created = await first;
+      expect(created.outcome).toBe("created");
+    } finally { finish.release(); }
   }, 15000);
 
   it("C-8 waits on a different active key without replacing it", async () => {

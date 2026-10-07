@@ -71,11 +71,42 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
     expect(result.snapshot.waypoints.find((point) => point.routeIndex === fix)?.state).toBe("saved");
   }, 15000);
 
-  it("C-2 permits one of two separate-connection tracker writes", async () => {
+  it("C-2 permits one of two overlapping separate-connection tracker writes", async () => {
     const id = await account();
     const trackerId = await seed(id);
     const command = { type: "saveWaypoint" as const, routeIndex: fix, expectedVersion: 1 };
-    const results = await Promise.all([mutateTracker(a, id, trackerId, command), mutateTracker(b, id, trackerId, command)]);
+    const lockPool = new Pool({ connectionString: url!, max: 1 });
+    const holder = await lockPool.connect();
+    let writes: Promise<Awaited<ReturnType<typeof mutateTracker>>>[] = [];
+    try {
+      const firstPid = (await a.execute(sql`select pg_backend_pid() as pid`)).rows[0] as { pid: number };
+      const secondPid = (await b.execute(sql`select pg_backend_pid() as pid`)).rows[0] as { pid: number };
+      await holder.query("BEGIN");
+      await holder.query("SELECT id FROM tracker WHERE id = $1 FOR UPDATE", [trackerId]);
+      writes = [mutateTracker(a, id, trackerId, command), mutateTracker(b, id, trackerId, command)];
+
+      // Both operations must have read version 1 and reached their blocked
+      // UPDATE before the row lock is released. Merely starting two promises
+      // does not establish an actual compare-and-swap race.
+      let blocked = false;
+      for (let attempt = 0; attempt < 250; attempt += 1) {
+        const { rows } = await holder.query<{ pid: number; wait_event_type: string | null }>(
+          "SELECT pid, wait_event_type FROM pg_stat_activity WHERE pid = ANY($1::integer[])",
+          [[firstPid.pid, secondPid.pid]],
+        );
+        if (rows.length === 2 && rows.every((row) => row.wait_event_type === "Lock")) {
+          blocked = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(blocked, "both tracker writes must be blocked on the held row").toBe(true);
+    } finally {
+      await holder.query("ROLLBACK");
+      holder.release();
+      await lockPool.end();
+    }
+    const results = await Promise.all(writes);
     expect(results.map((result) => result.outcome).sort()).toEqual(["applied", "stale"]);
     expect(results.find((result) => result.outcome === "stale")).toEqual({
       outcome: "stale", message: "tracker changed; reload and try again",

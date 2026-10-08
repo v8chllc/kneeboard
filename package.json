@@ -12,7 +12,9 @@
     "test:watch": "vitest watch",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "journey:db": "python3 scripts/db_journey.py"
+    "journey:db": "python3 scripts/db_journey.py",
+    "journey:e2e": "python3 scripts/e2e_journey.py",
+    "journey": "pnpm journey:db && pnpm journey:e2e"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.6",
@@ -25,6 +27,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.13.3",
     "@types/pg": "8.23.1",

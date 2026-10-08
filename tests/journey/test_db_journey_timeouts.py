@@ -170,7 +170,49 @@ class BoundedCommandTests(FixtureTestCase):
         with self.assertRaises(AssertionError) as raised:
             journey.command(args, self.env, budget=BUDGET)
         self.assertNotIsInstance(raised.exception, journey.JourneyTimeout)
-        self.assertEqual(str(raised.exception), f"{' '.join(args)} failed: broken partial")
+        self.assertEqual(str(raised.exception), f"{' '.join(args)} failed with exit code 3; stderr tail: broken; stdout tail: partial")
+
+    def test_nonzero_exit_redacts_each_stream_before_independent_caps(self) -> None:
+        url = f"postgresql://user:{SECRET}@127.0.0.1/db"
+        # The URL starts before the raw tail boundary, but its userinfo ends inside it.
+        padding = "x" * (journey.STDERR_TAIL_CHARACTERS - 50)
+        args = self.script(
+            "failed.sh",
+            f"printf '%s\\n' '{url}{padding}' >&2\n"
+            f"printf '%s\\n' '{url}{padding}'\n"
+            "exit 7\n",
+        )
+        with self.assertRaises(AssertionError) as raised:
+            journey.command(args, self.env, budget=BUDGET)
+        message = str(raised.exception)
+        self.assertIn(f"{' '.join(args)} failed with exit code 7", message)
+        self.assertNotIn(SECRET, message)
+        self.assertNotIn("user:", message)
+        self.assertEqual(message.count("postgresql://***@127.0.0.1/db"), 2)
+        stderr, stdout = message.split("; stderr tail: ", 1)[1].split("; stdout tail: ", 1)
+        self.assertTrue(stderr.endswith(padding))
+        self.assertTrue(stdout.endswith(padding))
+        self.assertLessEqual(len(stderr), journey.STDERR_TAIL_CHARACTERS)
+        self.assertLessEqual(len(stdout), journey.STDERR_TAIL_CHARACTERS)
+
+    def test_nonzero_exit_caps_both_streams_independently(self) -> None:
+        args = self.script("long_failed.sh", "printf '%0600d' 0 | tr 0 e >&2\nprintf '%0600d' 0 | tr 0 o\nexit 5\n")
+        with self.assertRaises(AssertionError) as raised:
+            journey.command(args, self.env, budget=BUDGET)
+        stderr, stdout = str(raised.exception).split("; stderr tail: ", 1)[1].split("; stdout tail: ", 1)
+        self.assertEqual(stderr, "e" * journey.STDERR_TAIL_CHARACTERS)
+        self.assertEqual(stdout, "o" * journey.STDERR_TAIL_CHARACTERS)
+
+    def test_nonzero_exit_omits_empty_stream_labels_and_redacts_command_argument(self) -> None:
+        url = f"postgresql://user:{SECRET}@127.0.0.1/db"
+        args = ["sh", "-c", "exit 9", url]
+        with self.assertRaises(AssertionError) as raised:
+            journey.command(args, self.env, budget=BUDGET)
+        message = str(raised.exception)
+        self.assertIn("postgresql://***@127.0.0.1/db failed with exit code 9", message)
+        self.assertNotIn(SECRET, message)
+        self.assertNotIn("stderr tail:", message)
+        self.assertNotIn("stdout tail:", message)
 
     def test_hang_and_sigterm_ignoring_descendant_are_stopped(self) -> None:
         args = self.script(
@@ -375,7 +417,7 @@ class JourneyRoutingTests(FixtureTestCase):
         self.assert_timeout(result, elapsed)
         self.assertEqual(result.budget, "LOCAL_START_TIMEOUT_SECONDS")
         project = result.command_args[3]
-        self.assertIn(f"isolated Compose cleanup failed: down refused; removal of {project} not confirmed; original failure: ", stderr)
+        self.assertIn(f"down -v --remove-orphans failed with exit code 1; stderr tail: down refused; removal of {project} not confirmed; original failure: ", stderr)
         self.assertIn("timed out after 0.5 seconds (LOCAL_START_TIMEOUT_SECONDS)", stderr)
 
     def test_timeout_stays_primary_when_cleanup_times_out(self) -> None:
@@ -407,7 +449,9 @@ class JourneyRoutingTests(FixtureTestCase):
         environ = self.project_env | {"FAKE_DOWN_STATUS": "1"}
         with self.assertRaises(AssertionError) as raised:
             journey.cleanup_compose(environ, None)
-        self.assertEqual(str(raised.exception), "isolated Compose cleanup failed: down refused; removal of kneeboard_journey_0123456789ab not confirmed")
+        message = str(raised.exception)
+        self.assertIn("down -v --remove-orphans failed with exit code 1; stderr tail: down refused", message)
+        self.assertTrue(message.endswith("; removal of kneeboard_journey_0123456789ab not confirmed"))
 
     def test_successful_compose_cleanup_reports_nothing(self) -> None:
         with redirect_stderr(StringIO()) as stderr:

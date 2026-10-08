@@ -19,8 +19,8 @@ reaches the bounded Compose teardown in ``main``. The first failure stays primar
 and a cleanup failure is printed beside it; a cleanup failure alone fails the
 run. Removal is claimed only when ``down`` exits 0. A timeout before startup
 skips teardown. An assertion, timeout, or OS error exits 1 with a one-line
-reason; diagnostics include command lines and a redacted stderr tail, never the
-environment or stdin.
+reason; nonzero diagnostics include command lines, numeric exit codes, and
+separately labelled redacted output tails, never the environment or stdin.
 
 Environment: POSIX only (macOS and Linux); it relies on sessions, process groups,
 and a local Docker socket, and needs ``mise``, ``pnpm``, and Docker Compose.
@@ -200,9 +200,12 @@ def output_text(value: str | bytes | None) -> str:
     return value or ""
 
 
+def redact_userinfo(text: str) -> str:
+    return re.sub(r"([A-Za-z][A-Za-z0-9+.-]*://)[^\s/@]+@", r"\1***@", text)
+
+
 def safe_tail(text: str) -> str:
-    redacted = re.sub(r"([A-Za-z][A-Za-z0-9+.-]*://)[^\s/@]+@", r"\1***@", text.strip())
-    return redacted[-STDERR_TAIL_CHARACTERS:]
+    return redact_userinfo(text.strip())[-STDERR_TAIL_CHARACTERS:]
 
 
 def run_bounded(args: list[str], env: dict[str, str], *, budget: str, input_text: str | None = None) -> Completed:
@@ -274,7 +277,12 @@ def command(args: list[str], env: dict[str, str], *, budget: str, input_text: st
     """Run a bounded command and return its stripped stdout; raise AssertionError on a nonzero exit."""
     result = run_bounded(args, env, budget=budget, input_text=input_text)
     if result.returncode != 0:
-        raise AssertionError(f"{' '.join(args)} failed: {result.stderr.strip()} {result.stdout.strip()}")
+        detail = f"{' '.join(redact_userinfo(arg) for arg in args)} failed with exit code {result.returncode}"
+        for label, output in (("stderr", result.stderr), ("stdout", result.stdout)):
+            tail = safe_tail(output)
+            if tail:
+                detail += f"; {label} tail: {tail}"
+        raise AssertionError(detail)
     return result.stdout.strip()
 
 
@@ -323,14 +331,18 @@ def cleanup_compose(env: dict[str, str], earlier: BaseException | None) -> None:
     daemon finished; a stalled daemon is reported, not waited out.
     """
     project = env["KNEEBOARD_DB_PROJECT"]
+    args = compose_args(env) + ["down", "-v", "--remove-orphans"]
     try:
-        cleanup = run_bounded(compose_args(env) + ["down", "-v", "--remove-orphans"], env, budget="COMPOSE_CLEANUP_TIMEOUT_SECONDS")
+        cleanup = run_bounded(args, env, budget="COMPOSE_CLEANUP_TIMEOUT_SECONDS")
     except (OSError, JourneyTimeout) as error:
         detail = str(error)
     else:
         if cleanup.returncode == 0:
             return
-        detail = cleanup.stderr.strip()
+        detail = f"{' '.join(redact_userinfo(arg) for arg in args)} failed with exit code {cleanup.returncode}"
+        tail = safe_tail(cleanup.stderr)
+        if tail:
+            detail += f"; stderr tail: {tail}"
     report_cleanup_failure(f"isolated Compose cleanup failed: {detail}; removal of {project} not confirmed", earlier)
 
 

@@ -32,13 +32,51 @@ class CleanupFailureTests(TestCase):
         self.assertEqual(run.call_args.args[0], journey.compose_args(run.call_args.args[1]) + ["down", "-v", "--remove-orphans"])
         self.assertEqual(run.call_args.kwargs["budget"], "COMPOSE_CLEANUP_TIMEOUT_SECONDS")
         self.assertEqual(journey.COMPOSE_CLEANUP_TIMEOUT_SECONDS, 60)
-        self.assertIn("isolated Compose cleanup failed: cleanup refused", stderr.getvalue())
+        self.assertIn("isolated Compose cleanup failed: ", stderr.getvalue())
+        self.assertIn("failed with exit code 1; stderr tail: cleanup refused", stderr.getvalue())
         self.assertIn("original failure: C-11: recent-load order wrong", stderr.getvalue())
 
     def test_compose_cleanup_failure_alone_is_reported(self) -> None:
         with patch.object(journey, "run_bounded", return_value=journey.Completed(returncode=1, stdout="", stderr="cleanup refused")):
-            with self.assertRaisesRegex(AssertionError, "isolated Compose cleanup failed: cleanup refused"):
+            with self.assertRaisesRegex(AssertionError, "failed with exit code 1; stderr tail: cleanup refused"):
                 journey.cleanup_compose(PROJECT_ENV, None)
+
+    def test_compose_cleanup_nonzero_redacts_stderr_and_keeps_precedence(self) -> None:
+        secret = "cleanup-secret-4bc12"
+        url = f"postgresql://user:{secret}@127.0.0.1/db"
+        cleanup = journey.Completed(17, "ignored stdout", f"refused {url}\n")
+        with patch.object(journey, "run_bounded", return_value=cleanup):
+            with self.assertRaises(AssertionError) as raised:
+                journey.cleanup_compose(PROJECT_ENV, None)
+        message = str(raised.exception)
+        self.assertIn("docker compose", message)
+        self.assertIn("down -v --remove-orphans failed with exit code 17", message)
+        self.assertIn("stderr tail: refused postgresql://***@127.0.0.1/db", message)
+        self.assertIn("removal of kneeboard_journey_123456789abc not confirmed", message)
+        self.assertNotIn(secret, message)
+        self.assertNotIn("ignored stdout", message)
+
+        stderr = StringIO()
+        earlier = AssertionError("earlier claim")
+        with patch.object(journey, "run_bounded", return_value=cleanup), redirect_stderr(stderr):
+            journey.cleanup_compose(PROJECT_ENV, earlier)
+        self.assertIn("original failure: earlier claim", stderr.getvalue())
+        self.assertIn("failed with exit code 17", stderr.getvalue())
+        self.assertNotIn(secret, stderr.getvalue())
+
+    def test_compose_cleanup_nonzero_caps_stderr_and_omits_empty_tail(self) -> None:
+        cleanup = journey.Completed(4, "", "z" * (journey.STDERR_TAIL_CHARACTERS + 100))
+        with patch.object(journey, "run_bounded", return_value=cleanup):
+            with self.assertRaises(AssertionError) as raised:
+                journey.cleanup_compose(PROJECT_ENV, None)
+        tail = str(raised.exception).split("; stderr tail: ", 1)[1].split("; removal of ", 1)[0]
+        self.assertEqual(tail, "z" * journey.STDERR_TAIL_CHARACTERS)
+
+        with patch.object(journey, "run_bounded", return_value=journey.Completed(4, "", "")):
+            with self.assertRaises(AssertionError) as raised:
+                journey.cleanup_compose(PROJECT_ENV, None)
+        self.assertIn("failed with exit code 4; removal of", str(raised.exception))
+        self.assertNotIn("stderr tail:", str(raised.exception))
 
     def test_claim_failure_survives_compose_cleanup_timeout(self) -> None:
         stderr = StringIO()

@@ -23,8 +23,6 @@ import db_journey as db
 PLAYWRIGHT_VERSION = "1.64.0"
 CHROMIUM_REVISION = "1248"
 CHROMIUM_VERSION = "156.0.8078.4"
-BROWSER_INSTALL_TIMEOUT_SECONDS = 600
-PLAYWRIGHT_TIMEOUT_SECONDS = 180
 APP_START_TIMEOUT_SECONDS = 60
 
 
@@ -42,9 +40,9 @@ def browser_metadata() -> dict[str, str]:
     return shell
 
 
-def checked(args: list[str], env: dict[str, str], budget: str, seconds: float, label: str) -> str:
+def checked(args: list[str], env: dict[str, str], budget: str, label: str) -> str:
     """Run a bounded command without relaying unredacted subprocess output."""
-    setattr(db, budget, seconds)
+    seconds = db.budget_seconds(budget)
     try:
         result = db.run_bounded(args, env, budget=budget)
     except (db.JourneyTimeout, OSError):
@@ -89,15 +87,14 @@ def main() -> None:
         docker_host = env.get("DOCKER_HOST", "")
         context_host = checked(
             ["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
-            env, "DOCKER_QUERY_TIMEOUT_SECONDS", db.DOCKER_QUERY_TIMEOUT_SECONDS,
-            "Docker context check",
+            env, "DOCKER_QUERY_TIMEOUT_SECONDS", "Docker context check",
         )
         if (docker_host and not docker_host.startswith(("unix://", "npipe://"))) or not context_host.startswith(("unix://", "npipe://")):
             raise AssertionError("browser Journey requires a local Docker socket")
 
         browser_metadata()
         checked(["mise", "exec", "--", "pnpm", "exec", "playwright", "install", "chromium", "--only-shell"],
-                env, "BROWSER_INSTALL_TIMEOUT_SECONDS", BROWSER_INSTALL_TIMEOUT_SECONDS, "browser installation")
+                env, "INSTALL_TIMEOUT_SECONDS", "browser installation")
 
         compose_started = True
         local("start", env)
@@ -111,7 +108,7 @@ def main() -> None:
         app_env = env.copy()
         app_env["DATABASE_URL"] = f"postgresql://kneeboard:local_only_kneeboard@127.0.0.1:{database_port}/kneeboard_test"
         checked(["mise", "exec", "--", "pnpm", "build"], app_env,
-                "BUILD_TIMEOUT_SECONDS", db.BUILD_TIMEOUT_SECONDS, "application build")
+                "BUILD_TIMEOUT_SECONDS", "application build")
         app_port = db.free_port()
         process = subprocess.Popen(
             ["mise", "exec", "--", "pnpm", "start", "--port", str(app_port)],
@@ -122,7 +119,7 @@ def main() -> None:
             await_app(process, app_port)
             browser_env = app_env | {"PLAYWRIGHT_BASE_URL": f"http://127.0.0.1:{app_port}"}
             checked(["mise", "exec", "--", "pnpm", "exec", "playwright", "test"], browser_env,
-                    "PLAYWRIGHT_TIMEOUT_SECONDS", PLAYWRIGHT_TIMEOUT_SECONDS, "Playwright smoke journey")
+                    "OPERATION_TEST_TIMEOUT_SECONDS", "Playwright smoke journey")
         finally:
             earlier = sys.exc_info()[1]
             problems = db.terminate_process_group(process, float(db.TERMINATION_GRACE_SECONDS))

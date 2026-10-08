@@ -28,12 +28,14 @@ class E2EJourneyTests(TestCase):
 
     def test_bounded_command_hides_output_and_uses_finite_budget(self) -> None:
         result = journey.db.Completed(1, "sensitive output", "sensitive error")
+        original_budget = journey.db.INSTALL_TIMEOUT_SECONDS
         with patch.object(journey.db, "run_bounded", return_value=result) as run:
             with self.assertRaisesRegex(AssertionError, "browser installation failed \\(exit 1\\)") as error:
-                journey.checked(["browser"], {}, "BROWSER_INSTALL_TIMEOUT_SECONDS", 60, "browser installation")
+                journey.checked(["browser"], {}, "INSTALL_TIMEOUT_SECONDS", "browser installation")
         self.assertNotIn("sensitive", str(error.exception))
-        self.assertEqual(run.call_args.kwargs["budget"], "BROWSER_INSTALL_TIMEOUT_SECONDS")
-        self.assertEqual(journey.db.budget_seconds("BROWSER_INSTALL_TIMEOUT_SECONDS"), 60)
+        self.assertEqual(run.call_args.kwargs["budget"], "INSTALL_TIMEOUT_SECONDS")
+        self.assertEqual(journey.db.INSTALL_TIMEOUT_SECONDS, original_budget)
+        self.assertEqual(journey.db.budget_seconds("INSTALL_TIMEOUT_SECONDS"), 600)
 
     def test_isolated_project_and_port_are_used_and_cleaned_on_success(self) -> None:
         process = MagicMock()

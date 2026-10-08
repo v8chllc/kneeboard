@@ -107,7 +107,7 @@ so access to that repository is required to read the links below.
 - Neon Postgres with Drizzle ORM and committed Drizzle Kit migrations
 - Better Auth magic links delivered by Resend
 - Vercel hosting at `kneeboard.v8ch.com`
-- Vitest unit tests and a lean manual Playwright end-to-end suite
+- Vitest unit tests and a lean local Playwright end-to-end suite
 - `pnpm`, with Node.js LTS and tool versions pinned by mise
 - Local PostgreSQL for development and tests, plus Mailpit for local-only magic
   link capture
@@ -147,6 +147,9 @@ The canonical local commands are:
 | `pnpm typecheck` | Run TypeScript without emitting files. |
 | `pnpm test` | Run the Vitest suite once. |
 | `pnpm test:watch` | Run Vitest in interactive watch mode. |
+| `pnpm journey:db` | Run the isolated database Journey. |
+| `pnpm journey:e2e` | Build and test the app in Chromium with an isolated database. |
+| `pnpm journey` | Run both Journeys in order, stopping if either fails. |
 
 With mise activated in the shell, run the commands directly. Otherwise prefix
 them with `mise exec --`, as in the fresh-clone procedure above. To exercise the
@@ -192,8 +195,13 @@ validation, manual production migration, and rollback.
 For the section 6a database Journey, run `mise exec -- pnpm journey:db`. It
 creates and removes its own Compose project and volume on a temporary loopback
 port, exercises migration and database behavior, and checks the built local
-application. Existing development and test databases are left intact. The
-manual Playwright harness remains planned in issue #40.
+application. For the browser smoke Journey, run `mise exec -- pnpm journey:e2e`.
+It checks the pinned Playwright and Chromium headless shell versions, installs
+the browser if needed, migrates its own isolated database, builds and starts the
+local application, and checks the rendered page and simulation-only warning in
+Chromium. Run `mise exec -- pnpm journey` to run both in order. These Journeys
+run locally, by a person or an agent, and never in CI. Existing development and
+test databases are left intact by both Journeys.
 
 Every command the Journey runs has a finite time budget, from 30 seconds for a
 Docker query to 15 minutes for the production build; the values and their

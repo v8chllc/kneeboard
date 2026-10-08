@@ -114,7 +114,7 @@ writer and integrator; human-only approval boundaries remain with the user.
    OFP data flows.
 8. Deliver one authenticated vertical slice from OFP load through a working
    tracker.
-9. Complete responsive UI, accessibility, manual E2E coverage, migration
+9. Complete responsive UI, accessibility, local E2E coverage, migration
    procedures, and production validation.
 
 ## Testing and Delivery
@@ -123,7 +123,7 @@ Follow [CODING_STANDARDS.md — Testing](CODING_STANDARDS.md#testing).
 
 - Run relevant lint, type, and test checks for every change and report exactly
   what was and was not verified.
-- Keep Playwright manual for MVP unless the governing documents are changed.
+- Run Playwright journeys locally, by a person or an agent, never in CI.
 - Commit Drizzle migrations.
 - Never run production migrations automatically during a Vercel build.
 - Keep production migrations explicit and manually invoked.
@@ -153,7 +153,7 @@ required_gates:
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
 review_capability: coderabbit  # gate of record; see ../project-management/kneeboard/build-execution-strategy.md §4
-journey: "automated: mise exec -- pnpm journey:db" # local database Journey; #40 owns the later manual Playwright harness
+journey: "automated: mise exec -- pnpm journey" # database and browser journeys run locally, never in CI
 loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:
   - mise exec -- pnpm lint

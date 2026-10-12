@@ -215,8 +215,19 @@ removal can leave containers, a volume, or both. List leftover projects with
 `docker volume ls --filter label=com.docker.compose.project --format '{{.Label "com.docker.compose.project"}}'`,
 which finds a volume whose containers are already gone. Remove each
 `kneeboard_journey_<id>` project from the repository root with
-`docker compose -p kneeboard_journey_<id> down -v --remove-orphans`. The Journey
-supports macOS and Linux only.
+`docker compose -p kneeboard_journey_<id> down -v --remove-orphans`. The
+database Journey also names a second `kneeboard_journey_<id>` project as a decoy
+when it checks that hostile Compose selectors are ignored. It removes that name
+too, but a failed removal can leave it, and it is removed the same way. The
+Journey supports macOS and Linux only.
+
+The [database Journey coverage map](docs/database-journey-coverage.md) links
+each section 6a claim to its committed check and its fitness evidence. To show
+that the strengthened checks fail for the right reason, run
+`mise exec -- python3 scripts/db_journey_fitness.py`. It removes or inverts each
+guarded behavior in a disposable project and requires the exact claim label to
+fail. Then it removes every project and scratch file it created. Add
+`--case <name>` to rerun one case, or `--list` to show them all.
 
 ### Fetch a SimBrief OFP
 

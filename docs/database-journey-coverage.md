@@ -38,9 +38,11 @@ counts as demonstrated only if the canonical check fails with the exact expected
 label. An unexpected pass, a different failure, or a setup error is reported as
 not demonstrated. SQL cases change the probe text in memory. Lifecycle cases
 change scratch copies of `compose.yaml` and `scripts/local-db.sh` under the
-git-ignored `.local/`. Every case runs in its own `kneeboard_journey_<id>`
-project, and the runner removes all of them. It then verifies that no
-containers, volumes, or scratch files remain and that `git status` is unchanged.
+git-ignored `.local/`. All SQL cases share one `kneeboard_journey_<id>`
+project. Each lifecycle case uses its own project, and the C-2b case also
+creates a decoy project on purpose. The runner removes every project it creates,
+then verifies that no containers, volumes, or scratch files remain and that
+`git status` is unchanged.
 `tests/journey/test_db_journey_fitness.py` runs in `pnpm test` without Docker.
 It fails if a source edit moves a mutation anchor or renames an expected label.
 

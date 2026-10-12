@@ -547,7 +547,7 @@ class ExecutionRoutingTests(TestCase):
         process = self.live_server("exit 3")
         refused = {"side_effect": journey.urllib.error.URLError("connection refused")}
         outcome, calls = self.run_app_runtime(process, refused)
-        self.assertEqual(str(outcome), "C-17: application exited before responding")
+        self.assertEqual(str(outcome), "6a C-17: application exited before responding")
         self.assertEqual(process.returncode, 3)
         self.assertIn(signal.SIGTERM, [sig for _, sig, _ in calls], "the exited server's group was never signalled before reaping")
         self.assertEqual([call for call in calls if call[2] is not None], [], "a reaped leader's pid was signalled")

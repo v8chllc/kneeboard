@@ -48,7 +48,6 @@ Read this repository's profile and product rules during every run.
   approval.
 - If implementation conflicts with documented behavior, stop and surface the
   conflict rather than quietly changing behavior.
-- Preserve unrelated user changes in a dirty working tree.
 - Do not implement deferred features or infrastructure "for later."
 - Use the authenticated `gh` CLI directly for GitHub operations in this
   repository. Do not attempt the connected GitHub app first.
@@ -58,6 +57,17 @@ Read this repository's profile and product rules during every run.
   has a Kneeboard issue as its sub-issue. Never add a Kneeboard issue or pull
   request to the board: the parent carries the board status. The former
   Kneeboard board is closed.
+
+## Git Conventions
+
+Follow this repository's branch, commit, review, push, and merge rules and its
+permission boundaries. Stage only changes authorized for the task, group them
+into logical conventional commits, and preserve unrelated local work. Retain
+supplied work-item identities and links; clarify a genuinely unresolved identity
+instead of inventing a repository or tracker. Perform only the commit, push, and
+pull-request actions the user requested or authorized; a request to commit alone
+does not authorize a push or pull request. Use this repository's naming rules
+rather than a universal issue-number pattern for branches or pull-request titles.
 
 ## Product and Safety Boundary
 

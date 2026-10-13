@@ -31,7 +31,7 @@ Application implementation began with task-list section 4. Development tooling
 and planning artifacts may already exist, so inspect the repository and working
 tree before assuming a blank slate.
 
-For `chore-orchestrate`, `feature-orchestrate`, or `supervise`, start the agent
+For `change-set-orchestrate`, `feature-orchestrate`, or `supervise`, start the agent
 from the parent Kneeboard workspace. Their Codex and Claude Code copies, role
 agents, and lifecycle hooks live there rather than in this application checkout.
 Read this repository's profile and product rules during every run.
@@ -143,9 +143,9 @@ Follow [CODING_STANDARDS.md — Testing](CODING_STANDARDS.md#testing).
 
 ## Agent workflow profile
 
-Read by orchestrator skills such as `chore-orchestrate` at resolve. The field
+Read by orchestrator skills such as `change-set-orchestrate` at resolve. The field
 definitions and defaults are in
-`../.agents/skills/chore-orchestrate/references/repository-profile.md` in the
+`../.agents/skills/change-set-orchestrate/references/repository-profile.md` in the
 parent workspace. The profile
 narrows authority and never widens it; the rules elsewhere in this document
 still bind every run, including `../project-management/kneeboard/build-execution-strategy.md` keeping

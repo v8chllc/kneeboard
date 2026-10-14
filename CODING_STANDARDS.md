@@ -2,8 +2,8 @@
 
 These standards govern Kneeboard implementation and tests. The architecture,
 domain, privacy, and testing rules below were extracted from `AGENTS.md`;
-the governing decisions remain in the sibling `project-management/kneeboard/`
-documents. Consult those decisions before changing governed behavior.
+the governing decisions are in `docs/`. Consult those decisions before
+changing governed behavior.
 
 Read [AGENTS.md](AGENTS.md) for the reading order, working agreement, delivery
 instructions, and agent workflow profile, and [WORKFLOW_STANDARDS.md](WORKFLOW_STANDARDS.md)
@@ -54,7 +54,7 @@ interpretation has already settled.
 
 ## Domain Invariants
 
-Consult `../project-management/kneeboard/tracker-behavior.md` before changing
+Consult `docs/tracker-behavior.md` before changing
 tracker logic. In particular:
 
 - Use only the primary origin-to-destination navlog, while displaying every
@@ -64,7 +64,7 @@ tracker logic. In particular:
 - Eligible fixes use repeating slots 1-9, derived from position in the eligible
   sequence. Only Skip and the SID/STAR controls renumber; Save and Pass never do.
   The minimal snapshot depends on the ordering property under §Memory slots in
-  `../project-management/kneeboard/tracker-behavior.md`: because Save takes the
+  `docs/tracker-behavior.md`: because Save takes the
   earliest pending fix, every
   skip after a save is downstream of that saved fix, while any skip before it is
   already reflected in the slot the fix was written into. That slot therefore
@@ -127,10 +127,10 @@ shared domain implementation.
 - The endpoint returns only the most recent OFP. Verify a generated route covers
   its scenario before fetching, and record each capture in
   `.local/simbrief/manifest.md`.
-- Consult `../project-management/kneeboard/simbrief-navlog-findings.md` before writing parsing or
+- Consult `docs/simbrief-navlog-findings.md` before writing parsing or
   classification code. It records observed payload structure, the evidence
   behind each classification rule, and the gaps between the payload and
-  `../project-management/kneeboard/tracker-behavior.md`.
+  `docs/tracker-behavior.md`.
 - Treat the payload as loosely typed at the boundary. SimBrief collapses
   single-element arrays into bare objects and quotes some numeric values, so
   normalize both shapes rather than assuming consistency.

@@ -5,36 +5,20 @@
 Before planning or changing application behavior, read:
 
 1. `README.md`
-2. `../project-management/kneeboard/product-decisions.md`
-3. `../project-management/kneeboard/tracker-behavior.md`
-4. `../project-management/kneeboard/technical-decisions.md`
-5. `../project-management/kneeboard/planning-status.md`
-6. `../project-management/kneeboard/task-list.md`
-7. `../project-management/kneeboard/build-execution-strategy.md`
-8. `CODING_STANDARDS.md`
-9. `WORKFLOW_STANDARDS.md`
+2. `docs/product-decisions.md`
+3. `docs/tracker-behavior.md`
+4. `docs/technical-decisions.md`
+5. `docs/simbrief-navlog-findings.md`
+6. `CODING_STANDARDS.md`
+7. `WORKFLOW_STANDARDS.md`
 
-The project documents are in the sibling `project-management` checkout. If it
-is missing, clone `git@github.com:v8chllc/project-management.git` beside this
-repository before changing governed behavior.
-
-The decision documents are the source of truth. The sibling
-`project-management/kneeboard/task-list.md` records execution order but does
-not override product, domain, or technical decisions.
-
-The sibling `project-management/kneeboard/prototypes/tracker-wireframe.html` is
-a throwaway reference drawing of the navlog, waypoint states, and sliding
-window. Consult it to understand the intended display, but do not carry it into
-application code.
+The in-repository decision documents govern product, domain, and technical
+behavior over the implementation order below. If a product decision is not
+recorded in this repository, stop and ask before implementing it.
 
 Application implementation began with task-list section 4. Development tooling
 and planning artifacts may already exist, so inspect the repository and working
 tree before assuming a blank slate.
-
-For `change-set-orchestrate`, `feature-orchestrate`, or `supervise`, start the agent
-from the parent Kneeboard workspace. Their Codex and Claude Code copies, role
-agents, and lifecycle hooks live there rather than in this application checkout.
-Read this repository's profile and product rules during every run.
 
 ## Working Agreement
 
@@ -43,9 +27,8 @@ Read this repository's profile and product rules during every run.
 - Present findings, options, and trade-offs before making material code or
   architecture changes.
 - Keep changes small, dependency-light, and limited to the approved MVP.
-- Do not silently resolve an open decision from `../project-management/kneeboard/planning-status.md`.
-  Propose a choice and update the governing documentation deliberately after
-  approval.
+- Surface open decisions and ask before changing governed behavior. Record
+  approved decisions in this repository's governing documents.
 - If implementation conflicts with documented behavior, stop and surface the
   conflict rather than quietly changing behavior.
 - Do not implement deferred features or infrastructure "for later."
@@ -92,12 +75,11 @@ Follow [CODING_STANDARDS.md — SimBrief Data and Privacy](CODING_STANDARDS.md#s
 
 ## Implementation Order
 
-Follow `../project-management/kneeboard/task-list.md` and preserve these dependencies:
+Preserve these task-list dependencies. The in-repository decision documents
+above take precedence over this implementation order.
 
-The unnumbered pre-build execution gate in the sibling task list closed on
-2026-08-12. `../project-management/kneeboard/build-execution-strategy.md`
-is approved and governs
-orchestration: one pull request per numbered section (with a section split
+The unnumbered pre-build execution gate closed on 2026-08-12. The approved
+orchestration uses one pull request per numbered section (with a section split
 across two pull requests when its diff cannot be reviewed safely as one unit)
 and one commit per slice, CodeRabbit as the mandatory review gate on every
 section pull request, interactive bounded goals through sections 4 and 5
@@ -143,13 +125,9 @@ Follow [CODING_STANDARDS.md — Testing](CODING_STANDARDS.md#testing).
 
 ## Agent workflow profile
 
-Read by orchestrator skills such as `change-set-orchestrate` at resolve. The field
-definitions and defaults are in
-`../.agents/skills/change-set-orchestrate/references/repository-profile.md` in the
-parent workspace. The profile
-narrows authority and never widens it; the rules elsewhere in this document
-still bind every run, including `../project-management/kneeboard/build-execution-strategy.md` keeping
-section 7 interactive.
+Read by orchestrator skills such as `change-set-orchestrate` at resolve. The
+profile narrows authority and never widens it; the rules elsewhere in this
+document still bind every run, including section 7 staying interactive.
 
 ```yaml
 autonomy: autonomous
@@ -162,7 +140,7 @@ required_gates:
   - CI workflow (.github/workflows/ci.yml) passing on the pull request head
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
-review_capability: coderabbit  # gate of record; see ../project-management/kneeboard/build-execution-strategy.md §4
+review_capability: coderabbit  # gate of record; see WORKFLOW_STANDARDS.md
 journey: "automated: mise exec -- pnpm journey" # database and browser journeys run locally, never in CI
 loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:
@@ -184,11 +162,3 @@ data_sensitivity:
   - everything under .local/
 synchronized_with: none
 ```
-
-## Workspace Memory
-
-Curated Kneeboard decision history now lives in the parent workspace's
-`../.remember/MEMORY.md`. Its memory fast-track applies to that workspace
-repository only. Product rules and current acceptance criteria remain in the
-governing documents under `../project-management/kneeboard/`,
-`CODING_STANDARDS.md`, and this file.

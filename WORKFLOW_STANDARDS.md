@@ -1,6 +1,6 @@
 # Workflow Standards
 
-Agent-facing workflow standards for this workspace.
+Agent-facing workflow standards for this repository.
 
 ## Prompt journal
 

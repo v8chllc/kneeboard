@@ -42,6 +42,8 @@ governing decisions are documented in this repository.
   are documented rather than quietly replaced. The replacement of the original
   "active page" concept with the sliding window is one such case, caught while
   the cost was a document rather than a transition engine and its test suite.
+- Deferred scope is deliberate. Features excluded from the MVP stay excluded
+  until they are chosen explicitly, rather than becoming an implicit backlog.
 - Test fixtures contain no real account data. Raw SimBrief payloads never enter
   version control, and every tracked fixture is produced by an allowlisting
   sanitizer that rebuilds the document from a small set of approved fields with

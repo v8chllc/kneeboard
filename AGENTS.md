@@ -140,7 +140,7 @@ required_gates:
   - CI workflow (.github/workflows/ci.yml) passing on the pull request head
   - CodeRabbit commit status on the pull request head SHA; poll it as
     WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response" describes
-review_capability: coderabbit  # gate of record; see WORKFLOW_STANDARDS.md
+review_capability: consensus-review
 journey: "automated: mise exec -- pnpm journey" # database and browser journeys run locally, never in CI
 loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:

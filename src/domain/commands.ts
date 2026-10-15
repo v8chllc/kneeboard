@@ -6,7 +6,7 @@
  * expected-version persistence path.
  *
  * Governed by `docs/tracker-behavior.md` §Domain implementation direction and
- * AGENTS.md §Architecture Guardrails.
+ * `CODING_STANDARDS.md` §Architecture Guardrails.
  */
 
 import type { ProcedureInclusion } from "./tracker";

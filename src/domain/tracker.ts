@@ -7,7 +7,7 @@
  * deterministic replay depends on that round-trip being lossless.
  *
  * Governed by `docs/tracker-behavior.md` §State model, §Sliding window, and
- * AGENTS.md §Domain Invariants.
+ * `CODING_STANDARDS.md` §Domain Invariants.
  */
 
 /**

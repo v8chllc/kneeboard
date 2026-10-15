@@ -1,5 +1,6 @@
-# CodeRabbit is the independent review gate for every pull request, sections
-# and chore runs alike.
+# CodeRabbit reviews a pull request only when asked with an @coderabbitai review
+# comment. It is not the profile's review gate; AGENTS.md review_capability names
+# that.
 #
 # This file must exist on the feature branch being reviewed; CodeRabbit reads it
 # from the head branch, not from main.
@@ -19,10 +20,10 @@ reviews:
   poem: false
   in_progress_fortune: false
 
-  # The merge gate polls CodeRabbit's commit status on the head SHA (AGENTS.md
-  # required_gates, WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response").
-  # review_progress defaults to check runs and would suppress that status, so
-  # pin the legacy commit-status surface the gate reads.
+  # CodeRabbit's commit status on the head SHA is not a required gate any more
+  # (AGENTS.md required_gates). review_progress defaults to check runs and would
+  # suppress that status, so keep the legacy commit-status surface for anyone who
+  # polls it (WORKFLOW_STANDARDS.md "Awaiting a CodeRabbit response").
   review_progress: false
   commit_status: true
 

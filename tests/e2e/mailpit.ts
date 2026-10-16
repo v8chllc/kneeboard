@@ -2,6 +2,8 @@ import { expect, type APIRequestContext } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
+import { registerSensitive } from "./privacy";
+
 const summarySchema = z.object({
   total: z.number(),
   messages: z.array(z.object({
@@ -10,13 +12,6 @@ const summarySchema = z.object({
   })),
 });
 const detailSchema = z.object({ Text: z.string() });
-
-export async function registerSensitive(request: APIRequestContext, identity: string, value: string): Promise<void> {
-  const port = process.env.JOURNEY_SENTINEL_PORT;
-  if (!port || !/^\d+$/.test(port) || !value) throw new Error("Isolated sentinel receiver is required");
-  const response = await request.post(`http://127.0.0.1:${port}/`, { data: { identity, value } });
-  expect(response.status()).toBe(204);
-}
 
 function apiUrl(path: string): string {
   const base = process.env.MAILPIT_API_URL;
@@ -41,7 +36,16 @@ export async function clearInbox(request: APIRequestContext): Promise<void> {
   expect((await listMessages(request)).total).toBe(0);
 }
 
-/** Finite REST poll, read the exact batch, and remove it from the inbox. */
+/**
+ * Read exactly `count` magic links for `recipient` from isolated Mailpit.
+ * MAILPIT_API_URL must be an isolated 127.0.0.1 HTTP endpoint and
+ * JOURNEY_SENTINEL_PORT must name the isolated privacy receiver. `category`
+ * labels each unique token identity as `category:<sha256(token)>`: use `token`
+ * for normal links and `fault-token` for fault journeys. This registers every
+ * raw token with the log verifier, then deletes the entire inbox after reading.
+ * The call fails on invalid configuration or count, timeout, wrong recipient,
+ * malformed mail/link/token, failed registration, or failed inbox deletion.
+ */
 export async function readLinks(request: APIRequestContext, recipient: string, count: number, category = "token"): Promise<string[]> {
   if (!Number.isInteger(count) || count < 1 || count > 5) throw new Error("Expected one to five isolated messages");
   let messages: Awaited<ReturnType<typeof listMessages>>["messages"] = [];

@@ -29,7 +29,8 @@ CHROMIUM_REVISION = "1248"
 CHROMIUM_VERSION = "156.0.8078.4"
 APP_START_TIMEOUT_SECONDS = 60
 OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024
-REQUIRED_SENTINELS = {"email-a", "email-b", "pilot-a", "pilot-b", "session-a", "session-b"}
+REQUIRED_SENTINELS = {"email-a", "email-b", "pilot-a", "pilot-b", "session-a", "session-b",
+                      "session-repeat-0", "session-repeat-1", "session-concurrent-0"}
 
 
 class AppOutput:
@@ -302,6 +303,7 @@ def main() -> None:
     smtp_port = db.free_port()
     mailpit_port = db.free_port()
     app_port = db.free_port()
+    secondary_app_port = db.free_port()
     email_a = f"journey-a-{project[-12:]}@example.invalid"
     email_b = f"journey-b-{project[-12:]}@example.invalid"
     env = os.environ.copy()
@@ -359,9 +361,20 @@ def main() -> None:
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
         )
         output = AppOutput(process)
+        secondary_process: subprocess.Popen[bytes] | None = None
+        secondary_output: AppOutput | None = None
         try:
+            secondary_env = app_env | {"BETTER_AUTH_URL": f"http://localhost:{secondary_app_port}"}
+            secondary_process = subprocess.Popen(
+                ["mise", "exec", "--", "pnpm", "start", "--port", str(secondary_app_port)],
+                cwd=db.ROOT, env=secondary_env, stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+            )
+            secondary_output = AppOutput(secondary_process)
             await_app(process, app_port)
+            await_app(secondary_process, secondary_app_port)
             browser_env = app_env | {"PLAYWRIGHT_BASE_URL": f"http://localhost:{app_port}",
+                                     "PLAYWRIGHT_SECONDARY_BASE_URL": f"http://localhost:{secondary_app_port}",
                                      "MAILPIT_API_URL": f"http://127.0.0.1:{mailpit_port}",
                                      "JOURNEY_EMAIL_A": email_a, "JOURNEY_EMAIL_B": email_b,
                                      "JOURNEY_SENTINEL_PORT": str(receiver.server_port)}
@@ -373,12 +386,17 @@ def main() -> None:
         finally:
             earlier = sys.exc_info()[1]
             problems = db.terminate_process_group(process, float(db.TERMINATION_GRACE_SECONDS))
+            if secondary_process is not None:
+                problems.extend(db.terminate_process_group(secondary_process, float(db.TERMINATION_GRACE_SECONDS)))
             if problems:
                 db.report_cleanup_failure(f"application process cleanup failed: {'; '.join(problems)}", earlier)
             receiver.shutdown()
             receiver.server_close()
             receiver_thread.join(timeout=5)
         verify_private_output(output, receiver.values)
+        assert secondary_output is not None
+        if secondary_output.contains_private_value(list(receiver.values.values())):
+            raise AssertionError("log-exclusion failed")
         print("JOURNEY log-exclusion: pass")
         auth_runtime_probes(app_env, mailpit_port)
         checked(["docker", "compose", "-f", "compose.yaml", "-f", "tests/journey/mailpit-chaos.compose.yaml",

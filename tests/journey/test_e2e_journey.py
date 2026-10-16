@@ -239,7 +239,7 @@ class E2EJourneyTests(TestCase):
         with (
             patch.object(journey.uuid, "uuid4") as uuid4,
             patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041, 30042]),
-            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "", "", "", "", "", ""]) as checked,
+            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "atomically consumes one link across two auth instances", "", "", "", "", ""]) as checked,
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local") as local,
             patch.object(journey, "SentinelReceiver") as receiver,
@@ -295,6 +295,8 @@ class E2EJourneyTests(TestCase):
                 return "unix:///local/docker.sock"
             if args[-2:] == ["playwright", "test"]:
                 raise AssertionError("Playwright smoke journey failed (exit 1)")
+            if "src/server/auth-integration.test.ts" in args:
+                return "atomically consumes one link across two auth instances"
             return ""
         with (
             patch.object(journey.db, "free_port", side_effect=[54443, 10243, 8023, 30043, 30044]),

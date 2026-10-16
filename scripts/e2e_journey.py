@@ -148,11 +148,13 @@ def checked(args: list[str], env: dict[str, str], budget: str, label: str) -> st
             if locations:
                 print(f"Playwright failure locations: {', '.join(dict.fromkeys(locations))}")
         if label in ("isolated SMTP rejection integration", "isolated auth integration"):
+            if "JOURNEY atomic redemption session count: fail" in result.stdout + result.stderr:
+                print("JOURNEY atomic redemption session count: fail")
             locations = re.findall(r"src/server/(?:auth-integration|account-settings\.integration)\.test\.ts:\d+:\d+", result.stdout + result.stderr)
             if locations:
                 print(f"Isolated auth assertion locations: {', '.join(dict.fromkeys(locations))}")
         raise AssertionError(f"{label} failed (exit {result.returncode})")
-    return result.stdout.strip()
+    return (result.stdout + result.stderr).strip()
 
 
 def local(action: str, env: dict[str, str], database: str | None = None) -> None:
@@ -362,9 +364,14 @@ def main() -> None:
                        MAILPIT_SMTP_HOST="127.0.0.1", MAILPIT_SMTP_PORT=str(smtp_port),
                        TEST_DATABASE_URL=app_env["DATABASE_URL"])
         for test_file in ("src/server/auth-integration.test.ts", "src/server/account-settings.integration.test.ts"):
-            checked(["mise", "exec", "--", "pnpm", "exec", "vitest", "run", test_file],
+            result = checked(["mise", "exec", "--", "pnpm", "exec", "vitest", "run", test_file,
+                              "--reporter=verbose"],
                     app_env | {"AUTH_JOURNEY_ISOLATED": "1", "NODE_ENV": "test"},
                     "OPERATION_TEST_TIMEOUT_SECONDS", "isolated auth integration")
+            if test_file == "src/server/auth-integration.test.ts":
+                if "atomically consumes one link across two auth instances" not in result:
+                    raise AssertionError("isolated atomic redemption result missing")
+                print("JOURNEY atomic redemption: pass")
         print("JOURNEY auth integration: pass")
         checked(["mise", "exec", "--", "pnpm", "build"], app_env | {"NODE_ENV": "production"},
                 "BUILD_TIMEOUT_SECONDS", "application build")

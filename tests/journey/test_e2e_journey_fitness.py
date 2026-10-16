@@ -48,9 +48,9 @@ class E2EJourneyFitnessTests(TestCase):
         readme = (ROOT / "README.md").read_text()
         self.assertIn("mise exec -- python3 scripts/e2e_journey_fitness.py /tmp/kneeboard-browser-fitness", readme)
 
-    def test_only_simultaneous_cookie_failure_confirms_non_atomic_mutant(self) -> None:
+    def test_only_atomic_session_failure_confirms_non_atomic_mutant(self) -> None:
         fitness.require_expected_failure(1, fitness.EXPECTED_FAILURE)
-        with self.assertRaisesRegex(AssertionError, "did not fail the simultaneous-redemption cookie assertion"):
+        with self.assertRaisesRegex(AssertionError, "did not fail the atomic-redemption session assertion"):
             fitness.require_expected_failure(0, fitness.EXPECTED_FAILURE)
-        with self.assertRaisesRegex(AssertionError, "did not fail the simultaneous-redemption cookie assertion"):
+        with self.assertRaisesRegex(AssertionError, "did not fail the atomic-redemption session assertion"):
             fitness.require_expected_failure(1, "Playwright Journey failed: unrelated startup failure")

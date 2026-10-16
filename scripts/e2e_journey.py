@@ -69,7 +69,10 @@ class SentinelReceiver(ThreadingHTTPServer):
                     return
                 try:
                     payload = json.loads(self.rfile.read(size))
-                    values = [payload[key] for key in ("email", "token", "cookie", "pilotId")]
+                    values = [payload[key] for key in (
+                        "emailA", "tokenA", "cookieA", "pilotIdA",
+                        "emailB", "tokenB", "cookieB", "pilotIdB",
+                    )]
                     if not all(isinstance(value, str) and value for value in values):
                         raise ValueError("missing sentinel")
                 except (KeyError, ValueError, TypeError):
@@ -154,12 +157,12 @@ def fixed_database_isolation(env: dict[str, str], emails: tuple[str, str]) -> No
     quoted = ",".join("'" + address + "'" for address in emails)
     for database in ("kneeboard_dev", "kneeboard_test"):
         exists = checked([*compose, "exec", "-T", "postgres", "psql", "-U", "kneeboard", "-d", database,
-                          "-Atqc", "SELECT to_regclass('public.account_settings') IS NOT NULL"],
+                          "-Atqc", "SELECT to_regclass('public.user') IS NOT NULL"],
                          env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed schema inspection")
         if exists == "f":
             continue
         count = checked([*compose, "exec", "-T", "postgres", "psql", "-U", "kneeboard", "-d", database,
-                         "-Atqc", f'SELECT count(*) FROM account_settings s JOIN "user" u ON u.id=s.user_id WHERE u.email IN ({quoted})'],
+                         "-Atqc", f'SELECT count(*) FROM "user" WHERE email IN ({quoted})'],
                         env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed account inspection")
         if count != "0":
             raise AssertionError("journey account appeared in a fixed database")
@@ -248,7 +251,7 @@ def main() -> None:
             receiver.shutdown()
             receiver.server_close()
             receiver_thread.join(timeout=5)
-        if len(receiver.values) != 4:
+        if len(receiver.values) != 8:
             raise AssertionError("log-exclusion sentinels missing")
         if output.contains_private_value(receiver.values):
             raise AssertionError("log-exclusion failed")

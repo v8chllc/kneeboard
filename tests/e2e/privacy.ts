@@ -4,7 +4,7 @@ import { expect, type APIRequestContext } from "@playwright/test";
  * Register one unique private value with the journey's in-memory log verifier.
  * JOURNEY_SENTINEL_PORT must name its isolated loopback receiver. Call once per
  * identity (for example email-a, pilot-a, session-a, session-repeat-0,
- * session-concurrent-0, token:<hash>, or fault-token:<hash>); the receiver
+ * token:<hash>, or fault-token:<hash>); the receiver
  * rejects duplicate identities and the final verifier rejects duplicate values.
  * Registration sends the value only to that receiver, never to app output.
  * Missing configuration, an empty value, or a rejected POST fails the journey.

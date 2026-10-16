@@ -1,9 +1,9 @@
 """Prove the isolated auth-endpoint exercise rejects a non-atomic token consumer.
 
 Copies tracked sources and local dependencies into the supplied scratch directory,
-changes only that disposable dependency copy, and runs the isolated browser
-journey there. The journey owns and removes its own Compose project and app
-processes; this script removes the scratch copy on every exit. No remote service
+changes only that disposable dependency copy, and runs the isolated Journey's
+database-backed auth endpoint test there. The Journey owns and removes its
+Compose project; this script removes the scratch copy on every exit. No remote service
 or fixed local database is used.
 """
 
@@ -35,7 +35,7 @@ def copy_sources(destination: Path) -> None:
         shutil.copy2(source, target)
     packages = ROOT / "node_modules"
     if not packages.is_dir():
-        raise AssertionError("local dependencies are required for browser fitness")
+        raise AssertionError("local dependencies are required for auth endpoint fitness")
     if sys.platform == "darwin":
         subprocess.run(["cp", "-cR", str(packages), str(destination / "node_modules")], check=True)
     else:

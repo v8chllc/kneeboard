@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import { Pool } from "pg";
 
 import { localTestDatabaseUrl } from "../support/local-test-db";
-import { clearInbox, listMessages, readLinks, readOneLink, registerSensitive } from "./mailpit";
+import { clearInbox, listMessages, readLinks, readOneLink } from "./mailpit";
+import { registerSensitive } from "./privacy";
+import { twoRedemptionsWaiting } from "./redemption-barrier";
 
 test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sentinels", async ({ browser, request }) => {
   test.setTimeout(90000);
@@ -212,6 +214,10 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     });
     expect(concurrentRequest.status()).toBe(200);
     const concurrentLink = await readOneLink(request, emailA);
+    const secondaryBaseUrl = process.env.PLAYWRIGHT_SECONDARY_BASE_URL;
+    if (!secondaryBaseUrl) throw new Error("Isolated secondary journey app is required");
+    const secondaryLink = new URL(concurrentLink);
+    secondaryLink.host = new URL(secondaryBaseUrl).host;
     const concurrentContexts = await Promise.all([110, 111].map((octet) =>
       browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": `192.0.2.${octet}` } }),
     ));
@@ -223,15 +229,20 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
       await lock.query("select id from verification where identifier=$1 for update", [
         createHash("sha256").update(new URL(concurrentLink).searchParams.get("token")!).digest("hex"),
       ]);
-      const redemptions = concurrentPages.map((page) => page.goto(concurrentLink));
+      // Each server process has its own Better Auth in-memory consume lock.
+      // Separate processes make both redemptions reach the shared DB boundary.
+      const redemptions = [
+        concurrentPages[0].goto(concurrentLink),
+        concurrentPages[1].goto(secondaryLink.toString()),
+      ];
       const deadline = Date.now() + 10000;
       let reachedPersistence = false;
       while (Date.now() < deadline) {
-        const waiting = await pool.query("select count(*)::int as count from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and query like '%verification%'");
-        if (waiting.rows[0].count > 0) { reachedPersistence = true; break; }
+        const waiting = await pool.query("select pid from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and query like '%verification%'");
+        if (twoRedemptionsWaiting(waiting.rows)) { reachedPersistence = true; break; }
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      expect(reachedPersistence, "Redemption must reach the verification persistence boundary").toBe(true);
+      expect(reachedPersistence, "Both redemption backends must reach the verification persistence boundary").toBe(true);
       await lock.query("commit");
       await Promise.all(redemptions);
     } finally {

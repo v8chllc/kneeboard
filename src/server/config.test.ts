@@ -56,6 +56,25 @@ describe("server configuration", () => {
     }
   });
 
+  it("rejects absent or malformed database, app, and sender values without exposing them", () => {
+    const cases: { key: "DATABASE_URL" | "BETTER_AUTH_URL" | "MAIL_FROM_EMAIL"; value: string | undefined }[] = [
+      { key: "DATABASE_URL", value: undefined },
+      { key: "DATABASE_URL", value: "private-db-marker" },
+      { key: "BETTER_AUTH_URL", value: undefined },
+      { key: "BETTER_AUTH_URL", value: "private-app-marker" },
+      { key: "MAIL_FROM_EMAIL", value: undefined },
+      { key: "MAIL_FROM_EMAIL", value: "private-sender-marker" },
+    ];
+    for (const { key, value } of cases) {
+      let error: unknown;
+      try { parseServerConfig({ ...local, [key]: value }); } catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(Error);
+      const message = (error as Error).message;
+      if (value !== undefined) expect(message.includes(value)).toBe(false);
+      expect(["Invalid server configuration", "Invalid URL"]).toContain(message);
+    }
+  });
+
   it("requires HTTPS, Resend delivery, credentials, and sender in production", () => {
     expect(parseServerConfig(production).MAIL_DELIVERY).toBe("resend");
     for (const change of [

@@ -5,7 +5,6 @@ import { Pool } from "pg";
 import { localTestDatabaseUrl } from "../support/local-test-db";
 import { clearInbox, listMessages, readLinks, readOneLink } from "./mailpit";
 import { registerSensitive } from "./privacy";
-import { twoRedemptionsWaiting } from "./redemption-barrier";
 
 test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sentinels", async ({ browser, request }) => {
   test.setTimeout(90000);
@@ -208,64 +207,10 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     expect(repeatedCookies[0]).not.toBe(repeatedCookies[1]);
     console.log("JOURNEY repeated distinct links: pass");
 
-    const concurrentRequest = await request.post("/api/auth/sign-in/magic-link", {
-      headers: { origin: process.env.PLAYWRIGHT_BASE_URL!, "x-forwarded-for": "192.0.2.87" },
-      data: { email: emailA },
-    });
-    expect(concurrentRequest.status()).toBe(200);
-    const concurrentLink = await readOneLink(request, emailA);
-    const secondaryBaseUrl = process.env.PLAYWRIGHT_SECONDARY_BASE_URL;
-    if (!secondaryBaseUrl) throw new Error("Isolated secondary journey app is required");
-    const secondaryLink = new URL(concurrentLink);
-    secondaryLink.host = new URL(secondaryBaseUrl).host;
-    const concurrentContexts = await Promise.all([110, 111].map((octet) =>
-      browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": `192.0.2.${octet}` } }),
-    ));
-    const concurrentPages = await Promise.all(concurrentContexts.map((context) => context.newPage()));
-    const beforeSessions = await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [emailA]);
-    const lock = await pool.connect();
-    try {
-      await lock.query("begin");
-      await lock.query("select id from verification where identifier=$1 for update", [
-        createHash("sha256").update(new URL(concurrentLink).searchParams.get("token")!).digest("hex"),
-      ]);
-      // Each server process has its own Better Auth in-memory consume lock.
-      // Separate processes make both redemptions reach the shared DB boundary.
-      const redemptions = [
-        concurrentPages[0].goto(concurrentLink),
-        concurrentPages[1].goto(secondaryLink.toString()),
-      ];
-      const deadline = Date.now() + 10000;
-      let reachedPersistence = false;
-      while (Date.now() < deadline) {
-        const waiting = await pool.query("select pid from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and query like '%verification%'");
-        if (twoRedemptionsWaiting(waiting.rows)) { reachedPersistence = true; break; }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      expect(reachedPersistence, "Both redemption backends must reach the verification persistence boundary").toBe(true);
-      await lock.query("commit");
-      await Promise.all(redemptions);
-    } finally {
-      await lock.query("rollback");
-      lock.release();
-    }
-    const concurrentCookies = await Promise.all(concurrentContexts.map(async (context) =>
-      (await context.cookies()).find((item) => item.name.endsWith("session_token"))?.value,
-    ));
-    const redeemedCookies = concurrentCookies.filter(Boolean);
-    if (redeemedCookies.length !== 1) console.log("JOURNEY simultaneous redemption cookie count: fail");
-    expect(redeemedCookies).toHaveLength(1);
-    const afterSessions = await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [emailA]);
-    expect(afterSessions.rows[0].count).toBe(beforeSessions.rows[0].count + 1);
-    await expect(concurrentPages[concurrentCookies[0] ? 0 : 1].getByRole("button", { name: "Sign out" })).toBeVisible();
-    await expect(concurrentPages[concurrentCookies[0] ? 1 : 0].getByRole("heading", { name: "Sign in with a magic link" })).toBeVisible();
-    console.log("JOURNEY simultaneous redemption: pass");
-
     for (const [identity, value] of Object.entries({
       "email-a": emailA, "email-b": emailB, "pilot-a": pilotA, "pilot-b": pilotB,
       "session-a": sessionCookie!.value, "session-b": sessionCookieB!.value,
       ...Object.fromEntries(repeatedCookies.map((value, index) => [`session-repeat-${index}`, value])),
-      ...Object.fromEntries(concurrentCookies.filter((value): value is string => Boolean(value)).map((value, index) => [`session-concurrent-${index}`, value])),
     })) await registerSensitive(request, identity, value);
   } finally {
     await pool.end();

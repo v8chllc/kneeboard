@@ -1,4 +1,4 @@
-"""Fail-closed checks for the browser journey's non-atomic fitness probe."""
+"""Fail-closed checks for the auth endpoint's non-atomic fitness probe."""
 
 import importlib.util
 import signal
@@ -44,9 +44,9 @@ class E2EJourneyFitnessTests(TestCase):
         self.assertEqual([call.args[1] for call in signal_group.call_args_list], [signal.SIGINT, signal.SIGKILL])
         self.assertEqual(process.communicate.call_count, 3)
 
-    def test_browser_fitness_command_is_documented(self) -> None:
+    def test_auth_endpoint_fitness_command_is_documented(self) -> None:
         readme = (ROOT / "README.md").read_text()
-        self.assertIn("mise exec -- python3 scripts/e2e_journey_fitness.py /tmp/kneeboard-browser-fitness", readme)
+        self.assertIn("mise exec -- python3 scripts/e2e_journey_fitness.py /tmp/kneeboard-auth-fitness", readme)
 
     def test_only_atomic_session_failure_confirms_non_atomic_mutant(self) -> None:
         fitness.require_expected_failure(1, fitness.EXPECTED_FAILURE)

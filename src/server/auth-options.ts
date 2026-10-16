@@ -1,18 +1,34 @@
+import { createHash } from "node:crypto";
+
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { APIError } from "better-auth/api";
 import { magicLink } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import * as schema from "../db/schema";
 import { isAllowedEmail, type ServerConfig } from "./config";
 
+const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+
 /** Keep disallowed addresses indistinguishable at the delivery boundary. */
 export function guardedMagicLinkSender(
   config: ServerConfig,
   deliver: (email: string, url: string) => Promise<void>,
+  revoke: (token: string) => Promise<void>,
 ) {
-  return async ({ email, url }: { email: string; url: string }) => {
-    if (isAllowedEmail(config, email)) await deliver(email, url);
+  return async ({ email, url, token }: { email: string; url: string; token: string }) => {
+    if (!isAllowedEmail(config, email)) return;
+    try {
+      await deliver(email, url);
+    } catch {
+      try {
+        await revoke(token);
+      } catch {
+        // The caller sees only a generic failure, even if cleanup fails.
+      }
+      throw new Error("Magic-link delivery failed");
+    }
   };
 }
 
@@ -43,9 +59,17 @@ export function createAuthOptions(
     },
     plugins: [magicLink({
       expiresIn: 300,
-      storeToken: "hashed",
+      // A documented custom hasher makes the exact row addressable for
+      // revocation when delivery fails after Better Auth creates it.
+      storeToken: { type: "custom-hasher", hash: async (token) => tokenHash(token) },
       rateLimit: { window: 60, max: 5 },
-      sendMagicLink: guardedMagicLinkSender(config, deliver),
+      sendMagicLink: guardedMagicLinkSender(config, deliver, async (token) => {
+        // Better Auth 1.7.6 stores the documented custom-hasher result as the
+        // verification identifier. The integration test protects this seam.
+        await database.delete(schema.verification).where(
+          eq(schema.verification.identifier, tokenHash(token)),
+        );
+      }),
     })],
   };
 }

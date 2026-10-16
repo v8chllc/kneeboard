@@ -110,9 +110,13 @@ mise exec -- pnpm dev
 ```
 
 Open <http://localhost:3000>. The page should display the simulation-only
-warning. No environment variables are required by the current scaffold.
-`.env.example` grows only when later sections introduce services; local secrets
-belong in the ignored `.env.local` file.
+warning. The static scaffold does not read server configuration yet. For the
+section 7 sign-in flow, copy `.env.example` to the ignored `.env.local`, replace
+`BETTER_AUTH_SECRET` with the output of `openssl rand -base64 32`, and set
+`AUTH_EMAIL_ALLOWLIST` to the exact email addresses allowed to sign in. The
+checked-in address is an example only. An unset or empty allowlist rejects
+everyone; `*` deliberately permits any valid address. Keep local secrets in
+`.env.local` and never commit them.
 
 The canonical local commands are:
 
@@ -137,6 +141,29 @@ production runtime locally:
 mise exec -- pnpm build
 mise exec -- pnpm start
 ```
+
+### Local Mailpit
+
+Start the local-only mail inbox separately from PostgreSQL:
+
+```bash
+docker compose -f compose.yaml -p kneeboard up -d mailpit
+```
+
+Read captured mail at <http://127.0.0.1:8025>. Mailpit accepts SMTP at
+`127.0.0.1:1025`; both ports bind only to loopback. To stop it, run
+`docker compose -f compose.yaml -p kneeboard stop mailpit`. The container has no
+persistent volume. The image is pinned to the multi-platform digest of Mailpit
+v1.31.4, released 2026-10-03. This version includes the earlier SMTP and API
+security fixes in the 1.31 series; the service is never deployed or started by
+CI. The later browser journey will use its REST API to read and clear messages.
+
+Local configuration uses `MAIL_DELIVERY=mailpit`, `MAIL_FROM_EMAIL`, and the
+loopback SMTP host and port from `.env.local`. Production requires an HTTPS
+`BETTER_AUTH_URL`, `MAIL_DELIVERY=resend`, `RESEND_API_KEY`, and a valid
+`MAIL_FROM_EMAIL`. `DATABASE_URL` and a unique 32-character-or-longer
+`BETTER_AUTH_SECRET` are required in every environment. Server configuration
+validation gives a generic error and does not print rejected values.
 
 ### Local PostgreSQL
 

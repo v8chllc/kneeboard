@@ -154,7 +154,13 @@ def checked(args: list[str], env: dict[str, str], budget: str, label: str) -> st
             if locations:
                 print(f"Isolated auth assertion locations: {', '.join(dict.fromkeys(locations))}")
         raise AssertionError(f"{label} failed (exit {result.returncode})")
-    return (result.stdout + result.stderr).strip()
+    return result.stdout.strip()
+
+
+def require_atomic_redemption(result: str) -> None:
+    """Require proof emitted only after the isolated redemption assertions pass."""
+    if "JOURNEY atomic redemption: pass" not in result:
+        raise AssertionError("isolated atomic redemption result missing")
 
 
 def local(action: str, env: dict[str, str], database: str | None = None) -> None:
@@ -368,8 +374,7 @@ def main() -> None:
                     app_env | {"AUTH_JOURNEY_ISOLATED": "1", "NODE_ENV": "test"},
                     "OPERATION_TEST_TIMEOUT_SECONDS", "isolated auth integration")
             if test_file == "src/server/auth-integration.test.ts":
-                if "atomically consumes one link across two auth instances" not in result:
-                    raise AssertionError("isolated atomic redemption result missing")
+                require_atomic_redemption(result)
                 print("JOURNEY atomic redemption: pass")
         print("JOURNEY auth integration: pass")
         checked(["mise", "exec", "--", "pnpm", "build"], app_env | {"NODE_ENV": "production"},

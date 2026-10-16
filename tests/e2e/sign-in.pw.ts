@@ -252,7 +252,9 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     const concurrentCookies = await Promise.all(concurrentContexts.map(async (context) =>
       (await context.cookies()).find((item) => item.name.endsWith("session_token"))?.value,
     ));
-    expect(concurrentCookies.filter(Boolean)).toHaveLength(1);
+    const redeemedCookies = concurrentCookies.filter(Boolean);
+    if (redeemedCookies.length !== 1) console.log("JOURNEY simultaneous redemption cookie count: fail");
+    expect(redeemedCookies).toHaveLength(1);
     const afterSessions = await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [emailA]);
     expect(afterSessions.rows[0].count).toBe(beforeSessions.rows[0].count + 1);
     await expect(concurrentPages[concurrentCookies[0] ? 0 : 1].getByRole("button", { name: "Sign out" })).toBeVisible();

@@ -109,14 +109,21 @@ mise exec -- pnpm install --frozen-lockfile
 mise exec -- pnpm dev
 ```
 
-Open <http://localhost:3000>. The page should display the simulation-only
-warning. The static scaffold does not read server configuration yet. For the
-section 7 sign-in flow, copy `.env.example` to the ignored `.env.local`, replace
-`BETTER_AUTH_SECRET` with the output of `openssl rand -base64 32`, and set
-`AUTH_EMAIL_ALLOWLIST` to the exact email addresses allowed to sign in. The
-checked-in address is an example only. An unset or empty allowlist rejects
+Before starting sign-in, start local PostgreSQL and Mailpit as described below,
+and migrate the development database. Copy `.env.example` to the ignored
+`.env.local`, replace `BETTER_AUTH_SECRET` with the output of
+`openssl rand -base64 32`, and set `AUTH_EMAIL_ALLOWLIST` to the exact email
+addresses allowed to sign in. The checked-in address is an example only;
+copying it unchanged permits no real user. An unset or empty allowlist rejects
 everyone; `*` deliberately permits any valid address. Keep local secrets in
 `.env.local` and never commit them.
+
+Open <http://localhost:3000>. Enter an allowed email address, then open the
+sign-in message at <http://127.0.0.1:8025> and follow its link. On the signed-in
+home, enter a 1–16 digit SimBrief Pilot ID, including any leading zeros, and
+save it. Saving only validates and stores the value; it does not contact
+SimBrief. Use **Sign out** to end the session. Both home states show the
+simulation-only warning.
 
 The canonical local commands are:
 
@@ -130,7 +137,7 @@ The canonical local commands are:
 | `pnpm test` | Run the Vitest suite once. |
 | `pnpm test:watch` | Run Vitest in interactive watch mode. |
 | `pnpm journey:db` | Run the isolated database Journey. |
-| `pnpm journey:e2e` | Build and test the app in Chromium with an isolated database. |
+| `pnpm journey:e2e` | Build and test sign-in in Chromium with isolated PostgreSQL and Mailpit. |
 | `pnpm journey` | Run both Journeys in order, stopping if either fails. |
 
 With mise activated in the shell, run the commands directly. Otherwise prefix
@@ -200,13 +207,18 @@ validation, manual production migration, and rollback.
 For the section 6a database Journey, run `mise exec -- pnpm journey:db`. It
 creates and removes its own Compose project and volume on a temporary loopback
 port, exercises migration and database behavior, and checks the built local
-application. For the browser smoke Journey, run `mise exec -- pnpm journey:e2e`.
+application. For the browser sign-in Journey, run `mise exec -- pnpm journey:e2e`.
 It checks the pinned Playwright and Chromium headless shell versions, installs
-the browser if needed, migrates its own isolated database, builds and starts the
-local application, and checks the rendered page and simulation-only warning in
-Chromium. Run `mise exec -- pnpm journey` to run both in order. These Journeys
-run locally, by a person or an agent, and never in CI. Existing development and
-test databases are left intact by both Journeys.
+the browser if needed, migrates its own isolated database, starts Mailpit on
+temporary loopback ports, then builds and starts the local application.
+Chromium requests and redeems links, saves and reloads Pilot IDs for two
+accounts, checks validation, link reuse, rate limiting, sign-out, and the
+warning. The Journey reads and clears Mailpit messages through its REST API
+and checks in-memory app output for private values without printing them. It
+also verifies the journey accounts did not appear in either running fixed
+local database. Run `mise exec -- pnpm journey` to run both Journeys in order.
+These Journeys run locally, by a person or an agent, and never in CI. Existing
+development and test databases are left intact by both Journeys.
 
 Every command the Journey runs has a finite time budget, from 30 seconds for a
 Docker query to 15 minutes for the production build; the values and their

@@ -29,15 +29,14 @@ class E2EJourneyTests(TestCase):
         thread = threading.Thread(target=receiver.serve_forever, daemon=True)
         thread.start()
         try:
-            values = [f"synthetic-value-{index}" for index in range(10)]
-            body = json.dumps({"values": values}).encode()
+            body = json.dumps({"identity": "token:synthetic", "value": "synthetic-value"}).encode()
             with urllib.request.urlopen(urllib.request.Request(
                 f"http://127.0.0.1:{receiver.server_port}/", data=body,
                 headers={"Content-Type": "application/json"}, method="POST",
             ), timeout=2) as response:
                 self.assertEqual(response.status, 204)
-            self.assertEqual(receiver.values, values)
-            short = json.dumps({"values": values[:7]}).encode()
+            self.assertEqual(receiver.values, {"token:synthetic": "synthetic-value"})
+            short = json.dumps({"identity": "token:synthetic", "value": "other-value"}).encode()
             with self.assertRaises(urllib.error.HTTPError) as error:
                 urllib.request.urlopen(urllib.request.Request(
                     f"http://127.0.0.1:{receiver.server_port}/", data=short,
@@ -45,7 +44,7 @@ class E2EJourneyTests(TestCase):
                 ), timeout=2)
             self.assertEqual(error.exception.code, 400)
             error.exception.close()
-            self.assertEqual(receiver.values, values)
+            self.assertEqual(receiver.values, {"token:synthetic": "synthetic-value"})
         finally:
             receiver.shutdown()
             receiver.server_close()
@@ -65,13 +64,15 @@ class E2EJourneyTests(TestCase):
         output = journey.AppOutput(process)
         self.assertTrue(output.contains_private_value(["private-sentinel"]))
         self.assertFalse(output.contains_private_value(["missing-sentinel"]))
-        values = [f"synthetic-{index}" for index in range(18)] + ["private-sentinel"]
+        values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS}
+        values["token:one"] = "private-sentinel"
+        values["fault-token:one"] = "synthetic-fault-token"
         with self.assertRaisesRegex(AssertionError, "log-exclusion failed"):
             journey.verify_private_output(output, values)
         with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
-            journey.verify_private_output(output, values[:-1])
+            journey.verify_private_output(output, {key: value for key, value in values.items() if key != "fault-token:one"})
         with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
-            journey.verify_private_output(output, values[:-1] + [values[0]])
+            journey.verify_private_output(output, values | {"token:duplicate": "private-sentinel"})
 
     def test_output_capture_detects_second_account_pilot_id(self) -> None:
         process = MagicMock(stdout=io.BytesIO(b"ordinary app output\n00246802\n"))
@@ -110,12 +111,26 @@ class E2EJourneyTests(TestCase):
             patch.object(journey, "AppOutput") as output,
             patch.object(journey, "await_port"),
             patch.object(journey, "clear_mailpit"),
-            patch.object(journey, "http_response", return_value=(200, b"{}")),
+            patch.object(journey, "http_response", side_effect=lambda url, **_kwargs: (200, b"null") if url.endswith("/get-session") else (200, b"{}")),
             patch.object(journey, "mailpit_messages", return_value={"total": 1, "messages": []}),
             patch.object(journey.db, "terminate_process_group", return_value=[]),
         ):
             output.return_value.contains_private_value.return_value = False
             with self.assertRaisesRegex(AssertionError, "missing allowlist delivery failed"):
+                journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
+
+    def test_runtime_probe_rejects_404_for_valid_configuration(self) -> None:
+        process = MagicMock(returncode=None)
+        with (
+            patch.object(journey.db, "free_port", return_value=30446),
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput"),
+            patch.object(journey, "await_port"),
+            patch.object(journey, "clear_mailpit"),
+            patch.object(journey, "http_response", return_value=(404, b"Not Found")),
+            patch.object(journey.db, "terminate_process_group", return_value=[]),
+        ):
+            with self.assertRaisesRegex(AssertionError, "valid missing auth configuration was rejected"):
                 journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
 
     def test_runtime_probe_fails_when_invalid_production_auth_starts(self) -> None:
@@ -133,7 +148,7 @@ class E2EJourneyTests(TestCase):
             patch.object(journey, "AppOutput") as output,
             patch.object(journey, "await_port"),
             patch.object(journey, "clear_mailpit"),
-            patch.object(journey, "http_response", return_value=(200, b"{}")),
+            patch.object(journey, "http_response", side_effect=lambda url, **_kwargs: ((404, b"Not Found") if current_env.get("NODE_ENV") == "production" else (200, b"null")) if url.endswith("/get-session") else (200, b"{}")),
             patch.object(journey, "mailpit_messages", side_effect=lambda _port: {
                 "total": 1 if current_env.get("AUTH_EMAIL_ALLOWLIST") == "*" else 0,
                 "messages": [{"To": [{"Address": "policy-wildcard@example.invalid"}]}],
@@ -183,7 +198,7 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
-            receiver.return_value.values = [f"synthetic-{index}" for index in range(19)]
+            receiver.return_value.values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS} | {"token:one": "synthetic-token", "fault-token:one": "synthetic-fault-token"}
             receiver.return_value.server_port = 12345
             output.return_value.contains_private_value.return_value = False
             journey.main()

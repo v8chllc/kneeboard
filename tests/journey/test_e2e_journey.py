@@ -27,12 +27,19 @@ class E2EJourneyTests(TestCase):
                 journey.fixed_database_isolation({}, ("journey-a@example.invalid", "journey-b@example.invalid"))
         self.assertEqual(len(checked.call_args_list), 5)
         self.assertIn("kneeboard_test", checked.call_args.args[0])
+        self.assertIn('FROM "user" WHERE email IN', checked.call_args.args[0][-1])
+        self.assertNotIn("account_settings", checked.call_args.args[0][-1])
 
     def test_output_capture_fails_when_a_deliberate_sentinel_is_logged(self) -> None:
         process = MagicMock(stdout=io.BytesIO(b"ordinary app output\nprivate-sentinel\n"))
         output = journey.AppOutput(process)
         self.assertTrue(output.contains_private_value(["private-sentinel"]))
         self.assertFalse(output.contains_private_value(["missing-sentinel"]))
+
+    def test_output_capture_detects_second_account_pilot_id(self) -> None:
+        process = MagicMock(stdout=io.BytesIO(b"ordinary app output\n00246802\n"))
+        output = journey.AppOutput(process)
+        self.assertTrue(output.contains_private_value(["00135791", "00246802"]))
 
     def test_browser_pin_matches_installed_mapping_and_rejects_change(self) -> None:
         self.assertEqual(journey.browser_metadata()["revision"], "1248")
@@ -71,7 +78,8 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
-            receiver.return_value.values = ["email", "token", "cookie", "pilot"]
+            receiver.return_value.values = ["email-a", "token-a", "cookie-a", "pilot-a",
+                                            "email-b", "token-b", "cookie-b", "pilot-b"]
             receiver.return_value.server_port = 12345
             output.return_value.contains_private_value.return_value = False
             journey.main()

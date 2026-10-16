@@ -92,8 +92,12 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     await pageB.getByRole("button", { name: "Email me a sign-in link" }).click();
     await expect(pageB.getByRole("status")).toBeVisible();
     const linkB = await readOneLink(request, emailB);
+    const tokenB = new URL(linkB).searchParams.get("token");
+    expect(Boolean(tokenB)).toBe(true);
     await pageB.goto(linkB);
     await expect(pageB.getByRole("heading", { name: "Set up your SimBrief Pilot ID" })).toBeVisible();
+    const sessionCookieB = (await contextB.cookies()).find((cookie) => cookie.name.endsWith("session_token"));
+    expect(Boolean(sessionCookieB?.value)).toBe(true);
     await pageB.getByRole("textbox", { name: "Pilot ID" }).fill(pilotB);
     await pageB.getByRole("button", { name: "Save Pilot ID" }).click();
     await expect(pageB.getByRole("status")).toHaveText("Pilot ID saved.");
@@ -133,7 +137,10 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     await expect(pageA.getByRole("textbox", { name: "Pilot ID" })).toHaveCount(0);
     console.log("JOURNEY sign-out: pass");
 
-    const sentinels = { email: emailA, token: tokenA!, cookie: sessionCookie!.value, pilotId: pilotA };
+    const sentinels = {
+      emailA, tokenA: tokenA!, cookieA: sessionCookie!.value, pilotIdA: pilotA,
+      emailB, tokenB: tokenB!, cookieB: sessionCookieB!.value, pilotIdB: pilotB,
+    };
     const response = await request.post(`http://127.0.0.1:${sentinelPort}/`, { data: sentinels });
     expect(response.status()).toBe(204);
   } finally {

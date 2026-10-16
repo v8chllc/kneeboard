@@ -22,15 +22,15 @@ Task-list section 5 is complete. The framework-independent domain layer and its
 unit tests cover route interpretation, coordinates, slot and page assignment,
 and tracker transitions.
 
-The pre-build execution gate is closed. The structured agent workflow,
-checkpoint cadence, delegation boundaries, review gates, and the manager and
-primary build-agent kickoff prompts are approved. Implementation proceeds one
-task-list section per pull request, with a section split across
-two pull requests when its diff cannot be reviewed safely as one unit.
+Task-list section 6 is merged: local PostgreSQL, the persistence schema, tracker
+mutation concurrency, and atomic OFP-load reservation, cooldown and idempotency,
+plus the local Playwright journey harness. Production Neon provisioning is not
+established and belongs to section 9.
 
-The next milestone is task-list section 6: local PostgreSQL and the persistence
-schema in one pull request, followed by concurrent tracker and OFP-load behavior
-in a second pull request. Section 6a pilots the `feature-orchestrate` workflow.
+The next milestone is task-list section 7: authentication with Better Auth magic
+links, Mailpit locally and Resend in production, a fail-closed email allowlist,
+and account isolation. Sections run through the `feature-orchestrate` workflow,
+and the sponsor merges every pull request.
 
 ## About this repository
 

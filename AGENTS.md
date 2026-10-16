@@ -78,17 +78,12 @@ Follow [CODING_STANDARDS.md — SimBrief Data and Privacy](CODING_STANDARDS.md#s
 Preserve these task-list dependencies. The in-repository decision documents
 above take precedence over this implementation order.
 
-The unnumbered pre-build execution gate closed on 2026-08-12. The approved
-orchestration uses one pull request per numbered section (with a section split
-across two pull requests when its diff cannot be reviewed safely as one unit)
-and one commit per slice, CodeRabbit as the mandatory review gate on every
-section pull request, interactive bounded goals through sections 4 and 5
-supervised at each checkpoint by the user or a user-authorized read-only manager,
-and a capped loop permitted from section 6 after both complete cleanly. That
-graduation was granted on 2026-08-20; it makes a loop available to authorize
-rather than authorizing one, and section 7 is excepted and stays interactive. A
-manager-supervised run keeps one persistent primary build agent as the sole
-writer and integrator; human-only approval boundaries remain with the user.
+Numbered sections run through the `feature-orchestrate` workflow skill and
+other work through `change-set-orchestrate`, both configured by the profile
+below. Review follows the profile's `review_capability`, and the sponsor merges
+every pull request. A finding that touches a safety, privacy, authorization, or
+test boundary is fixed or escalated, never accepted as-is. Production
+operations require separate explicit authority.
 
 1. Capture, inspect, map, and sanitize representative SimBrief fixtures.
 2. Resolve the remaining implementation-planning decisions.
@@ -127,7 +122,7 @@ Follow [CODING_STANDARDS.md — Testing](CODING_STANDARDS.md#testing).
 
 Read by orchestrator skills such as `change-set-orchestrate` at resolve. The
 profile narrows authority and never widens it; the rules elsewhere in this
-document still bind every run, including section 7 staying interactive.
+document still bind every run.
 
 ```yaml
 autonomy: autonomous
@@ -140,7 +135,6 @@ required_gates:
   - CI workflow (.github/workflows/ci.yml) passing on the pull request head
 review_capability: consensus-review
 journey: "automated: mise exec -- pnpm journey" # database and browser journeys run locally, never in CI
-loop_ceiling: 3               # the capped loop granted on 2026-08-20
 quality_commands:
   - mise exec -- pnpm lint
   - mise exec -- pnpm typecheck

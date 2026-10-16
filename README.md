@@ -109,10 +109,21 @@ mise exec -- pnpm install --frozen-lockfile
 mise exec -- pnpm dev
 ```
 
-Open <http://localhost:3000>. The page should display the simulation-only
-warning. No environment variables are required by the current scaffold.
-`.env.example` grows only when later sections introduce services; local secrets
-belong in the ignored `.env.local` file.
+Before starting sign-in, start local PostgreSQL and Mailpit as described below,
+and migrate the development database. Copy `.env.example` to the ignored
+`.env.local`, replace `BETTER_AUTH_SECRET` with the output of
+`openssl rand -base64 32`, and set `AUTH_EMAIL_ALLOWLIST` to the exact email
+addresses allowed to sign in. The checked-in address is an example only;
+copying it unchanged permits no real user. An unset or empty allowlist rejects
+everyone; `*` deliberately permits any valid address. Keep local secrets in
+`.env.local` and never commit them.
+
+Open <http://localhost:3000>. Enter an allowed email address, then open the
+sign-in message at <http://127.0.0.1:8025> and follow its link. On the signed-in
+home, enter a 1–16 digit SimBrief Pilot ID, including any leading zeros, and
+save it. Saving only validates and stores the value; it does not contact
+SimBrief. Use **Sign out** to end the session. Both home states show the
+simulation-only warning.
 
 The canonical local commands are:
 
@@ -126,7 +137,7 @@ The canonical local commands are:
 | `pnpm test` | Run the Vitest suite once. |
 | `pnpm test:watch` | Run Vitest in interactive watch mode. |
 | `pnpm journey:db` | Run the isolated database Journey. |
-| `pnpm journey:e2e` | Build and test the app in Chromium with an isolated database. |
+| `pnpm journey:e2e` | Build and test sign-in in Chromium with isolated PostgreSQL and Mailpit. |
 | `pnpm journey` | Run both Journeys in order, stopping if either fails. |
 
 With mise activated in the shell, run the commands directly. Otherwise prefix
@@ -137,6 +148,29 @@ production runtime locally:
 mise exec -- pnpm build
 mise exec -- pnpm start
 ```
+
+### Local Mailpit
+
+Start the local-only mail inbox separately from PostgreSQL:
+
+```bash
+docker compose -f compose.yaml -p kneeboard up -d mailpit
+```
+
+Read captured mail at <http://127.0.0.1:8025>. Mailpit accepts SMTP at
+`127.0.0.1:1025`; both ports bind only to loopback. To stop it, run
+`docker compose -f compose.yaml -p kneeboard stop mailpit`. The container has no
+persistent volume. The image is pinned to the multi-platform digest of Mailpit
+v1.31.4, released 2026-10-03. This version includes the earlier SMTP and API
+security fixes in the 1.31 series; the service is never deployed or started by
+CI. The later browser journey will use its REST API to read and clear messages.
+
+Local configuration uses `MAIL_DELIVERY=mailpit`, `MAIL_FROM_EMAIL`, and the
+loopback SMTP host and port from `.env.local`. Production requires an HTTPS
+`BETTER_AUTH_URL`, `MAIL_DELIVERY=resend`, `RESEND_API_KEY`, and a valid
+`MAIL_FROM_EMAIL`. `DATABASE_URL` and a unique 32-character-or-longer
+`BETTER_AUTH_SECRET` are required in every environment. Server configuration
+validation gives a generic error and does not print rejected values.
 
 ### Local PostgreSQL
 
@@ -173,13 +207,18 @@ validation, manual production migration, and rollback.
 For the section 6a database Journey, run `mise exec -- pnpm journey:db`. It
 creates and removes its own Compose project and volume on a temporary loopback
 port, exercises migration and database behavior, and checks the built local
-application. For the browser smoke Journey, run `mise exec -- pnpm journey:e2e`.
+application. For the browser sign-in Journey, run `mise exec -- pnpm journey:e2e`.
 It checks the pinned Playwright and Chromium headless shell versions, installs
-the browser if needed, migrates its own isolated database, builds and starts the
-local application, and checks the rendered page and simulation-only warning in
-Chromium. Run `mise exec -- pnpm journey` to run both in order. These Journeys
-run locally, by a person or an agent, and never in CI. Existing development and
-test databases are left intact by both Journeys.
+the browser if needed, migrates its own isolated database, starts Mailpit on
+temporary loopback ports, then builds and starts the local application.
+Chromium requests and redeems links, saves and reloads Pilot IDs for two
+accounts, checks validation, link reuse, rate limiting, sign-out, and the
+warning. The Journey reads and clears Mailpit messages through its REST API
+and checks in-memory app output for private values without printing them. It
+also verifies the journey accounts did not appear in either running fixed
+local database. Run `mise exec -- pnpm journey` to run both Journeys in order.
+These Journeys run locally, by a person or an agent, and never in CI. Existing
+development and test databases are left intact by both Journeys.
 
 Every command the Journey runs has a finite time budget, from 30 seconds for a
 Docker query to 15 minutes for the production build; the values and their
@@ -206,6 +245,20 @@ that the strengthened checks fail for the right reason, run
 guarded behavior in a disposable project and requires the exact claim label to
 fail. Then it removes every project and scratch file it created. Add
 `--case <name>` to rerun one case, or `--list` to show them all.
+
+Run the auth-endpoint concurrency fitness check alongside `journey:e2e` and
+the database fitness check:
+
+```bash
+mise exec -- python3 scripts/e2e_journey_fitness.py /tmp/kneeboard-auth-fitness
+```
+
+The scratch directory must be outside this repository and needs room for a
+temporary copy of tracked sources and local dependencies. The check changes only
+that copy of Better Auth, runs the isolated database-backed auth endpoint test,
+and requires the atomic-redemption session assertion to fail. It removes its
+temporary copy on success or failure; the empty scratch directory may be removed
+afterward. Like the Journeys, run this locally and never in CI.
 
 ### Fetch a SimBrief OFP
 

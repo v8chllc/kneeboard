@@ -1,11 +1,15 @@
 """Focused ownership, pin, budget, and failure checks for the browser Journey."""
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
@@ -20,6 +24,198 @@ SPEC.loader.exec_module(journey)
 
 
 class E2EJourneyTests(TestCase):
+    def test_both_app_launches_share_captured_process_contract(self) -> None:
+        process = MagicMock()
+        with (
+            patch.object(journey.subprocess, "Popen", return_value=process) as popen,
+            patch.object(journey, "AppOutput") as output,
+        ):
+            first = journey.start_captured_app(30041, {"BETTER_AUTH_URL": "http://localhost:30041"})
+            second = journey.start_captured_app(30042, {"BETTER_AUTH_URL": "http://localhost:30042"})
+        self.assertEqual(first, (process, output.return_value))
+        self.assertEqual(second, (process, output.return_value))
+        self.assertEqual(popen.call_count, 2)
+        for call, port in zip(popen.call_args_list, (30041, 30042)):
+            self.assertEqual(call.args[0], ["mise", "exec", "--", "pnpm", "start", "--port", str(port)])
+            self.assertEqual(call.kwargs["cwd"], journey.db.ROOT)
+            self.assertEqual(call.kwargs["stdin"], subprocess.DEVNULL)
+            self.assertEqual(call.kwargs["stdout"], subprocess.PIPE)
+            self.assertEqual(call.kwargs["stderr"], subprocess.STDOUT)
+            self.assertTrue(call.kwargs["start_new_session"])
+
+    def test_captured_app_launch_cleans_process_when_capture_fails(self) -> None:
+        process = MagicMock()
+        with (
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput", side_effect=OSError("capture failed")),
+            patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
+        ):
+            with self.assertRaisesRegex(OSError, "capture failed"):
+                journey.start_captured_app(30041, {})
+        stop.assert_called_once_with(process, float(journey.db.TERMINATION_GRACE_SECONDS))
+
+    def test_captured_app_launch_reports_cleanup_failure_without_masking_capture(self) -> None:
+        process = MagicMock()
+        with (
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput", side_effect=OSError("capture failed")),
+            patch.object(journey.db, "terminate_process_group", return_value=["process survived"]),
+            patch.object(journey.db, "report_cleanup_failure") as report,
+        ):
+            with self.assertRaisesRegex(OSError, "capture failed") as error:
+                journey.start_captured_app(30041, {})
+        self.assertIn("process survived", report.call_args.args[0])
+        self.assertIs(report.call_args.args[1], error.exception)
+
+    def test_receiver_keeps_all_private_sentinels_in_memory(self) -> None:
+        receiver = journey.SentinelReceiver()
+        thread = threading.Thread(target=receiver.serve_forever, daemon=True)
+        thread.start()
+        try:
+            body = json.dumps({"identity": "token:synthetic", "value": "synthetic-value"}).encode()
+            with urllib.request.urlopen(urllib.request.Request(
+                f"http://127.0.0.1:{receiver.server_port}/", data=body,
+                headers={"Content-Type": "application/json"}, method="POST",
+            ), timeout=2) as response:
+                self.assertEqual(response.status, 204)
+            self.assertEqual(receiver.values, {"token:synthetic": "synthetic-value"})
+            short = json.dumps({"identity": "token:synthetic", "value": "other-value"}).encode()
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(urllib.request.Request(
+                    f"http://127.0.0.1:{receiver.server_port}/", data=short,
+                    headers={"Content-Type": "application/json"}, method="POST",
+                ), timeout=2)
+            self.assertEqual(error.exception.code, 400)
+            error.exception.close()
+            self.assertEqual(receiver.values, {"token:synthetic": "synthetic-value"})
+        finally:
+            receiver.shutdown()
+            receiver.server_close()
+            thread.join(timeout=2)
+
+    def test_fixed_database_inspection_rejects_a_journey_account(self) -> None:
+        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "t", "1"]) as checked:
+            with self.assertRaisesRegex(AssertionError, "journey account appeared in a fixed database"):
+                journey.fixed_database_isolation({}, ("journey-a@example.invalid", "journey-b@example.invalid"))
+        self.assertEqual(len(checked.call_args_list), 5)
+        self.assertIn("kneeboard_test", checked.call_args.args[0])
+        self.assertIn('FROM "user" WHERE email IN', checked.call_args.args[0][-1])
+        self.assertNotIn("account_settings", checked.call_args.args[0][-1])
+
+    def test_output_capture_fails_when_a_deliberate_sentinel_is_logged(self) -> None:
+        process = MagicMock(stdout=io.BytesIO(b"ordinary app output\nprivate-sentinel\n"))
+        output = journey.AppOutput(process)
+        self.assertTrue(output.contains_private_value(["private-sentinel"]))
+        self.assertFalse(output.contains_private_value(["missing-sentinel"]))
+        values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS}
+        values["token:one"] = "private-sentinel"
+        values["fault-token:one"] = "synthetic-fault-token"
+        with self.assertRaisesRegex(AssertionError, "log-exclusion failed"):
+            journey.verify_private_output(output, values)
+        with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
+            journey.verify_private_output(output, {key: value for key, value in values.items() if key != "fault-token:one"})
+        with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
+            journey.verify_private_output(output, values | {"token:duplicate": "private-sentinel"})
+        for category in ("session-repeat-0", "session-repeat-1"):
+            with self.subTest(category=category):
+                with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
+                    journey.verify_private_output(output, {key: value for key, value in values.items() if key != category})
+
+    def test_output_capture_detects_second_account_pilot_id(self) -> None:
+        process = MagicMock(stdout=io.BytesIO(b"ordinary app output\n00246802\n"))
+        output = journey.AppOutput(process)
+        self.assertTrue(output.contains_private_value(["00135791", "00246802"]))
+
+    def test_session_category_omissions_fail_independently(self) -> None:
+        output = journey.AppOutput(MagicMock(stdout=io.BytesIO(b"ordinary app output\n")))
+        values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS}
+        values.update({"token:one": "synthetic-token", "fault-token:one": "synthetic-fault-token"})
+        journey.verify_private_output(output, values)
+        for identity in ("session-repeat-0", "session-repeat-1"):
+            with self.subTest(identity=identity):
+                with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
+                    journey.verify_private_output(output, {key: value for key, value in values.items() if key != identity})
+
+    def test_output_capture_fails_closed_on_overflow(self) -> None:
+        process = MagicMock(stdout=io.BytesIO(b"x" * (journey.OUTPUT_LIMIT_BYTES + 1)))
+        output = journey.AppOutput(process)
+        with self.assertRaisesRegex(AssertionError, "application output capture incomplete"):
+            output.contains_private_value(["private-sentinel"])
+
+    def test_output_capture_fails_closed_on_stalled_pipe(self) -> None:
+        release = threading.Event()
+
+        class StalledStream:
+            def read(self, _size: int) -> bytes:
+                release.wait(timeout=10)
+                return b""
+
+        output = journey.AppOutput(MagicMock(stdout=StalledStream()))
+        try:
+            with patch.object(output.thread, "join", wraps=output.thread.join) as join:
+                with self.assertRaisesRegex(AssertionError, "application output capture incomplete"):
+                    output.contains_private_value(["private-sentinel"])
+                join.assert_called_once_with(timeout=5)
+        finally:
+            release.set()
+            output.thread.join(timeout=2)
+
+    def test_runtime_probe_fails_when_missing_allowlist_sends_mail(self) -> None:
+        process = MagicMock(returncode=None)
+        with (
+            patch.object(journey.db, "free_port", return_value=30444),
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput") as output,
+            patch.object(journey, "await_port"),
+            patch.object(journey, "clear_mailpit"),
+            patch.object(journey, "http_response", side_effect=lambda url, **_kwargs: (200, b"null") if url.endswith("/get-session") else (200, b"{}")),
+            patch.object(journey, "mailpit_messages", return_value={"total": 1, "messages": []}),
+            patch.object(journey.db, "terminate_process_group", return_value=[]),
+        ):
+            output.return_value.contains_private_value.return_value = False
+            with self.assertRaisesRegex(AssertionError, "missing allowlist delivery failed"):
+                journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
+
+    def test_runtime_probe_rejects_404_for_valid_configuration(self) -> None:
+        process = MagicMock(returncode=None)
+        with (
+            patch.object(journey.db, "free_port", return_value=30446),
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput"),
+            patch.object(journey, "await_port"),
+            patch.object(journey, "clear_mailpit"),
+            patch.object(journey, "http_response", return_value=(404, b"Not Found")),
+            patch.object(journey.db, "terminate_process_group", return_value=[]),
+        ):
+            with self.assertRaisesRegex(AssertionError, "valid missing auth configuration was rejected"):
+                journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
+
+    def test_runtime_probe_fails_when_invalid_production_auth_starts(self) -> None:
+        process = MagicMock(returncode=None)
+        current_env: dict[str, str] = {}
+
+        def start(_args: object, **kwargs: object) -> MagicMock:
+            current_env.clear()
+            current_env.update(kwargs["env"])  # type: ignore[arg-type]
+            return process
+
+        with (
+            patch.object(journey.db, "free_port", return_value=30445),
+            patch.object(journey.subprocess, "Popen", side_effect=start),
+            patch.object(journey, "AppOutput") as output,
+            patch.object(journey, "await_port"),
+            patch.object(journey, "clear_mailpit"),
+            patch.object(journey, "http_response", side_effect=lambda url, **_kwargs: ((404, b"Not Found") if current_env.get("NODE_ENV") == "production" else (200, b"null")) if url.endswith("/get-session") else (200, b"{}")),
+            patch.object(journey, "mailpit_messages", side_effect=lambda _port: {
+                "total": 1 if current_env.get("AUTH_EMAIL_ALLOWLIST") == "*" else 0,
+                "messages": [{"To": [{"Address": "policy-wildcard@example.invalid"}]}],
+            }),
+            patch.object(journey.db, "terminate_process_group", return_value=[]),
+        ):
+            output.return_value.contains_private_value.return_value = False
+            with self.assertRaisesRegex(AssertionError, "invalid production-mailpit auth configuration was accepted"):
+                journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
+
     def test_browser_pin_matches_installed_mapping_and_rejects_change(self) -> None:
         self.assertEqual(journey.browser_metadata()["revision"], "1248")
         with patch.object(journey, "CHROMIUM_REVISION", "wrong"):
@@ -37,15 +233,33 @@ class E2EJourneyTests(TestCase):
         self.assertEqual(journey.db.INSTALL_TIMEOUT_SECONDS, original_budget)
         self.assertEqual(journey.db.budget_seconds("INSTALL_TIMEOUT_SECONDS"), 600)
 
+    def test_successful_command_returns_stdout_without_stderr(self) -> None:
+        result = journey.db.Completed(0, "machine-readable\n", "successful warning\n")
+        with patch.object(journey.db, "run_bounded", return_value=result):
+            self.assertEqual(
+                journey.checked(["probe"], {}, "DOCKER_QUERY_TIMEOUT_SECONDS", "probe"),
+                "machine-readable",
+            )
+
+    def test_skipped_atomic_redemption_output_is_rejected(self) -> None:
+        skipped_output = "atomically consumes one link across two auth instances"
+        with self.assertRaisesRegex(AssertionError, "isolated atomic redemption result missing"):
+            journey.require_atomic_redemption(skipped_output)
+
     def test_isolated_project_and_port_are_used_and_cleaned_on_success(self) -> None:
         process = MagicMock()
         process.returncode = None
         with (
             patch.object(journey.uuid, "uuid4") as uuid4,
-            patch.object(journey.db, "free_port", side_effect=[54441, 30041]),
-            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", ""]) as checked,
+            patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041]),
+            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "JOURNEY atomic redemption: pass", "", "", "", "", ""]) as checked,
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local") as local,
+            patch.object(journey, "SentinelReceiver") as receiver,
+            patch.object(journey, "AppOutput") as output,
+            patch.object(journey, "fixed_database_isolation") as fixed,
+            patch.object(journey, "auth_runtime_probes") as probes,
+            patch.object(journey, "clear_mailpit"),
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process) as popen,
@@ -54,14 +268,24 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
+            receiver.return_value.values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS} | {"token:one": "synthetic-token", "fault-token:one": "synthetic-fault-token"}
+            receiver.return_value.server_port = 12345
+            output.return_value.contains_private_value.return_value = False
             journey.main()
         env = local.call_args_list[0].args[1]
         self.assertEqual(env["KNEEBOARD_DB_PROJECT"], "kneeboard_journey_abcdef123456")
         self.assertEqual(env["KNEEBOARD_DB_PORT"], "54441")
+        self.assertEqual(env["KNEEBOARD_MAILPIT_SMTP_PORT"], "10241")
         self.assertEqual(local.call_args_list[1].args, ("migrate", env, "test"))
         self.assertEqual(popen.call_args.kwargs["env"]["DATABASE_URL"],
                          "postgresql://kneeboard:local_only_kneeboard@127.0.0.1:54441/kneeboard_test")
-        self.assertEqual(checked.call_args.args[0][-2:], ["playwright", "test"])
+        self.assertEqual(popen.call_args.kwargs["env"]["BETTER_AUTH_URL"], "http://localhost:30041")
+        popen.assert_called_once()
+        self.assertTrue(any(call.args[0][-2:] == ["playwright", "test"] for call in checked.call_args_list))
+        self.assertTrue(any("tests/journey/mailpit-chaos.compose.yaml" in call.args[0] for call in checked.call_args_list))
+        self.assertEqual(checked.call_args.args[0][-2:], ["-t", "leaves no redeemable link after a delivery failure"])
+        probes.assert_called_once()
+        fixed.assert_called_once()
         cleanup.assert_called_once_with(env, None)
 
     def test_failure_after_start_preserves_failure_and_cleans_project(self) -> None:
@@ -85,12 +309,16 @@ class E2EJourneyTests(TestCase):
                 return "unix:///local/docker.sock"
             if args[-2:] == ["playwright", "test"]:
                 raise AssertionError("Playwright smoke journey failed (exit 1)")
+            if "src/server/auth-integration.test.ts" in args:
+                return "JOURNEY atomic redemption: pass"
             return ""
         with (
-            patch.object(journey.db, "free_port", side_effect=[54443, 30043]),
+            patch.object(journey.db, "free_port", side_effect=[54443, 10243, 8023, 30043]),
             patch.object(journey, "checked", side_effect=run),
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local"),
+            patch.object(journey, "SentinelReceiver") as receiver,
+            patch.object(journey, "AppOutput"),
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process),
@@ -98,9 +326,11 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
+            receiver.return_value.server_port = 12345
             with self.assertRaisesRegex(AssertionError, "Playwright smoke journey failed"):
                 journey.main()
-        stop.assert_called_once_with(process, float(journey.db.TERMINATION_GRACE_SECONDS))
+        self.assertEqual(stop.call_count, 1)
+        stop.assert_any_call(process, float(journey.db.TERMINATION_GRACE_SECONDS))
         self.assertIsInstance(cleanup.call_args.args[1], AssertionError)
 
     def test_aggregate_stops_at_each_failing_journey(self) -> None:

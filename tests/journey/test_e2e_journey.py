@@ -1,6 +1,7 @@
 """Focused ownership, pin, budget, and failure checks for the browser Journey."""
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -20,6 +21,19 @@ SPEC.loader.exec_module(journey)
 
 
 class E2EJourneyTests(TestCase):
+    def test_fixed_database_inspection_rejects_a_journey_account(self) -> None:
+        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "t", "1"]) as checked:
+            with self.assertRaisesRegex(AssertionError, "journey account appeared in a fixed database"):
+                journey.fixed_database_isolation({}, ("journey-a@example.invalid", "journey-b@example.invalid"))
+        self.assertEqual(len(checked.call_args_list), 5)
+        self.assertIn("kneeboard_test", checked.call_args.args[0])
+
+    def test_output_capture_fails_when_a_deliberate_sentinel_is_logged(self) -> None:
+        process = MagicMock(stdout=io.BytesIO(b"ordinary app output\nprivate-sentinel\n"))
+        output = journey.AppOutput(process)
+        self.assertTrue(output.contains_private_value(["private-sentinel"]))
+        self.assertFalse(output.contains_private_value(["missing-sentinel"]))
+
     def test_browser_pin_matches_installed_mapping_and_rejects_change(self) -> None:
         self.assertEqual(journey.browser_metadata()["revision"], "1248")
         with patch.object(journey, "CHROMIUM_REVISION", "wrong"):
@@ -42,10 +56,13 @@ class E2EJourneyTests(TestCase):
         process.returncode = None
         with (
             patch.object(journey.uuid, "uuid4") as uuid4,
-            patch.object(journey.db, "free_port", side_effect=[54441, 30041]),
-            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", ""]) as checked,
+            patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041]),
+            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "", "", "", ""]) as checked,
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local") as local,
+            patch.object(journey, "SentinelReceiver") as receiver,
+            patch.object(journey, "AppOutput") as output,
+            patch.object(journey, "fixed_database_isolation") as fixed,
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process) as popen,
@@ -54,14 +71,19 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
+            receiver.return_value.values = ["email", "token", "cookie", "pilot"]
+            receiver.return_value.server_port = 12345
+            output.return_value.contains_private_value.return_value = False
             journey.main()
         env = local.call_args_list[0].args[1]
         self.assertEqual(env["KNEEBOARD_DB_PROJECT"], "kneeboard_journey_abcdef123456")
         self.assertEqual(env["KNEEBOARD_DB_PORT"], "54441")
+        self.assertEqual(env["KNEEBOARD_MAILPIT_SMTP_PORT"], "10241")
         self.assertEqual(local.call_args_list[1].args, ("migrate", env, "test"))
         self.assertEqual(popen.call_args.kwargs["env"]["DATABASE_URL"],
                          "postgresql://kneeboard:local_only_kneeboard@127.0.0.1:54441/kneeboard_test")
         self.assertEqual(checked.call_args.args[0][-2:], ["playwright", "test"])
+        fixed.assert_called_once()
         cleanup.assert_called_once_with(env, None)
 
     def test_failure_after_start_preserves_failure_and_cleans_project(self) -> None:
@@ -87,10 +109,12 @@ class E2EJourneyTests(TestCase):
                 raise AssertionError("Playwright smoke journey failed (exit 1)")
             return ""
         with (
-            patch.object(journey.db, "free_port", side_effect=[54443, 30043]),
+            patch.object(journey.db, "free_port", side_effect=[54443, 10243, 8023, 30043]),
             patch.object(journey, "checked", side_effect=run),
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local"),
+            patch.object(journey, "SentinelReceiver") as receiver,
+            patch.object(journey, "AppOutput"),
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process),
@@ -98,6 +122,7 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
+            receiver.return_value.server_port = 12345
             with self.assertRaisesRegex(AssertionError, "Playwright smoke journey failed"):
                 journey.main()
         stop.assert_called_once_with(process, float(journey.db.TERMINATION_GRACE_SECONDS))

@@ -1,6 +1,10 @@
 import "server-only";
 
-import { parseServerConfig } from "./config";
+import { parseServerConfig, type ServerConfig } from "./config";
 
-/** Shared validated environment for server auth and account operations. */
-export const serverConfig = parseServerConfig(process.env);
+let cached: ServerConfig | undefined;
+
+/** Validate once when a server operation first needs configuration. */
+export function getServerConfig(): ServerConfig {
+  return cached ??= parseServerConfig(process.env);
+}

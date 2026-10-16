@@ -1,0 +1,95 @@
+import { betterAuth } from "better-auth";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import { afterAll, describe, expect, it } from "vitest";
+
+import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
+import * as schema from "../db/schema";
+import { parseServerConfig } from "./config";
+import { createAuthOptions } from "./auth-options";
+
+const url = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
+const isolated = Boolean(url) && process.env.AUTH_JOURNEY_ISOLATED === "1";
+const pool = isolated ? new Pool({ connectionString: url }) : undefined;
+const database = pool ? drizzle(pool, { schema }) : undefined;
+afterAll(async () => { await pool?.end(); });
+
+describe.runIf(isolated).sequential("Better Auth isolated database", () => {
+  it("issues a hashed, single-use link, guards delivery, and persists rate limits", async () => {
+    const environment = {
+      NODE_ENV: "test", DATABASE_URL: url,
+      BETTER_AUTH_URL: "http://localhost:3000",
+      BETTER_AUTH_SECRET: "integration-only-secret-with-32-characters",
+      MAIL_FROM_EMAIL: "login@kneeboard.local",
+      MAIL_DELIVERY: "mailpit", MAILPIT_SMTP_HOST: "127.0.0.1", MAILPIT_SMTP_PORT: "1025",
+    };
+    const config = parseServerConfig({ ...environment, AUTH_EMAIL_ALLOWLIST: "pilot@example.invalid" });
+    const messages: { email: string; url: string }[] = [];
+    const auth = betterAuth(createAuthOptions(config, database!, async (email, link) => {
+      messages.push({ email, url: link });
+    }));
+    const request = (email: string, ip: string) => auth.handler(new Request(
+      "http://localhost:3000/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": ip },
+        body: JSON.stringify({ email }),
+      },
+    ));
+
+    const requestedAt = Date.now();
+    const allowed = await request("pilot@example.invalid", "192.0.2.10");
+    expect(allowed.status).toBe(200);
+    expect(messages).toHaveLength(1);
+    const token = new URL(messages[0].url).searchParams.get("token");
+    expect(token).toBeTruthy();
+    const rows = await database!.select().from(schema.verification);
+    expect(rows).toHaveLength(1);
+    expect(JSON.stringify(rows[0]).includes(token!)).toBe(false);
+    expect(rows[0].expiresAt.getTime() - requestedAt).toBeGreaterThanOrEqual(299000);
+    expect(rows[0].expiresAt.getTime() - requestedAt).toBeLessThanOrEqual(301000);
+
+    const rejected = await request("other@example.invalid", "192.0.2.11");
+    expect(rejected.status).toBe(allowed.status);
+    expect(await rejected.text()).toBe(await allowed.text());
+    expect(messages).toHaveLength(1);
+    expect(await database!.select().from(schema.user).where(eq(schema.user.email, "other@example.invalid"))).toHaveLength(0);
+
+    const first = await auth.handler(new Request(messages[0].url, { headers: { "x-forwarded-for": "192.0.2.12" } }));
+    expect(first.headers.get("set-cookie")).toContain("session_token");
+    expect(await database!.select().from(schema.user).where(eq(schema.user.email, "pilot@example.invalid"))).toHaveLength(1);
+    const sessions = await database!.select().from(schema.session);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].expiresAt.getTime() - Date.now()).toBeGreaterThanOrEqual(604799000);
+    expect(sessions[0].expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(604801000);
+    const second = await auth.handler(new Request(messages[0].url, { headers: { "x-forwarded-for": "192.0.2.13" } }));
+    expect(second.headers.has("set-cookie")).toBe(false);
+    expect(second.headers.get("location")).toContain("INVALID_TOKEN");
+
+    // Issue a synthetic link with a permissive instance, then redeem it through
+    // the restricted instance to reach the account-creation hook for real.
+    const bypassMessages: string[] = [];
+    const permissive = betterAuth(createAuthOptions(
+      parseServerConfig({ ...environment, AUTH_EMAIL_ALLOWLIST: "*" }), database!,
+      async (_email, link) => { bypassMessages.push(link); },
+    ));
+    const bypassRequest = new Request("http://localhost:3000/api/auth/sign-in/magic-link", {
+      method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": "192.0.2.14" },
+      body: JSON.stringify({ email: "other@example.invalid" }),
+    });
+    expect((await permissive.handler(bypassRequest)).status).toBe(200);
+    expect(bypassMessages).toHaveLength(1);
+    const guardedCreate = await auth.handler(new Request(bypassMessages[0], { headers: { "x-forwarded-for": "192.0.2.15" } }));
+    expect(guardedCreate.headers.has("set-cookie")).toBe(false);
+    expect(await database!.select().from(schema.user).where(eq(schema.user.email, "other@example.invalid"))).toHaveLength(0);
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await request("pilot@example.invalid", "192.0.2.20");
+      expect(response.status).toBe(200);
+    }
+    const sixth = await request("pilot@example.invalid", "192.0.2.20");
+    expect(sixth.status).toBe(429);
+    expect(messages).toHaveLength(6);
+    expect((await database!.select().from(schema.rateLimit)).some((row) => row.count >= 5)).toBe(true);
+  }, 30000);
+});

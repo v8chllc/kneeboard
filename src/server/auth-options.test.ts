@@ -33,11 +33,21 @@ describe("Better Auth policy", () => {
 
   it("sends an allowed link and silently skips a disallowed address", async () => {
     const deliver = vi.fn(async () => {});
-    const send = guardedMagicLinkSender(config, deliver);
-    await expect(send({ email: "Pilot@Example.Invalid", url: "http://localhost:3000/link-a" })).resolves.toBeUndefined();
+    const revoke = vi.fn(async () => {});
+    const send = guardedMagicLinkSender(config, deliver, revoke);
+    await expect(send({ email: "Pilot@Example.Invalid", url: "http://localhost:3000/link-a", token: "token-a" })).resolves.toBeUndefined();
     expect(deliver).toHaveBeenCalledExactlyOnceWith("Pilot@Example.Invalid", "http://localhost:3000/link-a");
-    await expect(send({ email: "other@example.invalid", url: "http://localhost:3000/link-b" })).resolves.toBeUndefined();
+    await expect(send({ email: "other@example.invalid", url: "http://localhost:3000/link-b", token: "token-b" })).resolves.toBeUndefined();
     expect(deliver).toHaveBeenCalledTimes(1);
+    expect(revoke).not.toHaveBeenCalled();
+  });
+
+  it("revokes a failed delivery and keeps the error generic", async () => {
+    const revoke = vi.fn(async () => {});
+    const send = guardedMagicLinkSender(config, async () => { throw new Error("private provider detail"); }, revoke);
+    await expect(send({ email: "pilot@example.invalid", url: "http://localhost:3000/link", token: "synthetic-token" }))
+      .rejects.toThrow(/^Magic-link delivery failed$/);
+    expect(revoke).toHaveBeenCalledExactlyOnceWith("synthetic-token");
   });
 
   it("refuses account creation through the database hook for a disallowed address", async () => {

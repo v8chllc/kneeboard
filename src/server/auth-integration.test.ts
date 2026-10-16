@@ -8,6 +8,7 @@ import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
 import * as schema from "../db/schema";
 import { parseServerConfig } from "./config";
 import { createAuthOptions } from "./auth-options";
+import { createMailDelivery } from "./mail-delivery";
 
 const url = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
 const isolated = Boolean(url) && process.env.AUTH_JOURNEY_ISOLATED === "1";
@@ -91,5 +92,39 @@ describe.runIf(isolated).sequential("Better Auth isolated database", () => {
     expect(sixth.status).toBe(429);
     expect(messages).toHaveLength(6);
     expect((await database!.select().from(schema.rateLimit)).some((row) => row.count >= 5)).toBe(true);
+  }, 30000);
+
+  it("leaves no redeemable link after a delivery failure", async () => {
+    const chaos = process.env.MAILPIT_CHAOS_ISOLATED === "1";
+    const config = parseServerConfig({
+      NODE_ENV: "test", DATABASE_URL: url,
+      BETTER_AUTH_URL: "http://localhost:3000",
+      BETTER_AUTH_SECRET: "integration-only-secret-with-32-characters",
+      AUTH_EMAIL_ALLOWLIST: "failure@example.invalid",
+      MAIL_FROM_EMAIL: "login@kneeboard.local",
+      MAIL_DELIVERY: "mailpit", MAILPIT_SMTP_HOST: "127.0.0.1",
+      MAILPIT_SMTP_PORT: process.env.MAILPIT_JOURNEY_SMTP_PORT ?? "1025",
+    });
+    const captured: string[] = [];
+    const smtp = chaos ? createMailDelivery(config) : undefined;
+    const auth = betterAuth(createAuthOptions(config, database!, async (email, link) => {
+      captured.push(link);
+      if (smtp) return smtp(email, link);
+      throw new Error("Synthetic delivery failure");
+    }));
+    const response = await auth.handler(new Request("http://localhost:3000/api/auth/sign-in/magic-link", {
+      method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": "192.0.2.30" },
+      body: JSON.stringify({ email: "failure@example.invalid" }),
+    }));
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(captured).toHaveLength(1);
+    const redemption = await auth.handler(new Request(captured[0], { headers: { "x-forwarded-for": "192.0.2.31" } }));
+    expect(redemption.headers.has("set-cookie")).toBe(false);
+    expect(await database!.select().from(schema.user).where(eq(schema.user.email, "failure@example.invalid"))).toHaveLength(0);
+    if (chaos) {
+      const response = await fetch(`http://127.0.0.1:${process.env.MAILPIT_JOURNEY_UI_PORT}/api/v1/messages`);
+      expect(response.ok).toBe(true);
+      expect((await response.json() as { messages: unknown[] }).messages).toHaveLength(0);
+    }
   }, 30000);
 });

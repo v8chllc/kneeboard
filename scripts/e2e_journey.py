@@ -1,7 +1,8 @@
 """Run Playwright against a built app and a disposable local PostgreSQL project.
 
-The runner owns one validated Compose project and loopback port, one Next.js
-process group, and Playwright's local browser install. It removes the project
+The runner owns one validated Compose project, its loopback service ports, two
+Next.js process groups on separate loopback ports, and Playwright's local browser
+install. It terminates both app process groups and removes the Compose project
 and volume after success, failure, or interruption. It never targets the fixed
 development project or a remote database. All commands have finite budgets.
 """
@@ -56,6 +57,20 @@ class AppOutput:
         if self.thread.is_alive() or self.overflow:
             raise AssertionError("application output capture incomplete")
         return any(value.encode() in self.data for value in values)
+
+
+def start_captured_app(port: int, env: dict[str, str]) -> tuple[subprocess.Popen[bytes], AppOutput]:
+    """Start one built app on a loopback port with captured output and a process group."""
+    process = subprocess.Popen(
+        ["mise", "exec", "--", "pnpm", "start", "--port", str(port)],
+        cwd=db.ROOT, env=env, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+    )
+    try:
+        return process, AppOutput(process)
+    except BaseException:
+        db.terminate_process_group(process, float(db.TERMINATION_GRACE_SECONDS))
+        raise
 
 
 def verify_private_output(output: AppOutput, values: dict[str, str]) -> None:
@@ -355,22 +370,12 @@ def main() -> None:
         receiver_thread = threading.Thread(target=receiver.serve_forever, daemon=True)
         receiver_thread.start()
         app_env["NODE_ENV"] = "development"  # Built app, local-only Mailpit configuration.
-        process = subprocess.Popen(
-            ["mise", "exec", "--", "pnpm", "start", "--port", str(app_port)],
-            cwd=db.ROOT, env=app_env, stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
-        )
-        output = AppOutput(process)
+        process, output = start_captured_app(app_port, app_env)
         secondary_process: subprocess.Popen[bytes] | None = None
         secondary_output: AppOutput | None = None
         try:
             secondary_env = app_env | {"BETTER_AUTH_URL": f"http://localhost:{secondary_app_port}"}
-            secondary_process = subprocess.Popen(
-                ["mise", "exec", "--", "pnpm", "start", "--port", str(secondary_app_port)],
-                cwd=db.ROOT, env=secondary_env, stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
-            )
-            secondary_output = AppOutput(secondary_process)
+            secondary_process, secondary_output = start_captured_app(secondary_app_port, secondary_env)
             await_app(process, app_port)
             await_app(secondary_process, secondary_app_port)
             browser_env = app_env | {"PLAYWRIGHT_BASE_URL": f"http://localhost:{app_port}",

@@ -24,6 +24,36 @@ SPEC.loader.exec_module(journey)
 
 
 class E2EJourneyTests(TestCase):
+    def test_both_app_launches_share_captured_process_contract(self) -> None:
+        process = MagicMock()
+        with (
+            patch.object(journey.subprocess, "Popen", return_value=process) as popen,
+            patch.object(journey, "AppOutput") as output,
+        ):
+            first = journey.start_captured_app(30041, {"BETTER_AUTH_URL": "http://localhost:30041"})
+            second = journey.start_captured_app(30042, {"BETTER_AUTH_URL": "http://localhost:30042"})
+        self.assertEqual(first, (process, output.return_value))
+        self.assertEqual(second, (process, output.return_value))
+        self.assertEqual(popen.call_count, 2)
+        for call, port in zip(popen.call_args_list, (30041, 30042)):
+            self.assertEqual(call.args[0], ["mise", "exec", "--", "pnpm", "start", "--port", str(port)])
+            self.assertEqual(call.kwargs["cwd"], journey.db.ROOT)
+            self.assertEqual(call.kwargs["stdin"], subprocess.DEVNULL)
+            self.assertEqual(call.kwargs["stdout"], subprocess.PIPE)
+            self.assertEqual(call.kwargs["stderr"], subprocess.STDOUT)
+            self.assertTrue(call.kwargs["start_new_session"])
+
+    def test_captured_app_launch_cleans_process_when_capture_fails(self) -> None:
+        process = MagicMock()
+        with (
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput", side_effect=OSError("capture failed")),
+            patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
+        ):
+            with self.assertRaisesRegex(OSError, "capture failed"):
+                journey.start_captured_app(30041, {})
+        stop.assert_called_once_with(process, float(journey.db.TERMINATION_GRACE_SECONDS))
+
     def test_receiver_keeps_all_private_sentinels_in_memory(self) -> None:
         receiver = journey.SentinelReceiver()
         thread = threading.Thread(target=receiver.serve_forever, daemon=True)

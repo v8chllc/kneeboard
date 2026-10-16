@@ -233,13 +233,26 @@ class E2EJourneyTests(TestCase):
         self.assertEqual(journey.db.INSTALL_TIMEOUT_SECONDS, original_budget)
         self.assertEqual(journey.db.budget_seconds("INSTALL_TIMEOUT_SECONDS"), 600)
 
+    def test_successful_command_returns_stdout_without_stderr(self) -> None:
+        result = journey.db.Completed(0, "machine-readable\n", "successful warning\n")
+        with patch.object(journey.db, "run_bounded", return_value=result):
+            self.assertEqual(
+                journey.checked(["probe"], {}, "DOCKER_QUERY_TIMEOUT_SECONDS", "probe"),
+                "machine-readable",
+            )
+
+    def test_skipped_atomic_redemption_output_is_rejected(self) -> None:
+        skipped_output = "atomically consumes one link across two auth instances"
+        with self.assertRaisesRegex(AssertionError, "isolated atomic redemption result missing"):
+            journey.require_atomic_redemption(skipped_output)
+
     def test_isolated_project_and_port_are_used_and_cleaned_on_success(self) -> None:
         process = MagicMock()
         process.returncode = None
         with (
             patch.object(journey.uuid, "uuid4") as uuid4,
             patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041]),
-            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "atomically consumes one link across two auth instances", "", "", "", "", ""]) as checked,
+            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "JOURNEY atomic redemption: pass", "", "", "", "", ""]) as checked,
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local") as local,
             patch.object(journey, "SentinelReceiver") as receiver,
@@ -297,7 +310,7 @@ class E2EJourneyTests(TestCase):
             if args[-2:] == ["playwright", "test"]:
                 raise AssertionError("Playwright smoke journey failed (exit 1)")
             if "src/server/auth-integration.test.ts" in args:
-                return "atomically consumes one link across two auth instances"
+                return "JOURNEY atomic redemption: pass"
             return ""
         with (
             patch.object(journey.db, "free_port", side_effect=[54443, 10243, 8023, 30043]),

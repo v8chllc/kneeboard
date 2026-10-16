@@ -1,0 +1,4 @@
+services:
+  mailpit:
+    environment:
+      MP_CHAOS_TRIGGERS: Sender:451:100

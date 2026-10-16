@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -123,9 +124,13 @@ def checked(args: list[str], env: dict[str, str], budget: str, label: str) -> st
             for line in captured.splitlines():
                 if line.strip().startswith("JOURNEY ") and not any(character in line for character in ("@", "http", "token")):
                     print(line.strip())
-            locations = re.findall(r"(?:sign-in\.pw|mailpit)\.ts:\d+:\d+", captured)
+            locations = re.findall(r"(?:sign-in\.pw|mailpit(?:-faults\.pw)?)\.ts:\d+:\d+", captured)
             if locations:
                 print(f"Playwright failure locations: {', '.join(dict.fromkeys(locations))}")
+        if label in ("isolated SMTP rejection integration", "isolated auth integration"):
+            locations = re.findall(r"src/server/(?:auth-integration|account-settings\.integration)\.test\.ts:\d+:\d+", result.stdout + result.stderr)
+            if locations:
+                print(f"Isolated auth assertion locations: {', '.join(dict.fromkeys(locations))}")
         raise AssertionError(f"{label} failed (exit {result.returncode})")
     return result.stdout.strip()
 
@@ -151,6 +156,115 @@ def await_app(process: subprocess.Popen[str], port: int) -> None:
         except (urllib.error.URLError, TimeoutError):
             time.sleep(0.2)
     raise AssertionError("built application startup timed out")
+
+
+def await_port(process: subprocess.Popen[str], port: int) -> None:
+    deadline = time.monotonic() + APP_START_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if db.leader_exited(process):
+            raise AssertionError("built application exited before startup")
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.2)
+    raise AssertionError("built application startup timed out")
+
+
+def http_response(url: str, *, body: bytes | None = None, origin: str | None = None) -> tuple[int, bytes]:
+    """Read a local response, including a deliberately rejected auth request."""
+    request = urllib.request.Request(url, data=body, headers={
+        "Content-Type": "application/json", **({"Origin": origin} if origin else {}),
+    } if body is not None else {}, method="POST" if body is not None else "GET")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        with error:
+            return error.code, error.read()
+
+
+def mailpit_messages(port: int) -> dict[str, object]:
+    status, body = http_response(f"http://127.0.0.1:{port}/api/v1/messages")
+    if status != 200:
+        raise AssertionError("isolated Mailpit API failed")
+    return json.loads(body)
+
+
+def clear_mailpit(port: int) -> None:
+    request = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/messages",
+                                     data=b'{"IDs":[]}', headers={"Content-Type": "application/json"}, method="DELETE")
+    with urllib.request.urlopen(request, timeout=5) as response:
+        if response.status != 200:
+            raise AssertionError("isolated Mailpit clear failed")
+    if mailpit_messages(port)["total"] != 0:
+        raise AssertionError("isolated Mailpit inbox was not cleared")
+
+
+def auth_runtime_probes(app_env: dict[str, str], mailpit_port: int) -> None:
+    """Restart the built app for policy and invalid production boundary cases."""
+    cases = (
+        ("missing", None, False, False),
+        ("empty", "", False, False),
+        ("wildcard", "*", True, False),
+        ("production-mailpit", "*", False, True),
+        ("production-no-resend", "*", False, True),
+        ("production-no-secret", "*", False, True),
+        ("production-default-secret", "*", False, True),
+    )
+    for name, allowlist, expect_mail, invalid in cases:
+        clear_mailpit(mailpit_port)
+        port = db.free_port()
+        env = app_env | {"BETTER_AUTH_URL": f"http://localhost:{port}", "NODE_ENV": "development"}
+        if allowlist is None:
+            env.pop("AUTH_EMAIL_ALLOWLIST", None)
+        else:
+            env["AUTH_EMAIL_ALLOWLIST"] = allowlist
+        if invalid:
+            env.update(NODE_ENV="production", BETTER_AUTH_URL="https://kneeboard.invalid",
+                       MAIL_DELIVERY="resend", RESEND_API_KEY="dummy-local-probe-key")
+            if name == "production-mailpit":
+                env["MAIL_DELIVERY"] = "mailpit"
+            elif name == "production-no-resend":
+                env.pop("RESEND_API_KEY")
+            elif name == "production-no-secret":
+                env.pop("BETTER_AUTH_SECRET")
+            elif name == "production-default-secret":
+                env["BETTER_AUTH_SECRET"] = "better-auth-secret-12345678901234567890"
+        process = subprocess.Popen(["mise", "exec", "--", "pnpm", "start", "--port", str(port)],
+                                   cwd=db.ROOT, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+        output = AppOutput(process)
+        private = ["dummy-local-probe-key", env.get("BETTER_AUTH_SECRET", ""), f"policy-{name}@example.invalid"]
+        try:
+            await_port(process, port)
+            if invalid:
+                status, body = http_response(f"http://127.0.0.1:{port}/api/auth/ok")
+                if status < 400 or any(value.encode() in body for value in private if value):
+                    raise AssertionError(f"invalid {name} auth configuration was accepted or exposed")
+            else:
+                address = private[-1]
+                status, body = http_response(f"http://127.0.0.1:{port}/api/auth/sign-in/magic-link",
+                                             body=json.dumps({"email": address}).encode(),
+                                             origin=f"http://localhost:{port}")
+                if status != 200 or address.encode() in body:
+                    raise AssertionError(f"{name} allowlist response failed")
+                messages = mailpit_messages(mailpit_port)
+                if (messages["total"] == 1) != expect_mail:
+                    raise AssertionError(f"{name} allowlist delivery failed")
+                if expect_mail:
+                    recipients = messages["messages"][0]["To"]
+                    if not any(item["Address"] == address for item in recipients):
+                        raise AssertionError("wildcard delivered to wrong address")
+        finally:
+            earlier = sys.exc_info()[1]
+            problems = db.terminate_process_group(process, float(db.TERMINATION_GRACE_SECONDS))
+            if problems:
+                db.report_cleanup_failure(f"application process cleanup failed: {'; '.join(problems)}", earlier)
+        if output.contains_private_value([value for value in private if value]):
+            raise AssertionError(f"{name} private value appeared in app output")
+        print(f"JOURNEY {name} auth boundary: pass")
+    clear_mailpit(mailpit_port)
 
 
 def fixed_database_isolation(env: dict[str, str], emails: tuple[str, str]) -> None:
@@ -261,6 +375,18 @@ def main() -> None:
             receiver_thread.join(timeout=5)
         verify_private_output(output, receiver.values)
         print("JOURNEY log-exclusion: pass")
+        auth_runtime_probes(app_env, mailpit_port)
+        checked(["docker", "compose", "-f", "compose.yaml", "-f", "tests/journey/mailpit-chaos.compose.yaml",
+                 "-p", project, "up", "-d", "--no-deps", "--force-recreate", "--wait", "mailpit"],
+                env, "DOCKER_QUERY_TIMEOUT_SECONDS", "isolated Mailpit SMTP rejection startup")
+        clear_mailpit(mailpit_port)
+        checked(["mise", "exec", "--", "pnpm", "exec", "vitest", "run", "src/server/auth-integration.test.ts",
+                 "-t", "leaves no redeemable link after a delivery failure"],
+                app_env | {"AUTH_JOURNEY_ISOLATED": "1", "MAILPIT_CHAOS_ISOLATED": "1",
+                           "MAILPIT_JOURNEY_SMTP_PORT": str(smtp_port),
+                           "MAILPIT_JOURNEY_UI_PORT": str(mailpit_port), "NODE_ENV": "test"},
+                "OPERATION_TEST_TIMEOUT_SECONDS", "isolated SMTP rejection integration")
+        print("JOURNEY local SMTP rejection: pass")
         fixed_database_isolation(env, (email_a, email_b))
     finally:
         earlier = sys.exc_info()[1]

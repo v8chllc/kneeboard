@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
 import * as schema from "../db/schema";
@@ -59,7 +59,13 @@ describe.runIf(isolated)("account-scoped Pilot ID operations", () => {
     expect(firstId).not.toBe(secondId);
 
     expect(await operations.readPilotId(first)).toBeNull();
-    await operations.savePilotId(first, "000123");
+    const outbound = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected network request"));
+    try {
+      await operations.savePilotId(first, "000123");
+      expect(outbound).not.toHaveBeenCalled();
+    } finally {
+      outbound.mockRestore();
+    }
     expect((await operations.readPilotId(first)) === "000123").toBe(true);
     expect((await operations.readPilotId(second)) === null).toBe(true);
     await operations.savePilotId(second, "9876543210123456");

@@ -78,6 +78,72 @@ class E2EJourneyTests(TestCase):
         output = journey.AppOutput(process)
         self.assertTrue(output.contains_private_value(["00135791", "00246802"]))
 
+    def test_output_capture_fails_closed_on_overflow(self) -> None:
+        process = MagicMock(stdout=io.BytesIO(b"x" * (journey.OUTPUT_LIMIT_BYTES + 1)))
+        output = journey.AppOutput(process)
+        with self.assertRaisesRegex(AssertionError, "application output capture incomplete"):
+            output.contains_private_value(["private-sentinel"])
+
+    def test_output_capture_fails_closed_on_stalled_pipe(self) -> None:
+        release = threading.Event()
+
+        class StalledStream:
+            def read(self, _size: int) -> bytes:
+                release.wait(timeout=10)
+                return b""
+
+        output = journey.AppOutput(MagicMock(stdout=StalledStream()))
+        try:
+            with patch.object(output.thread, "join", wraps=output.thread.join) as join:
+                with self.assertRaisesRegex(AssertionError, "application output capture incomplete"):
+                    output.contains_private_value(["private-sentinel"])
+                join.assert_called_once_with(timeout=5)
+        finally:
+            release.set()
+            output.thread.join(timeout=2)
+
+    def test_runtime_probe_fails_when_missing_allowlist_sends_mail(self) -> None:
+        process = MagicMock(returncode=None)
+        with (
+            patch.object(journey.db, "free_port", return_value=30444),
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput") as output,
+            patch.object(journey, "await_port"),
+            patch.object(journey, "clear_mailpit"),
+            patch.object(journey, "http_response", return_value=(200, b"{}")),
+            patch.object(journey, "mailpit_messages", return_value={"total": 1, "messages": []}),
+            patch.object(journey.db, "terminate_process_group", return_value=[]),
+        ):
+            output.return_value.contains_private_value.return_value = False
+            with self.assertRaisesRegex(AssertionError, "missing allowlist delivery failed"):
+                journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
+
+    def test_runtime_probe_fails_when_invalid_production_auth_starts(self) -> None:
+        process = MagicMock(returncode=None)
+        current_env: dict[str, str] = {}
+
+        def start(_args: object, **kwargs: object) -> MagicMock:
+            current_env.clear()
+            current_env.update(kwargs["env"])  # type: ignore[arg-type]
+            return process
+
+        with (
+            patch.object(journey.db, "free_port", return_value=30445),
+            patch.object(journey.subprocess, "Popen", side_effect=start),
+            patch.object(journey, "AppOutput") as output,
+            patch.object(journey, "await_port"),
+            patch.object(journey, "clear_mailpit"),
+            patch.object(journey, "http_response", return_value=(200, b"{}")),
+            patch.object(journey, "mailpit_messages", side_effect=lambda _port: {
+                "total": 1 if current_env.get("AUTH_EMAIL_ALLOWLIST") == "*" else 0,
+                "messages": [{"To": [{"Address": "policy-wildcard@example.invalid"}]}],
+            }),
+            patch.object(journey.db, "terminate_process_group", return_value=[]),
+        ):
+            output.return_value.contains_private_value.return_value = False
+            with self.assertRaisesRegex(AssertionError, "invalid production-mailpit auth configuration was accepted"):
+                journey.auth_runtime_probes({"BETTER_AUTH_SECRET": "synthetic-secret"}, 8025)
+
     def test_browser_pin_matches_installed_mapping_and_rejects_change(self) -> None:
         self.assertEqual(journey.browser_metadata()["revision"], "1248")
         with patch.object(journey, "CHROMIUM_REVISION", "wrong"):
@@ -101,12 +167,14 @@ class E2EJourneyTests(TestCase):
         with (
             patch.object(journey.uuid, "uuid4") as uuid4,
             patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041]),
-            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "", "", "", ""]) as checked,
+            patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "", "", "", "", "", ""]) as checked,
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local") as local,
             patch.object(journey, "SentinelReceiver") as receiver,
             patch.object(journey, "AppOutput") as output,
             patch.object(journey, "fixed_database_isolation") as fixed,
+            patch.object(journey, "auth_runtime_probes") as probes,
+            patch.object(journey, "clear_mailpit"),
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process) as popen,
@@ -126,7 +194,10 @@ class E2EJourneyTests(TestCase):
         self.assertEqual(local.call_args_list[1].args, ("migrate", env, "test"))
         self.assertEqual(popen.call_args.kwargs["env"]["DATABASE_URL"],
                          "postgresql://kneeboard:local_only_kneeboard@127.0.0.1:54441/kneeboard_test")
-        self.assertEqual(checked.call_args.args[0][-2:], ["playwright", "test"])
+        self.assertTrue(any(call.args[0][-2:] == ["playwright", "test"] for call in checked.call_args_list))
+        self.assertTrue(any("tests/journey/mailpit-chaos.compose.yaml" in call.args[0] for call in checked.call_args_list))
+        self.assertEqual(checked.call_args.args[0][-2:], ["-t", "leaves no redeemable link after a delivery failure"])
+        probes.assert_called_once()
         fixed.assert_called_once()
         cleanup.assert_called_once_with(env, None)
 

@@ -1,4 +1,4 @@
-"""Prove the real two-process journey rejects a non-atomic token consumer.
+"""Prove the isolated auth-endpoint exercise rejects a non-atomic token consumer.
 
 Copies tracked sources and local dependencies into the supplied scratch directory,
 changes only that disposable dependency copy, and runs the isolated browser
@@ -20,7 +20,7 @@ import db_journey as db
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_FAILURE = "JOURNEY simultaneous redemption cookie count: fail"
+EXPECTED_FAILURE = "JOURNEY atomic redemption session count: fail"
 CONSUME_ANCHOR = "\t\t\t\t\t\tconst row = await txAdapter.consumeOne({"
 FOLLOWING_ANCHOR = "\n\t\t\t\t\t\tif (!row) return null;"
 
@@ -60,9 +60,9 @@ def mutate_consumer(destination: Path) -> None:
 
 
 def require_expected_failure(returncode: int, output: str) -> None:
-    """Reject a green mutant or any failure outside the cookie-count assertion."""
+    """Reject a green mutant or failure outside the atomic session assertion."""
     if returncode == 0 or EXPECTED_FAILURE not in output:
-        raise AssertionError("non-atomic variant did not fail the simultaneous-redemption cookie assertion")
+        raise AssertionError("non-atomic variant did not fail the atomic-redemption session assertion")
 
 
 def run_variant(variant: Path) -> tuple[int, str]:
@@ -104,7 +104,7 @@ def main(scratch: Path) -> None:
         mutate_consumer(variant)
         returncode, output = run_variant(variant)
         require_expected_failure(returncode, output)
-    print("Non-atomic consume fitness: simultaneous-redemption cookie assertion failed as expected")
+    print("Non-atomic consume fitness: atomic-redemption session assertion failed as expected")
 
 
 if __name__ == "__main__":

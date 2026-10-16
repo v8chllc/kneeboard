@@ -96,6 +96,82 @@ describe.runIf(isolated).sequential("Better Auth isolated database", () => {
     expect((await database!.select().from(schema.rateLimit)).some((row) => row.count >= 5)).toBe(true);
   }, 30000);
 
+  it("atomically consumes one link across two auth instances", async () => {
+    const config = parseServerConfig({
+      NODE_ENV: "test", DATABASE_URL: url,
+      BETTER_AUTH_URL: "http://localhost:3000",
+      BETTER_AUTH_SECRET: "integration-only-secret-with-32-characters",
+      AUTH_EMAIL_ALLOWLIST: "concurrent@example.invalid",
+      MAIL_FROM_EMAIL: "login@kneeboard.local",
+      MAIL_DELIVERY: "mailpit", MAILPIT_SMTP_HOST: "127.0.0.1", MAILPIT_SMTP_PORT: "1025",
+    });
+    const secondPool = new Pool({ connectionString: url });
+    try {
+      const links: string[] = [];
+      const first = betterAuth(createAuthOptions(config, database!, async (_email, link) => {
+        links.push(link);
+      }));
+      const second = betterAuth(createAuthOptions(config, drizzle(secondPool, { schema }), async () => {}));
+      const issue = () => first.handler(new Request("http://localhost:3000/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": "192.0.2.50" },
+        body: JSON.stringify({ email: "concurrent@example.invalid" }),
+      }));
+      expect((await issue()).status).toBe(200);
+      expect(links).toHaveLength(1);
+      expect((await first.handler(new Request(links[0]))).headers.has("set-cookie")).toBe(true);
+      // Redeem the contested link for an existing account, so a user-email
+      // uniqueness conflict cannot hide a second successful session creation.
+      expect((await issue()).status).toBe(200);
+      expect(links).toHaveLength(2);
+      const contestedLink = links[1];
+      const token = new URL(contestedLink).searchParams.get("token");
+      expect(token).toBeTruthy();
+      const identifier = createHash("sha256").update(token!).digest("hex");
+      const sessionsForAccount = () => pool!.query(
+        'select s.id from session s join "user" u on u.id=s.user_id where u.email=$1',
+        ["concurrent@example.invalid"],
+      );
+      expect((await sessionsForAccount()).rows).toHaveLength(1);
+
+      const lock = await pool!.connect();
+      try {
+        await lock.query("begin");
+        const row = await lock.query("select id from verification where identifier=$1 for update", [identifier]);
+        expect(row.rowCount).toBe(1);
+        const redemptions = [first, second].map((auth, index) => auth.handler(new Request(contestedLink, {
+          headers: { "x-forwarded-for": `192.0.2.${51 + index}` },
+        })));
+        let waiting = false;
+        const deadline = Date.now() + 10000;
+        while (Date.now() < deadline) {
+          const blocked = await pool!.query("select pid from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and query like '%verification%'");
+          if (new Set(blocked.rows.map((entry: { pid: number }) => entry.pid)).size >= 2) {
+            waiting = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        await lock.query("commit");
+        const responses = await Promise.all(redemptions);
+        expect(waiting, "both auth instances must reach the verification row lock").toBe(true);
+        if (responses.filter((response) => response.headers.has("set-cookie")).length !== 1) {
+          console.log("JOURNEY atomic redemption session count: fail");
+        }
+        expect(responses.filter((response) => response.headers.has("set-cookie")).length).toBe(1);
+        expect(responses.filter((response) => response.headers.get("location")?.includes("INVALID_TOKEN")).length).toBe(1);
+      } finally {
+        await lock.query("rollback");
+        lock.release();
+      }
+      expect(await database!.select().from(schema.verification).where(eq(schema.verification.identifier, identifier))).toHaveLength(0);
+      expect((await sessionsForAccount()).rows).toHaveLength(2);
+      console.log("JOURNEY atomic redemption: pass");
+    } finally {
+      await secondPool.end();
+    }
+  }, 30000);
+
   it("leaves no redeemable link after a delivery failure", async () => {
     const chaos = process.env.MAILPIT_CHAOS_ISOLATED === "1";
     const config = parseServerConfig({

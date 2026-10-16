@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
+
 import { betterAuth } from "better-auth";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
 import * as schema from "../db/schema";
@@ -112,14 +114,31 @@ describe.runIf(isolated).sequential("Better Auth isolated database", () => {
       if (smtp) return smtp(email, link);
       throw new Error("Synthetic delivery failure");
     }));
-    const response = await auth.handler(new Request("http://localhost:3000/api/auth/sign-in/magic-link", {
-      method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": "192.0.2.30" },
-      body: JSON.stringify({ email: "failure@example.invalid" }),
-    }));
+    const logged: string[] = [];
+    const errorLog = vi.spyOn(console, "error").mockImplementation((...values) => { logged.push(values.join(" ")); });
+    const warnLog = vi.spyOn(console, "warn").mockImplementation((...values) => { logged.push(values.join(" ")); });
+    let response: Response;
+    try {
+      response = await auth.handler(new Request("http://localhost:3000/api/auth/sign-in/magic-link", {
+        method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": "192.0.2.30" },
+        body: JSON.stringify({ email: "failure@example.invalid" }),
+      }));
+    } finally {
+      errorLog.mockRestore();
+      warnLog.mockRestore();
+    }
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(captured).toHaveLength(1);
+    expect(logged.join(" ").includes("failure@example.invalid")).toBe(false);
+    expect(logged.join(" ").includes(new URL(captured[0]).searchParams.get("token")!)).toBe(false);
+    const responseBody = await response.text();
+    expect(responseBody.includes("failure@example.invalid")).toBe(false);
+    expect(responseBody.includes(new URL(captured[0]).searchParams.get("token")!)).toBe(false);
     const redemption = await auth.handler(new Request(captured[0], { headers: { "x-forwarded-for": "192.0.2.31" } }));
     expect(redemption.headers.has("set-cookie")).toBe(false);
+    expect((await database!.select().from(schema.verification)).some(
+      (row) => row.identifier === createHash("sha256").update(new URL(captured[0]).searchParams.get("token")!).digest("hex"),
+    )).toBe(false);
     expect(await database!.select().from(schema.user).where(eq(schema.user.email, "failure@example.invalid"))).toHaveLength(0);
     if (chaos) {
       const response = await fetch(`http://127.0.0.1:${process.env.MAILPIT_JOURNEY_UI_PORT}/api/v1/messages`);

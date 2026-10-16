@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext } from "@playwright/test";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 const summarySchema = z.object({
@@ -9,6 +10,13 @@ const summarySchema = z.object({
   })),
 });
 const detailSchema = z.object({ Text: z.string() });
+
+export async function registerSensitive(request: APIRequestContext, identity: string, value: string): Promise<void> {
+  const port = process.env.JOURNEY_SENTINEL_PORT;
+  if (!port || !/^\d+$/.test(port) || !value) throw new Error("Isolated sentinel receiver is required");
+  const response = await request.post(`http://127.0.0.1:${port}/`, { data: { identity, value } });
+  expect(response.status()).toBe(204);
+}
 
 function apiUrl(path: string): string {
   const base = process.env.MAILPIT_API_URL;
@@ -34,7 +42,7 @@ export async function clearInbox(request: APIRequestContext): Promise<void> {
 }
 
 /** Finite REST poll, read the exact batch, and remove it from the inbox. */
-export async function readLinks(request: APIRequestContext, recipient: string, count: number): Promise<string[]> {
+export async function readLinks(request: APIRequestContext, recipient: string, count: number, category = "token"): Promise<string[]> {
   if (!Number.isInteger(count) || count < 1 || count > 5) throw new Error("Expected one to five isolated messages");
   let messages: Awaited<ReturnType<typeof listMessages>>["messages"] = [];
   const deadline = Date.now() + 10000;
@@ -53,12 +61,15 @@ export async function readLinks(request: APIRequestContext, recipient: string, c
     const detail = detailSchema.parse(await response.json());
     const link = detail.Text.match(/https?:\/\/\S+/)?.[0];
     expect(Boolean(link)).toBe(true);
+    const token = new URL(link!).searchParams.get("token");
+    expect(Boolean(token)).toBe(true);
+    await registerSensitive(request, `${category}:${createHash("sha256").update(token!).digest("hex")}`, token!);
     links.push(link!);
   }
   await clearInbox(request);
   return links;
 }
 
-export async function readOneLink(request: APIRequestContext, recipient: string): Promise<string> {
-  return (await readLinks(request, recipient, 1))[0];
+export async function readOneLink(request: APIRequestContext, recipient: string, category = "token"): Promise<string> {
+  return (await readLinks(request, recipient, 1, category))[0];
 }

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { clearInbox, listMessages } from "./mailpit";
+import { clearInbox, listMessages, readOneLink } from "./mailpit";
 
 test("stale inbox is cleared and a wrong local API destination fails closed", async ({ request }) => {
   const email = process.env.JOURNEY_EMAIL_B;
@@ -14,7 +14,7 @@ test("stale inbox is cleared and a wrong local API destination fails closed", as
   });
   expect(response.status()).toBe(200);
   expect((await listMessages(request)).total).toBe(1);
-  await clearInbox(request);
+  await readOneLink(request, email, "fault-token");
   expect((await listMessages(request)).total).toBe(0);
   console.log("JOURNEY stale inbox clearing: pass");
 

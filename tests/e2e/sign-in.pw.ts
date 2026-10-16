@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { Pool } from "pg";
 
 import { localTestDatabaseUrl } from "../support/local-test-db";
-import { clearInbox, listMessages, readLinks, readOneLink } from "./mailpit";
+import { clearInbox, listMessages, readLinks, readOneLink, registerSensitive } from "./mailpit";
 
 test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sentinels", async ({ browser, request }) => {
   test.setTimeout(90000);
@@ -159,6 +159,7 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     });
     expect(limited.status()).toBe(429);
     const rateLinks = await readLinks(request, emailA, 5);
+    expect(rateLinks).toHaveLength(5);
     const rates = await pool.query("select id, count from rate_limit");
     expect(rates.rows.some((row) => row.count >= 5 && row.count > (countsBefore.get(row.id) ?? 0))).toBe(true);
     console.log("JOURNEY database rate limit: pass");
@@ -215,23 +216,28 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
       browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": `192.0.2.${octet}` } }),
     ));
     const concurrentPages = await Promise.all(concurrentContexts.map((context) => context.newPage()));
-    let arrivals = 0;
-    let release!: () => void;
-    const gate = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Both redemption requests did not reach the barrier")), 10000);
-      release = () => { clearTimeout(timeout); resolve(); };
-    });
-    for (const page of concurrentPages) {
-      await page.route("**/api/auth/magic-link/verify?**", async (route) => {
-        arrivals += 1;
-        if (arrivals === 2) release();
-        await gate;
-        await route.continue();
-      });
-    }
     const beforeSessions = await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [emailA]);
-    await Promise.all(concurrentPages.map((page) => page.goto(concurrentLink)));
-    expect(arrivals).toBe(2);
+    const lock = await pool.connect();
+    try {
+      await lock.query("begin");
+      await lock.query("select id from verification where identifier=$1 for update", [
+        createHash("sha256").update(new URL(concurrentLink).searchParams.get("token")!).digest("hex"),
+      ]);
+      const redemptions = concurrentPages.map((page) => page.goto(concurrentLink));
+      const deadline = Date.now() + 10000;
+      let reachedPersistence = false;
+      while (Date.now() < deadline) {
+        const waiting = await pool.query("select count(*)::int as count from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and query like '%verification%'");
+        if (waiting.rows[0].count > 0) { reachedPersistence = true; break; }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(reachedPersistence, "Redemption must reach the verification persistence boundary").toBe(true);
+      await lock.query("commit");
+      await Promise.all(redemptions);
+    } finally {
+      await lock.query("rollback");
+      lock.release();
+    }
     const concurrentCookies = await Promise.all(concurrentContexts.map(async (context) =>
       (await context.cookies()).find((item) => item.name.endsWith("session_token"))?.value,
     ));
@@ -242,12 +248,12 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     await expect(concurrentPages[concurrentCookies[0] ? 1 : 0].getByRole("heading", { name: "Sign in with a magic link" })).toBeVisible();
     console.log("JOURNEY simultaneous redemption: pass");
 
-    const sentinels = { values: [emailA, tokenA!, sessionCookie!.value, pilotA, emailB, tokenB!, sessionCookieB!.value, pilotB,
-      ...rateLinks.map((link) => new URL(link).searchParams.get("token")!),
-      ...requestedLinks.map((link) => new URL(link).searchParams.get("token")!), ...repeatedCookies,
-      new URL(concurrentLink).searchParams.get("token")!, ...concurrentCookies.filter((value): value is string => Boolean(value))] };
-    const response = await request.post(`http://127.0.0.1:${sentinelPort}/`, { data: sentinels });
-    expect(response.status()).toBe(204);
+    for (const [identity, value] of Object.entries({
+      "email-a": emailA, "email-b": emailB, "pilot-a": pilotA, "pilot-b": pilotB,
+      "session-a": sessionCookie!.value, "session-b": sessionCookieB!.value,
+      ...Object.fromEntries(repeatedCookies.map((value, index) => [`session-repeat-${index}`, value])),
+      ...Object.fromEntries(concurrentCookies.filter((value): value is string => Boolean(value)).map((value, index) => [`session-concurrent-${index}`, value])),
+    })) await registerSensitive(request, identity, value);
   } finally {
     await pool.end();
   }

@@ -29,7 +29,7 @@ CHROMIUM_REVISION = "1248"
 CHROMIUM_VERSION = "156.0.8078.4"
 APP_START_TIMEOUT_SECONDS = 60
 OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024
-EXPECTED_PRIVATE_VALUES = 19  # Two accounts, five rate links, two repeats, and one concurrent link.
+REQUIRED_SENTINELS = {"email-a", "email-b", "pilot-a", "pilot-b", "session-a", "session-b"}
 
 
 class AppOutput:
@@ -57,11 +57,13 @@ class AppOutput:
         return any(value.encode() in self.data for value in values)
 
 
-def verify_private_output(output: AppOutput, values: list[str]) -> None:
+def verify_private_output(output: AppOutput, values: dict[str, str]) -> None:
     """Fail closed if a captured private value is missing, repeated, or logged."""
-    if len(values) != EXPECTED_PRIVATE_VALUES or len(set(values)) != EXPECTED_PRIVATE_VALUES:
+    if not REQUIRED_SENTINELS <= values.keys() or not any(key.startswith("token:") for key in values) or not any(key.startswith("fault-token:") for key in values):
         raise AssertionError("log-exclusion sentinels missing")
-    if output.contains_private_value(values):
+    if len(set(values.values())) != len(values):
+        raise AssertionError("log-exclusion sentinels missing")
+    if output.contains_private_value(list(values.values())):
         raise AssertionError("log-exclusion failed")
 
 
@@ -69,7 +71,7 @@ class SentinelReceiver(ThreadingHTTPServer):
     """Receive private journey values over loopback, keeping them in memory."""
 
     def __init__(self) -> None:
-        self.values: list[str] = []
+        self.values: dict[str, str] = {}
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self) -> None:  # noqa: N802
@@ -79,15 +81,15 @@ class SentinelReceiver(ThreadingHTTPServer):
                     return
                 try:
                     payload = json.loads(self.rfile.read(size))
-                    values = payload["values"]
-                    if not isinstance(values, list) or not 8 <= len(values) <= 32 or not all(
-                        isinstance(value, str) and 0 < len(value) <= 4096 for value in values
-                    ):
+                    identity, value = payload["identity"], payload["value"]
+                    if not isinstance(identity, str) or not 1 <= len(identity) <= 128 or not isinstance(value, str) or not 1 <= len(value) <= 4096:
                         raise ValueError("missing sentinel")
+                    if identity in self.server.values:  # type: ignore[attr-defined]
+                        raise ValueError("duplicate sentinel")
                 except (KeyError, ValueError, TypeError):
                     self.send_error(400)
                     return
-                self.server.values = values  # type: ignore[attr-defined]
+                self.server.values[identity] = value  # type: ignore[attr-defined]
                 self.send_response(204)
                 self.end_headers()
 
@@ -239,10 +241,13 @@ def auth_runtime_probes(app_env: dict[str, str], mailpit_port: int) -> None:
         try:
             await_port(process, port)
             if invalid:
-                status, body = http_response(f"http://127.0.0.1:{port}/api/auth/ok")
-                if status < 400 or any(value.encode() in body for value in private if value):
+                status, body = http_response(f"http://127.0.0.1:{port}/api/auth/get-session")
+                if status != 500 or any(value.encode() in body for value in private if value):
                     raise AssertionError(f"invalid {name} auth configuration was accepted or exposed")
             else:
+                status, body = http_response(f"http://127.0.0.1:{port}/api/auth/get-session")
+                if status != 200 or json.loads(body) is not None:
+                    raise AssertionError(f"valid {name} auth configuration was rejected")
                 address = private[-1]
                 status, body = http_response(f"http://127.0.0.1:{port}/api/auth/sign-in/magic-link",
                                              body=json.dumps({"email": address}).encode(),

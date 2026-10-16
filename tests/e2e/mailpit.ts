@@ -33,23 +33,32 @@ export async function clearInbox(request: APIRequestContext): Promise<void> {
   expect((await listMessages(request)).total).toBe(0);
 }
 
-/** Finite REST poll, then read exactly one message and remove it from the inbox. */
-export async function readOneLink(request: APIRequestContext, recipient: string): Promise<string> {
+/** Finite REST poll, read the exact batch, and remove it from the inbox. */
+export async function readLinks(request: APIRequestContext, recipient: string, count: number): Promise<string[]> {
+  if (!Number.isInteger(count) || count < 1 || count > 5) throw new Error("Expected one to five isolated messages");
   let messages: Awaited<ReturnType<typeof listMessages>>["messages"] = [];
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {
     const listing = await listMessages(request);
     messages = listing.messages;
-    if (listing.total > 0) break;
+    if (listing.total >= count) break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  expect(messages).toHaveLength(1);
-  expect(messages[0].To.some((address) => address.Address === recipient)).toBe(true);
-  const response = await request.get(apiUrl(`/api/v1/message/${encodeURIComponent(messages[0].ID)}`));
-  expect(response.ok()).toBe(true);
-  const detail = detailSchema.parse(await response.json());
-  const link = detail.Text.match(/https?:\/\/\S+/)?.[0];
-  expect(Boolean(link)).toBe(true);
+  expect(messages).toHaveLength(count);
+  const links: string[] = [];
+  for (const message of messages) {
+    expect(message.To.some((address) => address.Address === recipient)).toBe(true);
+    const response = await request.get(apiUrl(`/api/v1/message/${encodeURIComponent(message.ID)}`));
+    expect(response.ok()).toBe(true);
+    const detail = detailSchema.parse(await response.json());
+    const link = detail.Text.match(/https?:\/\/\S+/)?.[0];
+    expect(Boolean(link)).toBe(true);
+    links.push(link!);
+  }
   await clearInbox(request);
-  return link!;
+  return links;
+}
+
+export async function readOneLink(request: APIRequestContext, recipient: string): Promise<string> {
+  return (await readLinks(request, recipient, 1))[0];
 }

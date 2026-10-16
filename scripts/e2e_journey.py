@@ -28,6 +28,7 @@ CHROMIUM_REVISION = "1248"
 CHROMIUM_VERSION = "156.0.8078.4"
 APP_START_TIMEOUT_SECONDS = 60
 OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024
+EXPECTED_PRIVATE_VALUES = 19  # Two accounts, five rate links, two repeats, and one concurrent link.
 
 
 class AppOutput:
@@ -55,6 +56,14 @@ class AppOutput:
         return any(value.encode() in self.data for value in values)
 
 
+def verify_private_output(output: AppOutput, values: list[str]) -> None:
+    """Fail closed if a captured private value is missing, repeated, or logged."""
+    if len(values) != EXPECTED_PRIVATE_VALUES or len(set(values)) != EXPECTED_PRIVATE_VALUES:
+        raise AssertionError("log-exclusion sentinels missing")
+    if output.contains_private_value(values):
+        raise AssertionError("log-exclusion failed")
+
+
 class SentinelReceiver(ThreadingHTTPServer):
     """Receive private journey values over loopback, keeping them in memory."""
 
@@ -69,11 +78,10 @@ class SentinelReceiver(ThreadingHTTPServer):
                     return
                 try:
                     payload = json.loads(self.rfile.read(size))
-                    values = [payload[key] for key in (
-                        "emailA", "tokenA", "cookieA", "pilotIdA",
-                        "emailB", "tokenB", "cookieB", "pilotIdB",
-                    )]
-                    if not all(isinstance(value, str) and value for value in values):
+                    values = payload["values"]
+                    if not isinstance(values, list) or not 8 <= len(values) <= 32 or not all(
+                        isinstance(value, str) and 0 < len(value) <= 4096 for value in values
+                    ):
                         raise ValueError("missing sentinel")
                 except (KeyError, ValueError, TypeError):
                     self.send_error(400)
@@ -251,10 +259,7 @@ def main() -> None:
             receiver.shutdown()
             receiver.server_close()
             receiver_thread.join(timeout=5)
-        if len(receiver.values) != 8:
-            raise AssertionError("log-exclusion sentinels missing")
-        if output.contains_private_value(receiver.values):
-            raise AssertionError("log-exclusion failed")
+        verify_private_output(output, receiver.values)
         print("JOURNEY log-exclusion: pass")
         fixed_database_isolation(env, (email_a, email_b))
     finally:

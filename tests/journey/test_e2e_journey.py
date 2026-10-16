@@ -7,6 +7,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
@@ -21,6 +24,33 @@ SPEC.loader.exec_module(journey)
 
 
 class E2EJourneyTests(TestCase):
+    def test_receiver_keeps_all_private_sentinels_in_memory(self) -> None:
+        receiver = journey.SentinelReceiver()
+        thread = threading.Thread(target=receiver.serve_forever, daemon=True)
+        thread.start()
+        try:
+            values = [f"synthetic-value-{index}" for index in range(10)]
+            body = json.dumps({"values": values}).encode()
+            with urllib.request.urlopen(urllib.request.Request(
+                f"http://127.0.0.1:{receiver.server_port}/", data=body,
+                headers={"Content-Type": "application/json"}, method="POST",
+            ), timeout=2) as response:
+                self.assertEqual(response.status, 204)
+            self.assertEqual(receiver.values, values)
+            short = json.dumps({"values": values[:7]}).encode()
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(urllib.request.Request(
+                    f"http://127.0.0.1:{receiver.server_port}/", data=short,
+                    headers={"Content-Type": "application/json"}, method="POST",
+                ), timeout=2)
+            self.assertEqual(error.exception.code, 400)
+            error.exception.close()
+            self.assertEqual(receiver.values, values)
+        finally:
+            receiver.shutdown()
+            receiver.server_close()
+            thread.join(timeout=2)
+
     def test_fixed_database_inspection_rejects_a_journey_account(self) -> None:
         with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "t", "1"]) as checked:
             with self.assertRaisesRegex(AssertionError, "journey account appeared in a fixed database"):
@@ -35,6 +65,13 @@ class E2EJourneyTests(TestCase):
         output = journey.AppOutput(process)
         self.assertTrue(output.contains_private_value(["private-sentinel"]))
         self.assertFalse(output.contains_private_value(["missing-sentinel"]))
+        values = [f"synthetic-{index}" for index in range(18)] + ["private-sentinel"]
+        with self.assertRaisesRegex(AssertionError, "log-exclusion failed"):
+            journey.verify_private_output(output, values)
+        with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
+            journey.verify_private_output(output, values[:-1])
+        with self.assertRaisesRegex(AssertionError, "log-exclusion sentinels missing"):
+            journey.verify_private_output(output, values[:-1] + [values[0]])
 
     def test_output_capture_detects_second_account_pilot_id(self) -> None:
         process = MagicMock(stdout=io.BytesIO(b"ordinary app output\n00246802\n"))
@@ -78,8 +115,7 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
-            receiver.return_value.values = ["email-a", "token-a", "cookie-a", "pilot-a",
-                                            "email-b", "token-b", "cookie-b", "pilot-b"]
+            receiver.return_value.values = [f"synthetic-{index}" for index in range(19)]
             receiver.return_value.server_port = 12345
             output.return_value.contains_private_value.return_value = False
             journey.main()

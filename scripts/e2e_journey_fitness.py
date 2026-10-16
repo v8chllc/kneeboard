@@ -9,13 +9,14 @@ or fixed local database is used.
 
 from __future__ import annotations
 
-import os
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import db_journey as db
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,21 +66,31 @@ def require_expected_failure(returncode: int, output: str) -> None:
 
 
 def run_variant(variant: Path) -> tuple[int, str]:
-    """Give an overlong runner time to clean up its local resources on interrupt."""
+    """Signal and reap the owned runner on timeout or any exceptional exit."""
     process = subprocess.Popen(
         ["mise", "exec", "--", "pnpm", "journey:e2e"], cwd=variant,
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
     )
     try:
         output, _ = process.communicate(timeout=900)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGINT)
+    except BaseException as earlier:
+        problems: list[str] = []
         try:
-            process.communicate(timeout=60)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
-            process.communicate()
-        raise AssertionError("non-atomic browser fitness exceeded its 900s budget") from None
+            # Let the Journey remove its own Compose project and app groups first.
+            db.signal_group(process, signal.SIGINT, problems)
+            try:
+                process.communicate(timeout=60)
+            except subprocess.TimeoutExpired:
+                db.signal_group(process, signal.SIGKILL, problems)
+                try:
+                    process.communicate(timeout=60)
+                except subprocess.TimeoutExpired:
+                    problems.append("fitness runner did not exit after SIGKILL")
+        except BaseException as cleanup_error:
+            problems.append(f"fitness runner cleanup raised {type(cleanup_error).__name__}")
+        if problems:
+            db.report_cleanup_failure(f"fitness runner cleanup failed: {'; '.join(problems)}", earlier)
+        raise
     return process.returncode, output
 
 

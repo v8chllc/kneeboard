@@ -68,8 +68,10 @@ def start_captured_app(port: int, env: dict[str, str]) -> tuple[subprocess.Popen
     )
     try:
         return process, AppOutput(process)
-    except BaseException:
-        db.terminate_process_group(process, float(db.TERMINATION_GRACE_SECONDS))
+    except BaseException as capture_error:
+        problems = db.terminate_process_group(process, float(db.TERMINATION_GRACE_SECONDS))
+        if problems:
+            db.report_cleanup_failure(f"application process cleanup failed: {'; '.join(problems)}", capture_error)
         raise
 
 

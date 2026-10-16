@@ -54,6 +54,19 @@ class E2EJourneyTests(TestCase):
                 journey.start_captured_app(30041, {})
         stop.assert_called_once_with(process, float(journey.db.TERMINATION_GRACE_SECONDS))
 
+    def test_captured_app_launch_reports_cleanup_failure_without_masking_capture(self) -> None:
+        process = MagicMock()
+        with (
+            patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "AppOutput", side_effect=OSError("capture failed")),
+            patch.object(journey.db, "terminate_process_group", return_value=["process survived"]),
+            patch.object(journey.db, "report_cleanup_failure") as report,
+        ):
+            with self.assertRaisesRegex(OSError, "capture failed") as error:
+                journey.start_captured_app(30041, {})
+        self.assertIn("process survived", report.call_args.args[0])
+        self.assertIs(report.call_args.args[1], error.exception)
+
     def test_receiver_keeps_all_private_sentinels_in_memory(self) -> None:
         receiver = journey.SentinelReceiver()
         thread = threading.Thread(target=receiver.serve_forever, daemon=True)

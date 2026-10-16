@@ -246,6 +246,20 @@ guarded behavior in a disposable project and requires the exact claim label to
 fail. Then it removes every project and scratch file it created. Add
 `--case <name>` to rerun one case, or `--list` to show them all.
 
+Run the browser Journey's non-atomic fitness check alongside `journey:e2e` and
+the database fitness check:
+
+```bash
+mise exec -- python3 scripts/e2e_journey_fitness.py /tmp/kneeboard-browser-fitness
+```
+
+The scratch directory must be outside this repository and needs room for a
+temporary copy of tracked sources and local dependencies. The check changes only
+that copy of Better Auth, runs the isolated two-process browser Journey, and
+requires the simultaneous-redemption cookie assertion to fail. It removes its
+temporary copy on success or failure; the empty scratch directory may be removed
+afterward. Like the Journeys, run this locally and never in CI.
+
 ### Fetch a SimBrief OFP
 
 After generating an OFP in SimBrief with the LIDO plan format and detailed

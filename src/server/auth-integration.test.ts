@@ -96,6 +96,49 @@ describe.runIf(isolated).sequential("Better Auth isolated database", () => {
     expect((await database!.select().from(schema.rateLimit)).some((row) => row.count >= 5)).toBe(true);
   }, 30000);
 
+  it("returns the same link-request response for existing and new allowed accounts", async () => {
+    const config = parseServerConfig({
+      NODE_ENV: "test", DATABASE_URL: url,
+      BETTER_AUTH_URL: "http://localhost:3000",
+      BETTER_AUTH_SECRET: "integration-only-secret-with-32-characters",
+      AUTH_EMAIL_ALLOWLIST: "existing@example.invalid,new@example.invalid",
+      MAIL_FROM_EMAIL: "login@kneeboard.local",
+      MAIL_DELIVERY: "mailpit", MAILPIT_SMTP_HOST: "127.0.0.1", MAILPIT_SMTP_PORT: "1025",
+    });
+    const links = new Map<string, string>();
+    const auth = betterAuth(createAuthOptions(config, database!, async (email, link) => {
+      links.set(email, link);
+    }));
+    const request = (email: string, ip: string) => auth.handler(new Request(
+      "http://localhost:3000/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000", "x-forwarded-for": ip },
+        body: JSON.stringify({ email }),
+      },
+    ));
+
+    await request("existing@example.invalid", "192.0.2.60");
+    const seedLink = links.get("existing@example.invalid");
+    if (!seedLink) throw new Error("Account setup did not issue a link");
+    await auth.handler(new Request(seedLink));
+    const existingRows = await database!.select().from(schema.user).where(eq(schema.user.email, "existing@example.invalid"));
+    const newRows = await database!.select().from(schema.user).where(eq(schema.user.email, "new@example.invalid"));
+    expect({ existing: existingRows.length, fresh: newRows.length }).toEqual({ existing: 1, fresh: 0 });
+    links.clear();
+
+    const existing = await request("existing@example.invalid", "192.0.2.61");
+    const fresh = await request("new@example.invalid", "192.0.2.62");
+    const observable = async (response: Response) => ({
+      status: response.status,
+      statusText: response.statusText,
+      headers: [...response.headers].sort(([first], [second]) => first.localeCompare(second)),
+      body: await response.text(),
+    });
+    expect(existing.status).toBe(200);
+    expect(await observable(existing)).toEqual(await observable(fresh));
+    expect([...links.keys()].sort()).toEqual(["existing@example.invalid", "new@example.invalid"]);
+  }, 30000);
+
   it("atomically consumes one link across two auth instances", async () => {
     const config = parseServerConfig({
       NODE_ENV: "test", DATABASE_URL: url,

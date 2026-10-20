@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { TrackerMutationResult } from "../db/tracker-operations";
 import { parseTrackerData } from "../db/tracker-json";
 import {
-  TRACKER_COMMAND_TYPES,
   type TrackerCommand,
   type TrackerCommandType,
 } from "../domain/commands";
@@ -44,7 +43,8 @@ const commandSchemas = {
   skipWaypoint: z.strictObject({ type: z.literal("skipWaypoint"), routeIndex, ...base }),
   setProcedureInclusion: z.strictObject({ type: z.literal("setProcedureInclusion"), inclusion: z.strictObject({ sid: z.boolean(), star: z.boolean() }), ...base }),
 } satisfies { [K in TrackerCommandType]: z.ZodType<Extract<TrackerCommand, { type: K }>> };
-const commandSchemaOptions = TRACKER_COMMAND_TYPES.map((type) => commandSchemas[type]);
+const commandTypes = Object.keys(commandSchemas) as TrackerCommandType[];
+const commandSchemaOptions = commandTypes.map((type) => commandSchemas[type]);
 const commandSchema = z.discriminatedUnion("type", commandSchemaOptions as [
   typeof commandSchemaOptions[number],
   ...Array<typeof commandSchemaOptions[number]>,
@@ -62,7 +62,7 @@ export function parseTrackerCommand(
   const parsed = commandSchema.safeParse(input);
   if (parsed.success) return parsed.data;
   if (typeof input === "object" && input !== null && "type" in input && typeof input.type === "string" &&
-      !TRACKER_COMMAND_TYPES.includes(input.type as TrackerCommandType)) {
+      !commandTypes.includes(input.type as TrackerCommandType)) {
     return { status: "rejected", reason: "unknownCommand", message: "This tracker command is not recognized. Reload and try again." };
   }
   return { status: "rejected", reason: "malformedCommand", message: "This tracker command is invalid. Reload and try again." };

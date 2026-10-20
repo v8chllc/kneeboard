@@ -1,5 +1,3 @@
-import "server-only";
-
 import { z } from "zod";
 import type { OfpInput } from "../domain/ofp-input";
 import { parseSimbriefOrigin } from "./simbrief-config";

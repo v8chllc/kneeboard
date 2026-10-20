@@ -11,14 +11,6 @@
 
 import type { ProcedureInclusion } from "./tracker";
 
-/** Runtime command discriminants, shared by boundary validation and domain types. */
-export const TRACKER_COMMAND_TYPES = [
-  "saveWaypoint",
-  "passWaypoint",
-  "skipWaypoint",
-  "setProcedureInclusion",
-] as const;
-
 /** Fields carried by every tracker command. */
 export interface TrackerCommandBase {
   /**
@@ -78,10 +70,3 @@ export type TrackerCommand =
 
 /** The discriminant of {@link TrackerCommand}. */
 export type TrackerCommandType = TrackerCommand["type"];
-
-type RuntimeTrackerCommandType = typeof TRACKER_COMMAND_TYPES[number];
-type TypesEqual<Left, Right> =
-  [Left] extends [Right] ? [Right] extends [Left] ? true : false : false;
-type AssertTrue<Value extends true> = Value;
-/** Compile-time witness that the runtime tuple and command union are identical. */
-export type TrackerCommandTypesAreEqual = AssertTrue<TypesEqual<TrackerCommandType, RuntimeTrackerCommandType>>;

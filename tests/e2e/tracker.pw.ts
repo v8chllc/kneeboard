@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type BrowserContext } from "@playwright/test";
 import { Pool } from "pg";
 
+import { previewPass, type TrackerSnapshot } from "../../src/domain";
 import { localTestDatabaseUrl } from "../support/local-test-db";
 import reservedIds from "../fixtures/simbrief/stub-map.json";
 import { clearInbox, readOneLink } from "./mailpit";
@@ -55,12 +56,17 @@ async function signInAndLoad(context: BrowserContext, request: APIRequestContext
 
 async function trackerRow(pool: Pool, trackerId: string, email: string) {
   const result = await pool.query(
-    'SELECT t.id, t.snapshot, t.version, l.flight_number, u.email FROM tracker t JOIN ofp_load l ON l.id = t.load_id JOIN "user" u ON u.id = t.user_id WHERE t.id = $1',
+    'SELECT t.id, t.navlog, t.snapshot, t.version, l.flight_number, l.generated_at, l.loaded_at, u.email FROM tracker t JOIN ofp_load l ON l.id = t.load_id JOIN "user" u ON u.id = t.user_id WHERE t.id = $1',
     [trackerId],
   );
   expect(result.rows).toHaveLength(1);
   expect(result.rows[0].email).toBe(email);
-  return result.rows[0] as { id: string; snapshot: { waypoints: { routeIndex: number; state: string }[] }; version: number; flight_number: string; email: string };
+  return result.rows[0] as { id: string; navlog: { points: { ident: string }[] }; snapshot: TrackerSnapshot; version: number; flight_number: string; generated_at: Date; loaded_at: Date; email: string };
+}
+
+function utcAviation(date: Date): string {
+  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  return `${String(date.getUTCDate()).padStart(2, "0")} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()} ${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}Z`;
 }
 
 test("valid fixture Load creates an owned tracker at phone width", async ({ browser, request }, testInfo) => {
@@ -79,7 +85,18 @@ test("valid fixture Load creates an owned tracker at phone width", async ({ brow
     await expect(page.getByText("KLAX → KJFK")).toBeVisible();
     await expect(page.getByText("For home flight simulation only.", { exact: false })).toBeVisible();
     await expect(page.locator("li.tracker-row")).toHaveCount(43);
-    await expect(page.getByText("Page 2", { exact: true })).toBeVisible();
+    expect(row.generated_at.toISOString()).toBe("2026-01-01T00:00:02.000Z");
+    await expect(page.locator(".tracker-times dd")).toHaveText([
+      "01 JAN 2026 0000Z", utcAviation(row.loaded_at),
+    ]);
+    const pages = page.locator("li.tracker-row:has(.tracker-page-rule)");
+    await expect(pages.locator(".tracker-page-rule")).toHaveText(["Page 1", "Page 2", "Page 3", "Page 4", "Page 5"]);
+    await expect(pages.locator(".tracker-ident")).toHaveText(["KLAX", "SEBBY", "MOCTU", "BEWEL", "NWTON"]);
+    await expect(pages.locator(".tracker-slot")).toHaveText(["1", "1", "1", "1"]);
+    await expect(page.locator("li.tracker-row").nth(19).locator(".tracker-slot")).toHaveText("9");
+    await expect(page.locator("li.tracker-row").nth(38).locator(".tracker-slot")).toHaveText("9");
+    await expect(page.locator("li.tracker-row").nth(35).locator(".tracker-ident")).toHaveText("TOD");
+    await expect(page.locator("li.tracker-row").last().locator(".tracker-ident")).toHaveText("KJFK");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     for (const button of await page.locator(".tracker-shell button").all()) {
       const box = await button.boundingBox();
@@ -113,11 +130,28 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     const stalePage = await context.newPage();
     await stalePage.goto(page.url());
     const versionBeforeFailure = (await trackerRow(pool, trackerId, email)).version;
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
+    await expect(page.locator('li.tracker-row[data-state="pending"]').first().getByRole("button", { name: "Save" })).toBeVisible();
+    const displayBeforeFailure = await page.locator(".tracker-route-list ol").innerText();
+    let releaseRequest!: () => void;
+    let requestStarted!: () => void;
+    const heldRequest = new Promise<void>((resolve) => { releaseRequest = resolve; });
+    const requestSeen = new Promise<void>((resolve) => { requestStarted = resolve; });
     await page.route("**/trackers/*", async (route) => {
-      if (route.request().method() === "POST") await route.abort("failed");
+      if (route.request().method() === "POST") {
+        requestStarted();
+        await heldRequest;
+        await route.abort("failed");
+      }
       else await route.continue();
     }, { times: 1 });
-    await page.getByRole("button", { name: "Save", exact: true }).first().click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await Promise.race([requestSeen, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Tracker POST did not start")), 10_000))]);
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await expect(page.locator(".tracker-shell button:enabled")).toHaveCount(0);
+    expect(await page.locator(".tracker-route-list ol").innerText()).toBe(displayBeforeFailure);
+    expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeFailure);
+    releaseRequest();
     await expect(page.locator(".tracker-notice")).toContainText("Tracker could not be updated");
     await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(0);
     expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeFailure);
@@ -125,6 +159,7 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     for (let count = 1; count <= 3; count += 1) {
       await page.getByRole("button", { name: "Save", exact: true }).first().click();
       await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(count);
+      await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
       if (count === 1) {
         await stalePage.getByRole("button", { name: "Save", exact: true }).first().click();
         await expect(stalePage.locator(".tracker-notice")).toContainText("Tracker changed. Reload and try again.");
@@ -143,16 +178,30 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     await page.locator('li.tracker-row[data-state="saved"]').last().getByRole("button", { name: "Pass" }).click();
     const dialog = page.getByRole("dialog", { name: "Pass these waypoints?" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("li")).toHaveCount(2);
+    const beforeCascade = await trackerRow(pool, trackerId, email);
+    const savedIndexes = beforeCascade.snapshot.waypoints.filter((fix) => fix.state === "saved").map((fix) => fix.routeIndex);
+    const preview = previewPass(beforeCascade.snapshot, savedIndexes.at(-1)!);
+    expect(preview.outcome).toBe("selected");
+    if (preview.outcome !== "selected") throw new Error("Expected cascade selection");
+    await expect(dialog.locator("li")).toHaveText(preview.routeIndexes.map((index) =>
+      `${beforeCascade.navlog.points[index].ident} · route position ${index}`));
+    const versionBeforeCancel = beforeCascade.version;
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "passed")).toHaveLength(1);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
+    expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeCancel);
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "passed")).toHaveLength(1);
     await page.locator('li.tracker-row[data-state="saved"]').last().getByRole("button", { name: "Pass" }).click();
     await page.getByRole("dialog", { name: "Pass these waypoints?" }).getByRole("button", { name: "Pass listed waypoints" }).click();
     await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);
+    const pendingBeforeSkip = page.locator('li.tracker-row[data-state="pending"]').first();
+    const skippedIdent = await pendingBeforeSkip.locator(".tracker-ident").innerText();
+    const nextIdent = await page.locator('li.tracker-row[data-state="pending"]').nth(1).locator(".tracker-ident").innerText();
     await page.locator('li.tracker-row[data-state="pending"]').first().getByRole("button", { name: "Skip" }).click();
     await expect(page.locator('li.tracker-row[data-state="skipped"]')).toHaveCount(1);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator('li.tracker-row[data-state="skipped"]').locator(".tracker-ident")).toHaveText(skippedIdent);
+    await expect(page.locator('li.tracker-row[data-state="pending"]').first().locator(".tracker-ident")).toHaveText(nextIdent);
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "skipped")).toHaveLength(1);
     await page.reload();
     await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);

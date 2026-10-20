@@ -6,8 +6,6 @@ import { loadOfpFixture } from "../../tests/support/ofp-fixture-adapter";
 import { createLoadOperation, mapLoadResult, type LoadDependencies } from "./ofp-load-operations";
 import { SimbriefOfpError } from "./simbrief-ofp";
 
-vi.mock("server-only", () => ({}));
-
 const key = "a4a420e8-6f34-4411-936a-97ce73364d3f";
 const headers = new Headers();
 const rawPayload = { marker: "synthetic" };

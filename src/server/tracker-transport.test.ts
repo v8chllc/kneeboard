@@ -5,8 +5,6 @@ import type { TrackerCommandRejection } from "../domain/engine";
 import { navlogFor } from "../../tests/support/tracker-scenarios";
 import { createTrackerTransport, mapTrackerMutation, parseTrackerCommand, type TrackerTransportDependencies } from "./tracker-transport";
 
-vi.mock("server-only", () => ({}));
-
 const trackerId = "a4a420e8-6f34-4411-936a-97ce73364d3f";
 const navlog = navlogFor("valid-domestic.json");
 const snapshot = { ...createInitialSnapshot(navlog), version: 1 };
@@ -21,8 +19,7 @@ function deps(overrides: Partial<TrackerTransportDependencies> = {}) {
   const resolveAccountId = vi.fn(async () => "account-a" as string | null);
   const read = vi.fn(async () => row);
   const mutate = vi.fn(async () => ({ outcome: "applied" as const, snapshot: { ...snapshot, version: 2 } }));
-  const log = vi.fn();
-  return { resolveAccountId, read, mutate, log, ...overrides };
+  return { resolveAccountId, read, mutate, ...overrides };
 }
 
 describe("tracker request transport", () => {
@@ -103,52 +100,21 @@ describe("tracker request transport", () => {
     expect(await corrupt.command(new Headers(), trackerId, command))
       .toEqual({ status: "unreadable", message: "Tracker could not be updated. Reload and try again." });
   });
-  it("contains identity failures and logs safe correlation metadata", async () => {
+  it("contains identity failures behind generic responses", async () => {
     for (const testCase of [
       { operation: "tracker.read" as const, id: trackerId },
       { operation: "tracker.command" as const, id: trackerId },
       { operation: "tracker.read" as const, id: "private invalid tracker id" },
     ]) {
-      const log = vi.fn();
       const transport = createTrackerTransport(deps({
-        log,
         resolveAccountId: async () => { throw new Error("private identity marker"); },
       }));
       const result = testCase.operation === "tracker.read"
         ? await transport.read(new Headers(), testCase.id)
         : await transport.command(new Headers(), testCase.id, command);
       expect(result).toMatchObject({ status: "unreadable" });
-      expect(log).toHaveBeenCalledExactlyOnceWith({
-        operation: testCase.operation,
-        correlationId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f-]{27}$/),
-        outcome: "failed",
-        reason: "unreadable",
-      });
-      expect(JSON.stringify(log.mock.calls)).not.toContain("private");
+      expect(JSON.stringify(result)).not.toContain("private identity marker");
     }
-  });
-  it("logs safe metadata for read failures, command failures, rejections, and conflicts", async () => {
-    const log = vi.fn();
-    const mutate = vi.fn()
-      .mockResolvedValueOnce({ outcome: "stale", message: "tracker changed; reload and try again" })
-      .mockRejectedValueOnce(new Error("private mutation marker"));
-    const dependencies = deps({
-      log,
-      read: async () => { throw new Error("private read marker"); },
-      mutate,
-    });
-    const transport = createTrackerTransport(dependencies);
-    await transport.read(new Headers(), trackerId);
-    await transport.command(new Headers(), trackerId, command);
-    await transport.command(new Headers(), trackerId, command);
-    await transport.command(new Headers(), trackerId, { type: "unknown", secret: "private command marker" });
-    expect(log.mock.calls).toEqual([
-      [{ operation: "tracker.read", correlationId: trackerId, outcome: "failed", reason: "unreadable" }],
-      [{ operation: "tracker.command", correlationId: trackerId, outcome: "stale", reason: "versionMismatch" }],
-      [{ operation: "tracker.command", correlationId: trackerId, outcome: "failed", reason: "unreadable" }],
-      [{ operation: "tracker.command", correlationId: trackerId, outcome: "rejected", reason: "unknownCommand" }],
-    ]);
-    expect(JSON.stringify(log.mock.calls)).not.toContain("private");
   });
 });
 

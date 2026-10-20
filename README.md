@@ -125,6 +125,22 @@ save it. Saving only validates and stores the value; it does not contact
 SimBrief. Use **Sign out** to end the session. Both home states show the
 simulation-only warning.
 
+To try the OFP-to-tracker flow without contacting SimBrief, run the fixture
+stub in a second terminal:
+
+```bash
+python3 scripts/simbrief_stub.py --port 8765
+```
+
+Keep `SIMBRIEF_BASE_URL=http://127.0.0.1:8765` in `.env.local`, then start the
+application with `mise exec -- pnpm dev`. Sign in, save reserved Pilot ID
+`100001`, and press **Load latest OFP**. The stub serves the tracked multi-page
+LIDO fixture; `100002` serves the domestic fixture, `100003` the non-LIDO
+rejection fixture, and unknown IDs return HTTP 404. The stub binds to loopback
+only and stops with Ctrl-C. The automated `pnpm journey:e2e` command starts
+its own stub on an allocated loopback port and shuts it down with the isolated
+application and database.
+
 The canonical local commands are:
 
 | Command | Purpose |

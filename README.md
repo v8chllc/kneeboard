@@ -27,10 +27,12 @@ mutation concurrency, and atomic OFP-load reservation, cooldown and idempotency,
 plus the local Playwright journey harness. Production Neon provisioning is not
 established and belongs to section 9.
 
-The next milestone is task-list section 7: authentication with Better Auth magic
-links, Mailpit locally and Resend in production, a fail-closed email allowlist,
-and account isolation. Sections run through the `feature-orchestrate` workflow,
-and the sponsor merges every pull request.
+Task-list sections 7 and 8 are complete: authentication and account isolation
+protect the authenticated OFP load flow, and users can open and operate the
+resulting persistent tracker. The next milestone is task-list section 9:
+responsive refinement, accessibility, recent loads, and production validation.
+Sections run through the `feature-orchestrate` workflow, and the sponsor merges
+every pull request.
 
 ## About this repository
 

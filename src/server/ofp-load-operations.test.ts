@@ -6,6 +6,8 @@ import { loadOfpFixture } from "../../tests/support/ofp-fixture-adapter";
 import { createLoadOperation, mapLoadResult, type LoadDependencies } from "./ofp-load-operations";
 import { SimbriefOfpError } from "./simbrief-ofp";
 
+vi.mock("server-only", () => ({}));
+
 const key = "a4a420e8-6f34-4411-936a-97ce73364d3f";
 const headers = new Headers();
 const rawPayload = { marker: "synthetic" };
@@ -15,12 +17,13 @@ function dependencies(overrides: Partial<LoadDependencies> = {}) {
   const resolveAccountId = vi.fn(async () => "account-a" as string | null);
   const readPilotId = vi.fn(async () => "000123" as string | null);
   const fetch = vi.fn(async () => ({ rawPayload, ofpInput }));
+  const log = vi.fn();
   let prepared: { rawPayload: unknown; navlog: unknown } | undefined;
   const load = vi.fn(async (_accountId: string, _key: string, work: () => Promise<{ rawPayload: unknown; navlog: unknown }>): Promise<OfpLoadResult> => {
     prepared = await work();
     return { outcome: "completed", trackerId: "opaque-tracker" };
   });
-  return { resolveAccountId, readPilotId, fetch, load, getPrepared: () => prepared, ...overrides };
+  return { resolveAccountId, readPilotId, fetch, load, log, getPrepared: () => prepared, ...overrides };
 }
 
 describe("authenticated OFP load", () => {
@@ -79,6 +82,26 @@ describe("authenticated OFP load", () => {
     const result = await createLoadOperation(dbFailure)(headers, key);
     expect(result).toMatchObject({ status: "failed" });
     expect(result.message).not.toContain("private marker");
+    expect(dbFailure.log).toHaveBeenCalledWith({
+      operation: "ofp.load", correlationId: key, outcome: "failed", reason: "persistence",
+    });
+  });
+  it("logs safe failure metadata without Pilot ID or payload details", async () => {
+    const log = vi.fn();
+    const deps = dependencies({
+      log,
+      fetch: async () => { throw new SimbriefOfpError("invalidOfp", ["private.payload.path"]); },
+      load: async (_accountId, _key, work) => {
+        try { await work(); } catch { return { outcome: "failed" }; }
+        throw new Error("Expected work failure");
+      },
+    });
+    await createLoadOperation(deps)(headers, key);
+    expect(log).toHaveBeenCalledExactlyOnceWith({
+      operation: "ofp.load", correlationId: key, outcome: "failed", reason: "invalidOfp",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("000123");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private.payload.path");
   });
 });
 

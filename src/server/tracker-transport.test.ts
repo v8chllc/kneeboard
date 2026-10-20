@@ -19,7 +19,8 @@ function deps(overrides: Partial<TrackerTransportDependencies> = {}) {
   const resolveAccountId = vi.fn(async () => "account-a" as string | null);
   const read = vi.fn(async () => row);
   const mutate = vi.fn(async () => ({ outcome: "applied" as const, snapshot: { ...snapshot, version: 2 } }));
-  return { resolveAccountId, read, mutate, ...overrides };
+  const log = vi.fn();
+  return { resolveAccountId, read, mutate, log, ...overrides };
 }
 
 describe("tracker request transport", () => {
@@ -99,6 +100,29 @@ describe("tracker request transport", () => {
     const corrupt = createTrackerTransport(deps({ mutate: async () => { throw new Error("private invalid persisted data"); } }));
     expect(await corrupt.command(new Headers(), trackerId, command))
       .toEqual({ status: "unreadable", message: "Tracker could not be updated. Reload and try again." });
+  });
+  it("logs safe metadata for read failures, command failures, rejections, and conflicts", async () => {
+    const log = vi.fn();
+    const mutate = vi.fn()
+      .mockResolvedValueOnce({ outcome: "stale", message: "tracker changed; reload and try again" })
+      .mockRejectedValueOnce(new Error("private mutation marker"));
+    const dependencies = deps({
+      log,
+      read: async () => { throw new Error("private read marker"); },
+      mutate,
+    });
+    const transport = createTrackerTransport(dependencies);
+    await transport.read(new Headers(), trackerId);
+    await transport.command(new Headers(), trackerId, command);
+    await transport.command(new Headers(), trackerId, command);
+    await transport.command(new Headers(), trackerId, { type: "unknown", secret: "private command marker" });
+    expect(log.mock.calls).toEqual([
+      [{ operation: "tracker.read", correlationId: trackerId, outcome: "failed", reason: "unreadable" }],
+      [{ operation: "tracker.command", correlationId: trackerId, outcome: "stale", reason: "versionMismatch" }],
+      [{ operation: "tracker.command", correlationId: trackerId, outcome: "failed", reason: "unreadable" }],
+      [{ operation: "tracker.command", correlationId: trackerId, outcome: "rejected", reason: "unknownCommand" }],
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private");
   });
 });
 

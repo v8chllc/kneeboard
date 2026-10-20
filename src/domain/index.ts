@@ -96,3 +96,4 @@ export type {
   TrackerCommandBase,
   TrackerCommandType,
 } from "./commands";
+export { TRACKER_COMMAND_TYPES } from "./commands";

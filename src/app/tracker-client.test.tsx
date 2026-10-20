@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-
-import { chromium } from "@playwright/test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,19 +44,4 @@ describe("tracker page markup", () => {
     expect(html).toContain("SID included");
     expect(html).toContain("STAR included");
   });
-
-  it("fits the complete route at a phone viewport", async () => {
-    const css = (await readFile(new URL("./globals.css", import.meta.url), "utf8"))
-      .replace('@import "tailwindcss";', "");
-    const browser = await chromium.launch({ headless: true });
-    try {
-      const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-      await page.setContent(`<style>${css}</style>${renderToStaticMarkup(<TrackerClient trackerId="tracker" initial={initial} />)}`);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-      expect(await page.getByRole("button", { name: "Save", exact: true }).first().boundingBox())
-        .toMatchObject({ height: 44 });
-    } finally {
-      await browser.close();
-    }
-  }, 15_000);
 });

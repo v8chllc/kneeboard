@@ -2,11 +2,16 @@ import { z } from "zod";
 
 import type { TrackerMutationResult } from "../db/tracker-operations";
 import { parseTrackerData } from "../db/tracker-json";
-import type { TrackerCommand } from "../domain/commands";
+import {
+  TRACKER_COMMAND_TYPES,
+  type TrackerCommand,
+  type TrackerCommandType,
+} from "../domain/commands";
 import type { TrackerCommandRejection } from "../domain/engine";
 import type { Navlog } from "../domain/navlog";
 import type { TrackerSnapshot } from "../domain/tracker";
 import type { StoredTrackerView } from "./tracker-data";
+import { logServerEvent, type StructuredLogger } from "./structured-log";
 
 export interface TrackerHeader {
   readonly flightNumber: string;
@@ -29,16 +34,23 @@ export interface TrackerTransportDependencies {
   readonly resolveAccountId: (headers: Headers) => Promise<string | null>;
   readonly read: (accountId: string, trackerId: string) => Promise<StoredTrackerView | null>;
   readonly mutate: (accountId: string, trackerId: string, command: TrackerCommand) => Promise<TrackerMutationResult>;
+  readonly log?: StructuredLogger;
 }
 
 const trackerIdSchema = z.uuid();
 const base = { expectedVersion: z.number().int().positive() };
 const routeIndex = z.number().int().nonnegative();
+const commandSchemas = {
+  saveWaypoint: z.strictObject({ type: z.literal("saveWaypoint"), routeIndex, ...base }),
+  passWaypoint: z.strictObject({ type: z.literal("passWaypoint"), routeIndex, ...base }),
+  skipWaypoint: z.strictObject({ type: z.literal("skipWaypoint"), routeIndex, ...base }),
+  setProcedureInclusion: z.strictObject({ type: z.literal("setProcedureInclusion"), inclusion: z.strictObject({ sid: z.boolean(), star: z.boolean() }), ...base }),
+} satisfies Record<TrackerCommandType, z.ZodType>;
 const commandSchema = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("saveWaypoint"), routeIndex, ...base }),
-  z.strictObject({ type: z.literal("passWaypoint"), routeIndex, ...base }),
-  z.strictObject({ type: z.literal("skipWaypoint"), routeIndex, ...base }),
-  z.strictObject({ type: z.literal("setProcedureInclusion"), inclusion: z.strictObject({ sid: z.boolean(), star: z.boolean() }), ...base }),
+  commandSchemas.saveWaypoint,
+  commandSchemas.passWaypoint,
+  commandSchemas.skipWaypoint,
+  commandSchemas.setProcedureInclusion,
 ]);
 
 function unreachable(value: never): never {
@@ -47,11 +59,13 @@ function unreachable(value: never): never {
 }
 
 /** Reject unknown command types separately from malformed known commands. */
-export function parseTrackerCommand(input: unknown): TrackerCommandUiResult | TrackerCommand {
+export function parseTrackerCommand(
+  input: unknown,
+): Extract<TrackerCommandUiResult, { status: "rejected" }> | TrackerCommand {
   const parsed = commandSchema.safeParse(input);
   if (parsed.success) return parsed.data;
   if (typeof input === "object" && input !== null && "type" in input && typeof input.type === "string" &&
-      !["saveWaypoint", "passWaypoint", "skipWaypoint", "setProcedureInclusion"].includes(input.type)) {
+      !TRACKER_COMMAND_TYPES.includes(input.type as TrackerCommandType)) {
     return { status: "rejected", reason: "unknownCommand", message: "This tracker command is not recognized. Reload and try again." };
   }
   return { status: "rejected", reason: "malformedCommand", message: "This tracker command is invalid. Reload and try again." };
@@ -100,6 +114,7 @@ export function mapTrackerMutation(result: TrackerMutationResult): TrackerComman
 
 /** The same not-found result covers absent and unowned tracker IDs. */
 export function createTrackerTransport(dependencies: TrackerTransportDependencies) {
+  const log = dependencies.log ?? logServerEvent;
   return {
     async read(headers: Headers, trackerId: unknown): Promise<TrackerReadResult> {
       const accountId = await dependencies.resolveAccountId(headers);
@@ -117,6 +132,7 @@ export function createTrackerTransport(dependencies: TrackerTransportDependencie
           loadedAtUtc: row.loadedAt.toISOString(),
         } };
       } catch {
+        log({ operation: "tracker.read", correlationId: trackerId as string, outcome: "failed", reason: "unreadable" });
         return { status: "unreadable", message: "Tracker could not be opened. Try again." };
       }
     },
@@ -125,10 +141,22 @@ export function createTrackerTransport(dependencies: TrackerTransportDependencie
       if (accountId === null) return { status: "signInRequired", message: "Sign in to change a tracker." };
       if (!trackerIdSchema.safeParse(trackerId).success) return { status: "notFound", message: "Tracker not found." };
       const parsed = parseTrackerCommand(input);
-      if ("status" in parsed) return parsed;
+      if ("status" in parsed) {
+        log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "rejected", reason: parsed.reason });
+        return parsed;
+      }
       try {
-        return mapTrackerMutation(await dependencies.mutate(accountId, trackerId as string, parsed));
+        const result = await dependencies.mutate(accountId, trackerId as string, parsed);
+        if (result.outcome === "stale") {
+          log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "stale", reason: "versionMismatch" });
+        } else if (result.outcome === "rejected") {
+          log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "rejected", reason: result.reason });
+        } else if (result.outcome === "notFound") {
+          log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "failed", reason: "notFound" });
+        }
+        return mapTrackerMutation(result);
       } catch {
+        log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "failed", reason: "unreadable" });
         return { status: "unreadable", message: "Tracker could not be updated. Reload and try again." };
       }
     },

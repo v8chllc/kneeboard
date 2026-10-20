@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import { getAccountSettings } from "@/server/account-settings";
+import { loadLatestOfp } from "@/server/ofp-load";
+import type { LoadUiResult } from "@/server/ofp-load-operations";
 
 export type SavePilotIdState = { status: "idle" | "saved" | "error"; message: string };
 
@@ -22,4 +24,13 @@ export async function savePilotIdAction(_previous: SavePilotIdState, formData: F
   }
   revalidatePath("/");
   return { status: "saved", message: "Pilot ID saved." };
+}
+
+/** Client supplies only an idempotency key; identity and Pilot ID stay server-owned. */
+export async function loadLatestOfpAction(key: string): Promise<LoadUiResult> {
+  try {
+    return await loadLatestOfp(await headers(), key);
+  } catch {
+    return { status: "failed", message: "The OFP could not be loaded. Check your plan and try again." };
+  }
 }

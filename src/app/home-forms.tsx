@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 
 import { authClient } from "./auth-client";
-import { savePilotIdAction, type SavePilotIdState } from "./home-actions";
+import { loadLatestOfpAction, savePilotIdAction, type SavePilotIdState } from "./home-actions";
+import { createLoadKeyState } from "./load-key";
+import type { LoadUiResult } from "@/server/ofp-load-operations";
 
 const initialSaveState: SavePilotIdState = { status: "idle", message: "" };
 
@@ -59,6 +61,56 @@ export function PilotIdForm({ pilotId }: { pilotId: string | null }) {
       {state.status !== "idle" && <p role={state.status === "error" ? "alert" : "status"}
         className={state.status === "error" ? "text-sm text-rose-300" : "text-sm text-emerald-300"}>{state.message}</p>}
     </form>
+  );
+}
+
+export function LoadOfpControl({ ready }: { ready: boolean }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<LoadUiResult | null>(null);
+  const keys = useRef<ReturnType<typeof createLoadKeyState> | null>(null);
+  const inFlight = useRef(false);
+  keys.current ??= createLoadKeyState(() => crypto.randomUUID());
+
+  function submit(retry: boolean) {
+    if (pending || inFlight.current || !ready) return;
+    const key = retry ? keys.current!.retry() : keys.current!.newAction();
+    inFlight.current = true;
+    setResult(null);
+    startTransition(async () => {
+      try {
+        const next = await loadLatestOfpAction(key);
+        setResult(next);
+        if (next.status === "created" || next.status === "completed") {
+          router.push(`/trackers/${encodeURIComponent(next.trackerId)}`);
+        }
+      } catch {
+        setResult({ status: "failed", message: "The OFP could not be loaded. Check your plan and try again." });
+      } finally {
+        inFlight.current = false;
+      }
+    });
+  }
+
+  return (
+    <section className="mt-8 max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900 p-6" aria-label="Load latest OFP">
+      <h2 className="text-xl font-semibold">Load latest OFP</h2>
+      {!ready && <p className="text-sm text-zinc-300">Save your SimBrief Pilot ID to enable loading.</p>}
+      <button type="button" disabled={!ready || pending} onClick={() => submit(false)}
+        className="rounded-md bg-amber-300 px-4 py-2 font-semibold text-zinc-950 disabled:opacity-50">
+        {pending ? "Loading…" : "Load latest OFP"}
+      </button>
+      {result !== null && (
+        <div role={result.status === "failed" || result.status === "signInRequired" || result.status === "invalidAction" ? "alert" : "status"}
+          className="text-sm text-zinc-200">
+          <p>{result.message}</p>
+          {(result.status === "failed" || result.status === "inProgress" || result.status === "wait") && (
+            <button type="button" disabled={pending} onClick={() => submit(true)}
+              className="mt-3 rounded-md border border-zinc-500 px-3 py-2 font-medium disabled:opacity-50">Retry this load</button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

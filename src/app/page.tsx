@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 
 import { getAccountSettings, resolveAccountId } from "@/server/account-settings";
 
-import { PilotIdForm, SignInForm, SignOutButton } from "./home-forms";
+import { LoadOfpControl, PilotIdForm, SignInForm, SignOutButton } from "./home-forms";
 
 export default async function Home() {
   const requestHeaders = await headers();
@@ -32,6 +32,7 @@ export default async function Home() {
               {pilotId === null ? "Set up your Pilot ID to prepare for OFP loading." : "Your Pilot ID is saved for this account."}
             </p>
             <PilotIdForm pilotId={pilotId} />
+            <LoadOfpControl ready={pilotId !== null} />
             <SignOutButton />
           </>
         )}

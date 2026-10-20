@@ -5,6 +5,8 @@ import type { TrackerCommandRejection } from "../domain/engine";
 import { navlogFor } from "../../tests/support/tracker-scenarios";
 import { createTrackerTransport, mapTrackerMutation, parseTrackerCommand, type TrackerTransportDependencies } from "./tracker-transport";
 
+vi.mock("server-only", () => ({}));
+
 const trackerId = "a4a420e8-6f34-4411-936a-97ce73364d3f";
 const navlog = navlogFor("valid-domestic.json");
 const snapshot = { ...createInitialSnapshot(navlog), version: 1 };
@@ -100,6 +102,30 @@ describe("tracker request transport", () => {
     const corrupt = createTrackerTransport(deps({ mutate: async () => { throw new Error("private invalid persisted data"); } }));
     expect(await corrupt.command(new Headers(), trackerId, command))
       .toEqual({ status: "unreadable", message: "Tracker could not be updated. Reload and try again." });
+  });
+  it("contains identity failures and logs safe correlation metadata", async () => {
+    for (const testCase of [
+      { operation: "tracker.read" as const, id: trackerId },
+      { operation: "tracker.command" as const, id: trackerId },
+      { operation: "tracker.read" as const, id: "private invalid tracker id" },
+    ]) {
+      const log = vi.fn();
+      const transport = createTrackerTransport(deps({
+        log,
+        resolveAccountId: async () => { throw new Error("private identity marker"); },
+      }));
+      const result = testCase.operation === "tracker.read"
+        ? await transport.read(new Headers(), testCase.id)
+        : await transport.command(new Headers(), testCase.id, command);
+      expect(result).toMatchObject({ status: "unreadable" });
+      expect(log).toHaveBeenCalledExactlyOnceWith({
+        operation: testCase.operation,
+        correlationId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f-]{27}$/),
+        outcome: "failed",
+        reason: "unreadable",
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private");
+    }
   });
   it("logs safe metadata for read failures, command failures, rejections, and conflicts", async () => {
     const log = vi.fn();

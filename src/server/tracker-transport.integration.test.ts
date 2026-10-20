@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { loadOfpForAccount } from "../db/ofp-load";
 import { mutateTracker } from "../db/tracker-operations";
@@ -12,6 +12,8 @@ import { navlogFor } from "../../tests/support/tracker-scenarios";
 import { localTestDatabaseUrl } from "../../tests/support/local-test-db";
 import { selectTrackerForAccount } from "./tracker-data";
 import { createTrackerTransport } from "./tracker-transport";
+
+vi.mock("server-only", () => ({}));
 
 const testUrl = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
 const pool = testUrl ? new Pool({ connectionString: testUrl }) : undefined;

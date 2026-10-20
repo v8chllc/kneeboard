@@ -19,9 +19,6 @@ export const TRACKER_COMMAND_TYPES = [
   "setProcedureInclusion",
 ] as const;
 
-/** The discriminant of {@link TrackerCommand}. */
-export type TrackerCommandType = typeof TRACKER_COMMAND_TYPES[number];
-
 /** Fields carried by every tracker command. */
 export interface TrackerCommandBase {
   /**
@@ -78,3 +75,13 @@ export type TrackerCommand =
   | PassWaypointCommand
   | SkipWaypointCommand
   | SetProcedureInclusionCommand;
+
+/** The discriminant of {@link TrackerCommand}. */
+export type TrackerCommandType = TrackerCommand["type"];
+
+type RuntimeTrackerCommandType = typeof TRACKER_COMMAND_TYPES[number];
+type TypesEqual<Left, Right> =
+  [Left] extends [Right] ? [Right] extends [Left] ? true : false : false;
+type AssertTrue<Value extends true> = Value;
+/** Compile-time witness that the runtime tuple and command union are identical. */
+export type TrackerCommandTypesAreEqual = AssertTrue<TypesEqual<TrackerCommandType, RuntimeTrackerCommandType>>;

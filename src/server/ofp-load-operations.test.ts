@@ -86,6 +86,36 @@ describe("authenticated OFP load", () => {
       operation: "ofp.load", correlationId: key, outcome: "failed", reason: "persistence",
     });
   });
+  it("logs identity and settings dependency failures with safe correlation IDs", async () => {
+    for (const testCase of [
+      {
+        submittedKey: key,
+        overrides: { resolveAccountId: async () => { throw new Error("private identity marker"); } },
+        reason: "accountResolution",
+      },
+      {
+        submittedKey: key,
+        overrides: { readPilotId: async () => { throw new Error("private settings marker"); } },
+        reason: "settingsRead",
+      },
+      {
+        submittedKey: "private invalid action key",
+        overrides: { resolveAccountId: async () => { throw new Error("private identity marker"); } },
+        reason: "accountResolution",
+      },
+    ]) {
+      const log = vi.fn();
+      const result = await createLoadOperation(dependencies({ ...testCase.overrides, log }))(headers, testCase.submittedKey);
+      expect(result).toEqual({ status: "failed", message: "The OFP could not be loaded. Check your plan and try again." });
+      expect(log).toHaveBeenCalledExactlyOnceWith({
+        operation: "ofp.load",
+        correlationId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f-]{27}$/),
+        outcome: "failed",
+        reason: testCase.reason,
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private");
+    }
+  });
   it("logs safe failure metadata without Pilot ID or payload details", async () => {
     const log = vi.fn();
     const deps = dependencies({

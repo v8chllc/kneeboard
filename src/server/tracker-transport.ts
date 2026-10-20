@@ -48,11 +48,10 @@ const commandSchemas = {
   skipWaypoint: z.strictObject({ type: z.literal("skipWaypoint"), routeIndex, ...base }),
   setProcedureInclusion: z.strictObject({ type: z.literal("setProcedureInclusion"), inclusion: z.strictObject({ sid: z.boolean(), star: z.boolean() }), ...base }),
 } satisfies { [K in TrackerCommandType]: z.ZodType<Extract<TrackerCommand, { type: K }>> };
-const commandSchema = z.discriminatedUnion("type", [
-  commandSchemas.saveWaypoint,
-  commandSchemas.passWaypoint,
-  commandSchemas.skipWaypoint,
-  commandSchemas.setProcedureInclusion,
+const commandSchemaOptions = TRACKER_COMMAND_TYPES.map((type) => commandSchemas[type]);
+const commandSchema = z.discriminatedUnion("type", commandSchemaOptions as [
+  typeof commandSchemaOptions[number],
+  ...Array<typeof commandSchemaOptions[number]>,
 ]);
 
 function unreachable(value: never): never {

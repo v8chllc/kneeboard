@@ -17,13 +17,12 @@ function dependencies(overrides: Partial<LoadDependencies> = {}) {
   const resolveAccountId = vi.fn(async () => "account-a" as string | null);
   const readPilotId = vi.fn(async () => "000123" as string | null);
   const fetch = vi.fn(async () => ({ rawPayload, ofpInput }));
-  const log = vi.fn();
   let prepared: { rawPayload: unknown; navlog: unknown } | undefined;
   const load = vi.fn(async (_accountId: string, _key: string, work: () => Promise<{ rawPayload: unknown; navlog: unknown }>): Promise<OfpLoadResult> => {
     prepared = await work();
     return { outcome: "completed", trackerId: "opaque-tracker" };
   });
-  return { resolveAccountId, readPilotId, fetch, load, log, getPrepared: () => prepared, ...overrides };
+  return { resolveAccountId, readPilotId, fetch, load, getPrepared: () => prepared, ...overrides };
 }
 
 describe("authenticated OFP load", () => {
@@ -82,56 +81,25 @@ describe("authenticated OFP load", () => {
     const result = await createLoadOperation(dbFailure)(headers, key);
     expect(result).toMatchObject({ status: "failed" });
     expect(result.message).not.toContain("private marker");
-    expect(dbFailure.log).toHaveBeenCalledWith({
-      operation: "ofp.load", correlationId: key, outcome: "failed", reason: "persistence",
-    });
   });
-  it("logs identity and settings dependency failures with safe correlation IDs", async () => {
+  it("returns generic failures when identity or settings dependencies throw", async () => {
     for (const testCase of [
       {
         submittedKey: key,
         overrides: { resolveAccountId: async () => { throw new Error("private identity marker"); } },
-        reason: "accountResolution",
       },
       {
         submittedKey: key,
         overrides: { readPilotId: async () => { throw new Error("private settings marker"); } },
-        reason: "settingsRead",
       },
       {
         submittedKey: "private invalid action key",
         overrides: { resolveAccountId: async () => { throw new Error("private identity marker"); } },
-        reason: "accountResolution",
       },
     ]) {
-      const log = vi.fn();
-      const result = await createLoadOperation(dependencies({ ...testCase.overrides, log }))(headers, testCase.submittedKey);
+      const result = await createLoadOperation(dependencies(testCase.overrides))(headers, testCase.submittedKey);
       expect(result).toEqual({ status: "failed", message: "The OFP could not be loaded. Check your plan and try again." });
-      expect(log).toHaveBeenCalledExactlyOnceWith({
-        operation: "ofp.load",
-        correlationId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f-]{27}$/),
-        outcome: "failed",
-        reason: testCase.reason,
-      });
-      expect(JSON.stringify(log.mock.calls)).not.toContain("private");
     }
-  });
-  it("logs safe failure metadata without Pilot ID or payload details", async () => {
-    const log = vi.fn();
-    const deps = dependencies({
-      log,
-      fetch: async () => { throw new SimbriefOfpError("invalidOfp", ["private.payload.path"]); },
-      load: async (_accountId, _key, work) => {
-        try { await work(); } catch { return { outcome: "failed" }; }
-        throw new Error("Expected work failure");
-      },
-    });
-    await createLoadOperation(deps)(headers, key);
-    expect(log).toHaveBeenCalledExactlyOnceWith({
-      operation: "ofp.load", correlationId: key, outcome: "failed", reason: "invalidOfp",
-    });
-    expect(JSON.stringify(log.mock.calls)).not.toContain("000123");
-    expect(JSON.stringify(log.mock.calls)).not.toContain("private.payload.path");
   });
 });
 

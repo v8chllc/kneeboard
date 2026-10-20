@@ -20,3 +20,82 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* The navlog stays readable at a phone width without a horizontal scroll. */
+.tracker-shell {
+  width: min(100%, 46rem);
+  margin: 0 auto;
+  padding: 1rem 0.75rem 3rem;
+  overflow-wrap: anywhere;
+}
+
+.tracker-shell a { color: #93c5fd; }
+.tracker-header, .tracker-controls, .tracker-route-list {
+  margin-bottom: 1.5rem;
+}
+.tracker-eyebrow { color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.75rem; }
+.tracker-header h1 { margin: 0.4rem 0; font-size: clamp(1.8rem, 8vw, 2.7rem); }
+.tracker-route { margin: 0.25rem 0 1rem; font-weight: 700; }
+.tracker-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin: 0; }
+.tracker-times div { min-width: 0; }
+.tracker-times dt { color: #a1a1aa; font-size: 0.78rem; }
+.tracker-times dd { margin: 0.25rem 0; font-variant-numeric: tabular-nums; font-size: 0.88rem; }
+.tracker-warning { padding: 0.7rem; border: 1px solid #f59e0b; border-radius: 0.35rem; color: #fde68a; }
+.tracker-controls { padding: 0.85rem; border: 1px solid #3f3f46; border-radius: 0.5rem; }
+.tracker-controls h2, .tracker-route-list h2 { margin: 0 0 0.45rem; font-size: 1.15rem; }
+.tracker-controls p, .tracker-window-key { color: #d4d4d8; font-size: 0.86rem; }
+.tracker-pass-advice { padding: 0.65rem; border-left: 3px solid #fbbf24; background: #27272a; font-size: 0.88rem; line-height: 1.4; }
+.tracker-control-buttons, .tracker-row-actions, .tracker-dialog-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tracker-shell button, .tracker-dialog button {
+  min-height: 2.75rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #71717a;
+  border-radius: 0.35rem;
+  background: #27272a;
+  color: #fafafa;
+  cursor: pointer;
+}
+.tracker-shell button:disabled, .tracker-dialog button:disabled { opacity: 0.5; cursor: default; }
+.tracker-shell button:focus-visible, .tracker-dialog button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+.tracker-notice { margin: 1rem 0; padding: 0.75rem; border: 1px solid #f59e0b; border-radius: 0.35rem; }
+.tracker-route-list ol { margin: 0; padding: 0; list-style: none; }
+.tracker-row {
+  position: relative;
+  min-width: 0;
+  padding: 0.65rem 0.45rem 0.7rem 1.45rem;
+  border-bottom: 1px solid #3f3f46;
+}
+.tracker-row[data-window="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0.62rem;
+  top: 0;
+  bottom: 0;
+  border-left: 3px solid #fbbf24;
+}
+.tracker-rail-cap { position: absolute; left: 0.62rem; width: 0.75rem; border-top: 3px solid #fbbf24; }
+.tracker-rail-cap-start { top: 0; }
+.tracker-rail-cap-end { bottom: 0; }
+.tracker-page-rule { margin: 0.25rem 0 0.6rem; padding-top: 0.4rem; border-top: 2px solid #71717a; color: #d4d4d8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.tracker-row-main { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.tracker-state { width: 6.6rem; flex: none; color: #d4d4d8; font-size: 0.76rem; }
+.tracker-row[data-state="pending"] .tracker-state,
+.tracker-row[data-state="saved"] .tracker-state { font-weight: 700; color: #fafafa; }
+.tracker-row[data-state="passed"] .tracker-ident,
+.tracker-row[data-state="skipped"] .tracker-ident { font-weight: 400; color: #a1a1aa; }
+.tracker-ident { min-width: 0; overflow-wrap: anywhere; }
+.tracker-slot { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; margin-left: auto; border: 1px solid #fbbf24; border-radius: 0.2rem; background: #fbbf24; color: #18181b; font-weight: 700; }
+.tracker-slot-outline { background: transparent; color: #fbbf24; }
+.tracker-row-detail { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; margin-top: 0.35rem; color: #d4d4d8; font-size: 0.8rem; }
+.tracker-coordinates { display: flex; flex-direction: column; min-width: 0; font-variant-numeric: tabular-nums; }
+.tracker-keypad { color: #fafafa; font-weight: 700; }
+.tracker-distance { white-space: normal; font-variant-numeric: tabular-nums; }
+.tracker-row-actions { margin-top: 0.5rem; }
+.tracker-dialog { max-width: min(90vw, 26rem); padding: 1rem; border: 1px solid #a1a1aa; border-radius: 0.5rem; background: #18181b; color: #fafafa; }
+.tracker-dialog::backdrop { background: rgb(0 0 0 / 70%); }
+.tracker-dialog ol { padding-left: 1.5rem; }
+
+@media (max-width: 370px) {
+  .tracker-state { width: auto; max-width: 5rem; }
+  .tracker-times { grid-template-columns: 1fr; }
+}

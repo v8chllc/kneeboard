@@ -91,10 +91,18 @@ Decisions:
 - Use the JSON response.
 - Require LIDO layout and detailed navlog.
 - Treat HTTP, parsing, layout, and navlog failures as failed loads.
-- Bound the upstream request with an explicit abort timeout and response-size
-  limit. Select the concrete values against captured payload sizes and the
-  deployed runtime when the integration is implemented; they must be finite,
-  documented, and covered by automated tests.
+- Abort the upstream request after 20 seconds, below the 30-second load
+  reservation. Limit the streamed response to 8 MiB before JSON parsing;
+  `Content-Length` alone is insufficient because it can be absent or false.
+  The largest valid sanitized fixture is 9,581 bytes. This is a limited basis:
+  sanitized fixtures cannot establish the size of complete raw OFPs, and no raw
+  capture is currently available locally. Measure a fresh capture when one is
+  available before treating 8 MiB as a measured production bound.
+- Take the origin from required `SIMBRIEF_BASE_URL` server configuration with
+  no local fallback. Production accepts exactly `https://www.simbrief.com`.
+  Development and test accept only an explicit loopback HTTP origin. Reject
+  credentials, path, query, or fragment. Never point automated tests or journeys
+  at live SimBrief.
 - Store the complete raw JSON payload privately for every successful load.
 - Also normalize the small set of fields required by the tracker.
 

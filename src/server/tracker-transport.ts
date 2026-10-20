@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import type { TrackerMutationResult } from "../db/tracker-operations";
@@ -45,7 +47,7 @@ const commandSchemas = {
   passWaypoint: z.strictObject({ type: z.literal("passWaypoint"), routeIndex, ...base }),
   skipWaypoint: z.strictObject({ type: z.literal("skipWaypoint"), routeIndex, ...base }),
   setProcedureInclusion: z.strictObject({ type: z.literal("setProcedureInclusion"), inclusion: z.strictObject({ sid: z.boolean(), star: z.boolean() }), ...base }),
-} satisfies Record<TrackerCommandType, z.ZodType>;
+} satisfies { [K in TrackerCommandType]: z.ZodType<Extract<TrackerCommand, { type: K }>> };
 const commandSchema = z.discriminatedUnion("type", [
   commandSchemas.saveWaypoint,
   commandSchemas.passWaypoint,
@@ -117,11 +119,13 @@ export function createTrackerTransport(dependencies: TrackerTransportDependencie
   const log = dependencies.log ?? logServerEvent;
   return {
     async read(headers: Headers, trackerId: unknown): Promise<TrackerReadResult> {
-      const accountId = await dependencies.resolveAccountId(headers);
-      if (accountId === null) return { status: "signInRequired", message: "Sign in to open a tracker." };
-      if (!trackerIdSchema.safeParse(trackerId).success) return { status: "notFound", message: "Tracker not found." };
+      const parsedTrackerId = trackerIdSchema.safeParse(trackerId);
+      const correlationId = parsedTrackerId.success ? parsedTrackerId.data : randomUUID();
       try {
-        const row = await dependencies.read(accountId, trackerId as string);
+        const accountId = await dependencies.resolveAccountId(headers);
+        if (accountId === null) return { status: "signInRequired", message: "Sign in to open a tracker." };
+        if (!parsedTrackerId.success) return { status: "notFound", message: "Tracker not found." };
+        const row = await dependencies.read(accountId, parsedTrackerId.data);
         if (row === null) return { status: "notFound", message: "Tracker not found." };
         const { navlog, snapshot } = parseTrackerData(row.navlog, row.snapshot, row.version);
         return { status: "found", navlog, snapshot, header: {
@@ -132,31 +136,33 @@ export function createTrackerTransport(dependencies: TrackerTransportDependencie
           loadedAtUtc: row.loadedAt.toISOString(),
         } };
       } catch {
-        log({ operation: "tracker.read", correlationId: trackerId as string, outcome: "failed", reason: "unreadable" });
+        log({ operation: "tracker.read", correlationId, outcome: "failed", reason: "unreadable" });
         return { status: "unreadable", message: "Tracker could not be opened. Try again." };
       }
     },
     async command(headers: Headers, trackerId: unknown, input: unknown): Promise<TrackerCommandUiResult> {
-      const accountId = await dependencies.resolveAccountId(headers);
-      if (accountId === null) return { status: "signInRequired", message: "Sign in to change a tracker." };
-      if (!trackerIdSchema.safeParse(trackerId).success) return { status: "notFound", message: "Tracker not found." };
-      const parsed = parseTrackerCommand(input);
-      if ("status" in parsed) {
-        log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "rejected", reason: parsed.reason });
-        return parsed;
-      }
+      const parsedTrackerId = trackerIdSchema.safeParse(trackerId);
+      const correlationId = parsedTrackerId.success ? parsedTrackerId.data : randomUUID();
       try {
-        const result = await dependencies.mutate(accountId, trackerId as string, parsed);
+        const accountId = await dependencies.resolveAccountId(headers);
+        if (accountId === null) return { status: "signInRequired", message: "Sign in to change a tracker." };
+        if (!parsedTrackerId.success) return { status: "notFound", message: "Tracker not found." };
+        const parsed = parseTrackerCommand(input);
+        if ("status" in parsed) {
+          log({ operation: "tracker.command", correlationId, outcome: "rejected", reason: parsed.reason });
+          return parsed;
+        }
+        const result = await dependencies.mutate(accountId, parsedTrackerId.data, parsed);
         if (result.outcome === "stale") {
-          log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "stale", reason: "versionMismatch" });
+          log({ operation: "tracker.command", correlationId, outcome: "stale", reason: "versionMismatch" });
         } else if (result.outcome === "rejected") {
-          log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "rejected", reason: result.reason });
+          log({ operation: "tracker.command", correlationId, outcome: "rejected", reason: result.reason });
         } else if (result.outcome === "notFound") {
-          log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "failed", reason: "notFound" });
+          log({ operation: "tracker.command", correlationId, outcome: "failed", reason: "notFound" });
         }
         return mapTrackerMutation(result);
       } catch {
-        log({ operation: "tracker.command", correlationId: trackerId as string, outcome: "failed", reason: "unreadable" });
+        log({ operation: "tracker.command", correlationId, outcome: "failed", reason: "unreadable" });
         return { status: "unreadable", message: "Tracker could not be updated. Reload and try again." };
       }
     },

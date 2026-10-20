@@ -1,3 +1,5 @@
+import "server-only";
+
 export interface ServerLogEvent {
   readonly operation: "ofp.load" | "tracker.read" | "tracker.command";
   readonly correlationId: string;

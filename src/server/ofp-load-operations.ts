@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import type { OfpLoadResult, PreparedOfpLoad } from "../db/ofp-load";
@@ -48,33 +50,36 @@ const actionKey = z.uuid();
 /** Resolve account and saved Pilot ID on the server before reserving any load. */
 export function createLoadOperation(dependencies: LoadDependencies) {
   return async (headers: Headers, key: unknown): Promise<LoadUiResult> => {
-    const accountId = await dependencies.resolveAccountId(headers);
-    if (accountId === null) return { status: "signInRequired", message: "Sign in to load an OFP." };
-    if (!actionKey.safeParse(key).success) return { status: "invalidAction", message: "The load action expired. Try again." };
-    const pilotId = await dependencies.readPilotId(accountId);
-    if (pilotId === null) return { status: "pilotIdRequired", message: "Save your SimBrief Pilot ID before loading an OFP." };
+    const parsedKey = actionKey.safeParse(key);
+    const correlationId = parsedKey.success ? parsedKey.data : randomUUID();
     const log = dependencies.log ?? logServerEvent;
-
     let failure: SimbriefOfpFailure | undefined;
+    let failureReason = "accountResolution";
     try {
-      const result = await dependencies.load(accountId, key as string, async () => {
+      const accountId = await dependencies.resolveAccountId(headers);
+      if (accountId === null) return { status: "signInRequired", message: "Sign in to load an OFP." };
+      if (!parsedKey.success) return { status: "invalidAction", message: "The load action expired. Try again." };
+      failureReason = "settingsRead";
+      const pilotId = await dependencies.readPilotId(accountId);
+      if (pilotId === null) return { status: "pilotIdRequired", message: "Save your SimBrief Pilot ID before loading an OFP." };
+
+      failureReason = "persistence";
+      const result = await dependencies.load(accountId, parsedKey.data, async () => {
         try {
           const fetched = await dependencies.fetch(pilotId);
           return { rawPayload: fetched.rawPayload, navlog: buildNavlog(fetched.ofpInput) };
         } catch (error) {
           failure = error instanceof SimbriefOfpError ? error.reason : "upstream";
-          log({ operation: "ofp.load", correlationId: key as string, outcome: "failed", reason: failure });
+          failureReason = failure;
           throw error;
         }
       });
-      if (result.outcome === "failed" && failure === undefined) {
-        log({ operation: "ofp.load", correlationId: key as string, outcome: "failed", reason: "persistence" });
+      if (result.outcome === "failed") {
+        log({ operation: "ofp.load", correlationId, outcome: "failed", reason: failure ?? "persistence" });
       }
       return mapLoadResult(result, failure);
     } catch {
-      if (failure === undefined) {
-        log({ operation: "ofp.load", correlationId: key as string, outcome: "failed", reason: "persistence" });
-      }
+      log({ operation: "ofp.load", correlationId, outcome: "failed", reason: failureReason });
       return { status: "failed", message: "The OFP could not be loaded. Check your plan and try again." };
     }
   };

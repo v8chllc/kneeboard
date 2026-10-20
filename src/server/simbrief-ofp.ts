@@ -1,3 +1,5 @@
+import "server-only";
+
 import { z } from "zod";
 import type { OfpInput } from "../domain/ofp-input";
 import { parseSimbriefOrigin } from "./simbrief-config";
@@ -7,6 +9,9 @@ export const SIMBRIEF_MAX_BYTES = 8 * 1024 * 1024;
 
 const numeric = z.union([z.number(), z.string().regex(/^-?\d+(\.\d+)?$/)])
   .transform(Number).pipe(z.number().finite());
+const nonNegativeDistance = numeric.pipe(z.number().nonnegative());
+const unixSeconds = z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)])
+  .transform(Number).pipe(z.number().int().nonnegative());
 const latitude = numeric.pipe(z.number().min(-90).max(90));
 const longitude = numeric.pipe(z.number().min(-180).max(180));
 const flag = z.union([z.literal(0), z.literal(1), z.literal("0"), z.literal("1")])
@@ -27,7 +32,7 @@ const fix = z.object({
   via_airway: z.string(),
   pos_lat: latitude,
   pos_long: longitude,
-  distance: numeric,
+  distance: nonNegativeDistance,
 }).transform((value) => ({
   ident: value.ident,
   sourceType: value.type,
@@ -42,12 +47,12 @@ const detailedFixes = z.preprocess(
   z.array(fix).nonempty(),
 );
 const ofpSchema = z.object({
-  params: z.object({ time_generated: numeric }),
+  params: z.object({ time_generated: unixSeconds }),
   general: z.object({
     flight_number: z.string().min(1),
     sid_ident: z.string(),
     star_ident: z.string(),
-    route_distance: numeric,
+    route_distance: nonNegativeDistance,
   }),
   origin: airport,
   destination: airport,

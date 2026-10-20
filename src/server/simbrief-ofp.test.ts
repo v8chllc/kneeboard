@@ -7,6 +7,8 @@ import {
   fetchSimbriefOfp, parseSimbriefOfp, SimbriefOfpError, SIMBRIEF_MAX_BYTES,
 } from "./simbrief-ofp";
 
+vi.mock("server-only", () => ({}));
+
 const fixtures = path.join(process.cwd(), "tests/fixtures/simbrief");
 const valid = [
   "valid-domestic.json", "valid-multi-page.json", "valid-oceanic.json",
@@ -34,6 +36,12 @@ function expectedFailure(value: unknown): SimbriefOfpError {
 }
 
 describe("SimBrief configuration", () => {
+  it("marks configuration and OFP capabilities as server-only", () => {
+    for (const name of ["simbrief-config.ts", "simbrief-ofp.ts"]) {
+      expect(readFileSync(path.join(process.cwd(), "src/server", name), "utf8"))
+        .toMatch(/^import "server-only";/);
+    }
+  });
   it("requires the exact production origin and an explicit local loopback origin", () => {
     expect(parseSimbriefOrigin({ NODE_ENV: "production", SIMBRIEF_BASE_URL: "https://www.simbrief.com" })).toBe("https://www.simbrief.com");
     for (const value of [undefined, "https://simbrief.com", "http://www.simbrief.com", "https://www.simbrief.com/", "https://www.simbrief.com:443", "https://www.simbrief.com/path", "https://www.simbrief.com/?q=1"]) {
@@ -70,6 +78,21 @@ describe("SimBrief representation boundary", () => {
       expect(error.reason).toBe("invalidOfp");
     }
     expect(expectedFailure({ ...base, params: {} }).paths).toEqual(["params.ofp_layout"]);
+  });
+  it("rejects negative distances and non-integer Unix seconds", () => {
+    const base = fixture("valid-domestic.json") as Record<string, unknown>;
+    const navlog = base.navlog as { fix: Record<string, unknown>[] };
+    const general = base.general as Record<string, unknown>;
+    const params = base.params as Record<string, unknown>;
+    for (const payload of [
+      { ...base, navlog: { fix: [{ ...navlog.fix[0], distance: "-1" }] } },
+      { ...base, general: { ...general, route_distance: -1 } },
+      { ...base, params: { ...params, time_generated: "-1" } },
+      { ...base, params: { ...params, time_generated: "1.5" } },
+      { ...base, params: { ...params, time_generated: 1.5 } },
+    ]) {
+      expect(expectedFailure(payload).reason).toBe("invalidOfp");
+    }
   });
 });
 

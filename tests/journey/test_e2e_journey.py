@@ -94,10 +94,10 @@ class E2EJourneyTests(TestCase):
             thread.join(timeout=2)
 
     def test_fixed_database_inspection_rejects_a_journey_account(self) -> None:
-        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "t", "1"]) as checked:
+        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "0", "t", "1"]) as checked:
             with self.assertRaisesRegex(AssertionError, "journey account appeared in a fixed database"):
                 journey.fixed_database_isolation({}, ("journey-a@example.invalid", "journey-b@example.invalid"))
-        self.assertEqual(len(checked.call_args_list), 5)
+        self.assertEqual(len(checked.call_args_list), 6)
         self.assertIn("kneeboard_test", checked.call_args.args[0])
         self.assertIn('FROM "user" WHERE email IN', checked.call_args.args[0][-1])
         self.assertNotIn("account_settings", checked.call_args.args[0][-1])
@@ -170,7 +170,7 @@ class E2EJourneyTests(TestCase):
             patch.object(journey, "clear_mailpit"),
             patch.object(journey, "http_response", side_effect=lambda url, **_kwargs: (200, b"null") if url.endswith("/get-session") else (200, b"{}")),
             patch.object(journey, "mailpit_messages", return_value={"total": 1, "messages": []}),
-            patch.object(journey.db, "terminate_process_group", return_value=[]),
+            patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
         ):
             output.return_value.contains_private_value.return_value = False
             with self.assertRaisesRegex(AssertionError, "missing allowlist delivery failed"):
@@ -251,7 +251,7 @@ class E2EJourneyTests(TestCase):
         process.returncode = None
         with (
             patch.object(journey.uuid, "uuid4") as uuid4,
-            patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041]),
+            patch.object(journey.db, "free_port", side_effect=[54441, 10241, 8021, 30041, 8761]),
             patch.object(journey, "checked", side_effect=["unix:///local/docker.sock", "", "", "JOURNEY atomic redemption: pass", "", "", "", "", ""]) as checked,
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local") as local,
@@ -263,8 +263,10 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process) as popen,
+            patch.object(journey, "start_simbrief_stub", return_value=MagicMock()) as stub,
+            patch.object(journey, "await_simbrief_stub"),
             patch.object(journey, "await_app"),
-            patch.object(journey.db, "terminate_process_group", return_value=[]),
+            patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
@@ -280,6 +282,10 @@ class E2EJourneyTests(TestCase):
         self.assertEqual(popen.call_args.kwargs["env"]["DATABASE_URL"],
                          "postgresql://kneeboard:local_only_kneeboard@127.0.0.1:54441/kneeboard_test")
         self.assertEqual(popen.call_args.kwargs["env"]["BETTER_AUTH_URL"], "http://localhost:30041")
+        self.assertEqual(popen.call_args.kwargs["env"]["SIMBRIEF_BASE_URL"], "http://127.0.0.1:8761")
+        stub.assert_called_once_with(8761)
+        self.assertEqual(stop.call_count, 2)
+        stop.assert_any_call(stub.return_value, float(journey.db.TERMINATION_GRACE_SECONDS))
         popen.assert_called_once()
         self.assertTrue(any(call.args[0][-2:] == ["playwright", "test"] for call in checked.call_args_list))
         self.assertTrue(any("tests/journey/mailpit-chaos.compose.yaml" in call.args[0] for call in checked.call_args_list))
@@ -313,7 +319,7 @@ class E2EJourneyTests(TestCase):
                 return "JOURNEY atomic redemption: pass"
             return ""
         with (
-            patch.object(journey.db, "free_port", side_effect=[54443, 10243, 8023, 30043]),
+            patch.object(journey.db, "free_port", side_effect=[54443, 10243, 8023, 30043, 8763]),
             patch.object(journey, "checked", side_effect=run),
             patch.object(journey, "browser_metadata"),
             patch.object(journey, "local"),
@@ -322,6 +328,8 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process),
+            patch.object(journey, "start_simbrief_stub", return_value=MagicMock()) as stub,
+            patch.object(journey, "await_simbrief_stub"),
             patch.object(journey, "await_app"),
             patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
             patch.object(journey.db, "cleanup_compose") as cleanup,
@@ -329,9 +337,47 @@ class E2EJourneyTests(TestCase):
             receiver.return_value.server_port = 12345
             with self.assertRaisesRegex(AssertionError, "Playwright smoke journey failed"):
                 journey.main()
-        self.assertEqual(stop.call_count, 1)
+        self.assertEqual(stop.call_count, 2)
         stop.assert_any_call(process, float(journey.db.TERMINATION_GRACE_SECONDS))
+        stop.assert_any_call(stub.return_value, float(journey.db.TERMINATION_GRACE_SECONDS))
         self.assertIsInstance(cleanup.call_args.args[1], AssertionError)
+
+    def test_interruption_stops_stub_and_app_before_project_cleanup(self) -> None:
+        app = MagicMock(returncode=None)
+        stub = MagicMock(returncode=None)
+
+        def run(args: list[str], *_args: object, **_kwargs: object) -> str:
+            if args[:3] == ["docker", "context", "inspect"]:
+                return "unix:///local/docker.sock"
+            if args[-2:] == ["playwright", "test"]:
+                raise KeyboardInterrupt()
+            if "src/server/auth-integration.test.ts" in args:
+                return "JOURNEY atomic redemption: pass"
+            return ""
+
+        with (
+            patch.object(journey.db, "free_port", side_effect=[54444, 10244, 8024, 30044, 8764]),
+            patch.object(journey, "checked", side_effect=run),
+            patch.object(journey, "browser_metadata"),
+            patch.object(journey, "local"),
+            patch.object(journey, "SentinelReceiver") as receiver,
+            patch.object(journey, "AppOutput"),
+            patch.object(journey.db, "psql", return_value="kneeboard_test"),
+            patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
+            patch.object(journey.subprocess, "Popen", return_value=app),
+            patch.object(journey, "start_simbrief_stub", return_value=stub),
+            patch.object(journey, "await_simbrief_stub"),
+            patch.object(journey, "await_app"),
+            patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
+            patch.object(journey.db, "cleanup_compose") as cleanup,
+        ):
+            receiver.return_value.server_port = 12345
+            with self.assertRaises(KeyboardInterrupt):
+                journey.main()
+        stop.assert_any_call(stub, float(journey.db.TERMINATION_GRACE_SECONDS))
+        stop.assert_any_call(app, float(journey.db.TERMINATION_GRACE_SECONDS))
+        self.assertEqual(stop.call_count, 2)
+        self.assertIsInstance(cleanup.call_args.args[1], KeyboardInterrupt)
 
     def test_aggregate_stops_at_each_failing_journey(self) -> None:
         script = json.loads((ROOT / "package.json").read_text())["scripts"]["journey"]

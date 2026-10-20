@@ -1,8 +1,8 @@
 """Run Playwright against a built app and a disposable local PostgreSQL project.
 
 The runner owns one validated Compose project, its loopback service ports, one
-Next.js process group, and Playwright's local browser install. It terminates
-the app process group and removes the Compose project
+Next.js process group, a loopback SimBrief fixture stub, and Playwright's local browser install. It terminates
+both process groups and removes the Compose project
 and volume after success, failure, or interruption. It never targets the fixed
 development project or a remote database. All commands have finite budgets.
 """
@@ -31,7 +31,8 @@ CHROMIUM_VERSION = "156.0.8078.4"
 APP_START_TIMEOUT_SECONDS = 60
 OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024
 REQUIRED_SENTINELS = {"email-a", "email-b", "pilot-a", "pilot-b", "session-a", "session-b",
-                      "session-repeat-0", "session-repeat-1"}
+                      "session-repeat-0", "session-repeat-1", "email-tracker-a", "email-tracker-b",
+                      "pilot-stub", "session-tracker-a", "session-tracker-b"}
 
 
 class AppOutput:
@@ -144,7 +145,7 @@ def checked(args: list[str], env: dict[str, str], budget: str, label: str) -> st
             for line in captured.splitlines():
                 if line.strip().startswith("JOURNEY ") and not any(character in line for character in ("@", "http", "token")):
                     print(line.strip())
-            locations = re.findall(r"(?:sign-in\.pw|mailpit(?:-faults\.pw)?)\.ts:\d+:\d+", captured)
+            locations = re.findall(r"(?:sign-in\.pw|mailpit(?:-faults\.pw)?|tracker\.pw)\.ts:\d+:\d+", captured)
             if locations:
                 print(f"Playwright failure locations: {', '.join(dict.fromkeys(locations))}")
         if label in ("isolated SMTP rejection integration", "isolated auth integration"):
@@ -197,6 +198,29 @@ def await_port(process: subprocess.Popen[str], port: int) -> None:
         except OSError:
             time.sleep(0.2)
     raise AssertionError("built application startup timed out")
+
+
+def start_simbrief_stub(port: int) -> subprocess.Popen[bytes]:
+    """Start the fixture server in its own process group; never inherit a live URL."""
+    return subprocess.Popen(
+        [sys.executable, "scripts/simbrief_stub.py", "--port", str(port)],
+        cwd=db.ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, start_new_session=True,
+    )
+
+
+def await_simbrief_stub(process: subprocess.Popen[bytes], port: int) -> None:
+    deadline = time.monotonic() + APP_START_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if db.leader_exited(process):
+            raise AssertionError("SimBrief stub exited before startup")
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as response:
+                if response.status == 204:
+                    return
+        except (urllib.error.URLError, TimeoutError):
+            time.sleep(0.2)
+    raise AssertionError("SimBrief stub startup timed out")
 
 
 def http_response(url: str, *, body: bytes | None = None, origin: str | None = None) -> tuple[int, bytes]:
@@ -298,7 +322,7 @@ def auth_runtime_probes(app_env: dict[str, str], mailpit_port: int) -> None:
     clear_mailpit(mailpit_port)
 
 
-def fixed_database_isolation(env: dict[str, str], emails: tuple[str, str]) -> None:
+def fixed_database_isolation(env: dict[str, str], emails: tuple[str, ...]) -> None:
     """Read only the journey identities in any running fixed local databases."""
     compose = ["docker", "compose", "-f", "compose.yaml", "-p", "kneeboard"]
     container = checked([*compose, "ps", "-q", "postgres"], env,
@@ -319,6 +343,11 @@ def fixed_database_isolation(env: dict[str, str], emails: tuple[str, str]) -> No
                         env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed account inspection")
         if count != "0":
             raise AssertionError("journey account appeared in a fixed database")
+        tracker_count = checked([*compose, "exec", "-T", "postgres", "psql", "-U", "kneeboard", "-d", database,
+                                 "-Atqc", f'SELECT count(*) FROM tracker t JOIN "user" u ON u.id = t.user_id WHERE u.email IN ({quoted})'],
+                                env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed tracker inspection")
+        if tracker_count != "0":
+            raise AssertionError("journey tracker appeared in a fixed database")
     print("JOURNEY fixed database isolation: pass")
 
 
@@ -328,14 +357,19 @@ def main() -> None:
     smtp_port = db.free_port()
     mailpit_port = db.free_port()
     app_port = db.free_port()
+    stub_port = db.free_port()
     email_a = f"journey-a-{project[-12:]}@example.invalid"
     email_b = f"journey-b-{project[-12:]}@example.invalid"
+    email_tracker_a = f"journey-tracker-a-{project[-12:]}@example.invalid"
+    email_tracker_b = f"journey-tracker-b-{project[-12:]}@example.invalid"
     env = os.environ.copy()
     env.update(KNEEBOARD_DB_PROJECT=project, KNEEBOARD_DB_PORT=str(database_port),
                KNEEBOARD_MAILPIT_SMTP_PORT=str(smtp_port), KNEEBOARD_MAILPIT_UI_PORT=str(mailpit_port))
     env.pop("DATABASE_URL", None)
+    env.pop("SIMBRIEF_BASE_URL", None)
     env.pop("COMPOSE_FILE", None)
     compose_started = False
+    stub_process: subprocess.Popen[bytes] | None = None
     try:
         docker_host = env.get("DOCKER_HOST", "")
         context_host = checked(
@@ -364,10 +398,13 @@ def main() -> None:
         app_env["DATABASE_URL"] = f"postgresql://kneeboard:local_only_kneeboard@127.0.0.1:{database_port}/kneeboard_test"
         app_env.update(BETTER_AUTH_URL=f"http://localhost:{app_port}",
                        BETTER_AUTH_SECRET="isolated-journey-secret-with-32-characters",
-                       AUTH_EMAIL_ALLOWLIST=f"{email_a},{email_b}",
+                       AUTH_EMAIL_ALLOWLIST=f"{email_a},{email_b},{email_tracker_a},{email_tracker_b}",
                        MAIL_FROM_EMAIL="login@kneeboard.local", MAIL_DELIVERY="mailpit",
                        MAILPIT_SMTP_HOST="127.0.0.1", MAILPIT_SMTP_PORT=str(smtp_port),
                        TEST_DATABASE_URL=app_env["DATABASE_URL"])
+        stub_process = start_simbrief_stub(stub_port)
+        await_simbrief_stub(stub_process, stub_port)
+        app_env["SIMBRIEF_BASE_URL"] = f"http://127.0.0.1:{stub_port}"
         for test_file in ("src/server/auth-integration.test.ts", "src/server/account-settings.integration.test.ts"):
             result = checked(["mise", "exec", "--", "pnpm", "exec", "vitest", "run", test_file,
                               "--reporter=verbose"],
@@ -387,8 +424,11 @@ def main() -> None:
         try:
             await_app(process, app_port)
             browser_env = app_env | {"PLAYWRIGHT_BASE_URL": f"http://localhost:{app_port}",
+                                     "SIMBRIEF_STUB_URL": f"http://127.0.0.1:{stub_port}",
                                      "MAILPIT_API_URL": f"http://127.0.0.1:{mailpit_port}",
                                      "JOURNEY_EMAIL_A": email_a, "JOURNEY_EMAIL_B": email_b,
+                                     "JOURNEY_TRACKER_EMAIL_A": email_tracker_a,
+                                     "JOURNEY_TRACKER_EMAIL_B": email_tracker_b,
                                      "JOURNEY_SENTINEL_PORT": str(receiver.server_port)}
             result = checked(["mise", "exec", "--", "pnpm", "exec", "playwright", "test"], browser_env,
                              "OPERATION_TEST_TIMEOUT_SECONDS", "Playwright sign-in journey")
@@ -417,9 +457,13 @@ def main() -> None:
                            "MAILPIT_JOURNEY_UI_PORT": str(mailpit_port), "NODE_ENV": "test"},
                 "OPERATION_TEST_TIMEOUT_SECONDS", "isolated SMTP rejection integration")
         print("JOURNEY local SMTP rejection: pass")
-        fixed_database_isolation(env, (email_a, email_b))
+        fixed_database_isolation(env, (email_a, email_b, email_tracker_a, email_tracker_b))
     finally:
         earlier = sys.exc_info()[1]
+        if stub_process is not None:
+            problems = db.terminate_process_group(stub_process, float(db.TERMINATION_GRACE_SECONDS))
+            if problems:
+                db.report_cleanup_failure(f"SimBrief stub cleanup failed: {'; '.join(problems)}", earlier)
         if compose_started:
             db.cleanup_compose(env, earlier)
     print("Playwright Journey passed; disposable project removed on exit.")

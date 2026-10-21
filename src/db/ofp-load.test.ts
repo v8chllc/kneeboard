@@ -105,6 +105,21 @@ describe.runIf(Boolean(testUrl))("transactional OFP load against local PostgreSQ
     expect(retained.acceptedAt).toBe(reservation.acceptedAt);
   });
 
+  it("leaves an earlier tracker unchanged when a later load fails", async () => {
+    const accountId = await account();
+    const first = await loadOfpForAccount(db!, accountId, "prior", work);
+    if (first.outcome !== "created") throw new Error("expected created");
+    const [before] = await db!.select().from(tracker).where(eq(tracker.id, first.trackerId));
+    await db!.update(loadReservation).set({ acceptedAt: sql`clock_timestamp() - interval '31 seconds'` })
+      .where(eq(loadReservation.userId, accountId));
+    const failed = await loadOfpForAccount(db!, accountId, "later-failure", async () => {
+      throw new Error("synthetic fetch failure");
+    });
+    expect(failed).toEqual({ outcome: "failed" });
+    const [after] = await db!.select().from(tracker).where(eq(tracker.id, first.trackerId));
+    expect(after).toEqual(before);
+  });
+
   it("rejects invalid prepared JSON before any load row is written", async () => {
     const accountId = await account();
     const result = await loadOfpForAccount(db!, accountId, "invalid", async () => ({

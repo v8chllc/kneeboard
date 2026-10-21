@@ -3,12 +3,14 @@ import { Pool } from "pg";
 
 import { previewPass, type TrackerSnapshot } from "../../src/domain";
 import { localTestDatabaseUrl } from "../support/local-test-db";
+import multiPageFixture from "../fixtures/simbrief/valid-multi-page.json";
 import reservedIds from "../fixtures/simbrief/stub-map.json";
 import { clearInbox, readOneLink } from "./mailpit";
 import { registerSensitive } from "./privacy";
 
 const PILOT_ID = "100001";
 if (reservedIds[PILOT_ID] !== "valid-multi-page.json") throw new Error("Tracker fixture mapping changed");
+const expectedRoute = [multiPageFixture.origin.icao_code, ...multiPageFixture.navlog.fix.map((fix) => fix.ident)];
 
 function isolatedSettings() {
   const databaseUrl = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
@@ -85,6 +87,8 @@ test("valid fixture Load creates an owned tracker at phone width", async ({ brow
     await expect(page.getByText("KLAX → KJFK")).toBeVisible();
     await expect(page.getByText("For home flight simulation only.", { exact: false })).toBeVisible();
     await expect(page.locator("li.tracker-row")).toHaveCount(43);
+    await expect(page.locator("li.tracker-row .tracker-ident"))
+      .toHaveText(expectedRoute);
     expect(row.generated_at.toISOString()).toBe("2026-01-01T00:00:02.000Z");
     await expect(page.locator(".tracker-times dd")).toHaveText([
       "01 JAN 2026 0000Z", utcAviation(row.loaded_at),
@@ -123,6 +127,13 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     const loaded = await signInAndLoad(context, request, email, "b");
     const { page, trackerId } = loaded;
     const sid = page.getByRole("button", { name: "SID included" });
+    await page.getByRole("button", { name: "STAR included" }).click();
+    await expect(page.getByRole("button", { name: "STAR excluded" })).toBeVisible();
+    expect((await trackerRow(pool, trackerId, email)).snapshot.procedureInclusion.star).toBe(false);
+    await page.reload();
+    await expect(page.getByRole("button", { name: "STAR excluded" })).toBeVisible();
+    await page.getByRole("button", { name: "STAR excluded" }).click();
+    await expect(page.getByRole("button", { name: "STAR included" })).toBeVisible();
     await sid.click();
     await expect(page.getByRole("button", { name: "SID excluded" })).toBeVisible();
     await page.getByRole("button", { name: "SID excluded" }).click();
@@ -186,9 +197,11 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     await expect(dialog.locator("li")).toHaveText(preview.routeIndexes.map((index) =>
       `${beforeCascade.navlog.points[index].ident} · route position ${index}`));
     const versionBeforeCancel = beforeCascade.version;
+    const displayBeforeCancel = await page.locator(".tracker-route-list ol").innerText();
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "passed")).toHaveLength(1);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
+    expect(await page.locator(".tracker-route-list ol").innerText()).toBe(displayBeforeCancel);
     expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeCancel);
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "passed")).toHaveLength(1);
     await page.locator('li.tracker-row[data-state="saved"]').last().getByRole("button", { name: "Pass" }).click();

@@ -55,7 +55,9 @@ describe("authenticated OFP load", () => {
     for (const outcome of ["inProgress", "wait"] as const) {
       const deps = dependencies({ load: async () => ({ outcome, remainingMs: 15_001 }) });
       const result = await createLoadOperation(deps)(headers, key);
-      expect(result.status).toBe(outcome);
+      expect(result).toEqual(outcome === "inProgress"
+        ? { status: "inProgress", remainingMs: 15_001, message: "This load is still running. Retry the same action shortly." }
+        : { status: "wait", remainingMs: 15_001, message: "Wait 16 seconds before another load." });
       expect(deps.fetch).not.toHaveBeenCalled();
     }
   });
@@ -114,5 +116,12 @@ describe("load outcome mapping", () => {
       .toEqual(["created", "completed", "inProgress", "wait", "failed"]);
     expect(mapLoadResult(outcomes[3])).toMatchObject({ remainingMs: 15_001, message: "Wait 16 seconds before another load." });
     expect(mapLoadResult(outcomes[0])).toMatchObject({ trackerId: "new-id" });
+    expect(outcomes.map((outcome) => mapLoadResult(outcome).message)).toEqual([
+      "OFP loaded. Opening your tracker.",
+      "This load already completed. Opening your tracker.",
+      "This load is still running. Retry the same action shortly.",
+      "Wait 16 seconds before another load.",
+      "The OFP could not be loaded. Check your plan and try again.",
+    ]);
   });
 });

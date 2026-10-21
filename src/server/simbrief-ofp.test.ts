@@ -123,6 +123,13 @@ describe("SimBrief fetch client", () => {
         .rejects.toMatchObject({ reason: "upstream" });
     }
   });
+  it("rejects an upstream error even when its body is a valid LIDO OFP", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(fixture("valid-domestic.json")), {
+      status: 503, headers: { "content-type": "application/json" },
+    }));
+    await expect(fetchSimbriefOfp("123", { origin, fetchImpl }))
+      .rejects.toMatchObject({ reason: "upstream" });
+  });
   it("aborts a stalled transport within the configured time", async () => {
     vi.useFakeTimers();
     try {

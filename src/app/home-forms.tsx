@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useState, useSyncExternalStore, useTransition } from "react";
 
 import { authClient } from "./auth-client";
 import { loadLatestOfpAction, savePilotIdAction, type SavePilotIdState } from "./home-actions";
-import { createLoadKeyState } from "./load-key";
-import type { LoadUiResult } from "@/server/ofp-load-operations";
+import { createLoadOfpController, type LoadControlSnapshot } from "./load-control";
 
 const initialSaveState: SavePilotIdState = { status: "idle", message: "" };
 
@@ -66,37 +65,35 @@ export function PilotIdForm({ pilotId }: { pilotId: string | null }) {
 
 export function LoadOfpControl({ ready }: { ready: boolean }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [result, setResult] = useState<LoadUiResult | null>(null);
-  const keys = useRef<ReturnType<typeof createLoadKeyState> | null>(null);
-  const inFlight = useRef(false);
-  keys.current ??= createLoadKeyState(() => crypto.randomUUID());
+  const [transitionPending, startTransition] = useTransition();
+  const [controller] = useState(() => createLoadOfpController(
+    loadLatestOfpAction,
+    (trackerId) => router.push(`/trackers/${encodeURIComponent(trackerId)}`),
+    () => crypto.randomUUID(),
+  ));
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 
   function submit(retry: boolean) {
-    if (pending || inFlight.current || !ready) return;
-    const key = retry ? keys.current!.retry() : keys.current!.newAction();
-    inFlight.current = true;
-    setResult(null);
-    startTransition(async () => {
-      try {
-        const next = await loadLatestOfpAction(key);
-        setResult(next);
-        if (next.status === "created" || next.status === "completed") {
-          router.push(`/trackers/${encodeURIComponent(next.trackerId)}`);
-        }
-      } catch {
-        setResult({ status: "failed", message: "The OFP could not be loaded. Check your plan and try again." });
-      } finally {
-        inFlight.current = false;
-      }
-    });
+    if (transitionPending || snapshot.pending || !ready) return;
+    startTransition(async () => { await controller.submit(retry); });
   }
 
+  return <LoadOfpControlView ready={ready} pending={transitionPending || snapshot.pending}
+    result={snapshot.result} onLoad={() => submit(false)} onRetry={() => submit(true)} />;
+}
+
+export function LoadOfpControlView({ ready, pending, result, onLoad, onRetry }: {
+  ready: boolean;
+  pending: boolean;
+  result: LoadControlSnapshot["result"];
+  onLoad: () => void;
+  onRetry: () => void;
+}) {
   return (
     <section className="mt-8 max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900 p-6" aria-label="Load latest OFP">
       <h2 className="text-xl font-semibold">Load latest OFP</h2>
       {!ready && <p className="text-sm text-zinc-300">Save your SimBrief Pilot ID to enable loading.</p>}
-      <button type="button" disabled={!ready || pending} onClick={() => submit(false)}
+      <button type="button" disabled={!ready || pending} onClick={onLoad}
         className="rounded-md bg-amber-300 px-4 py-2 font-semibold text-zinc-950 disabled:opacity-50">
         {pending ? "Loading…" : "Load latest OFP"}
       </button>
@@ -105,7 +102,7 @@ export function LoadOfpControl({ ready }: { ready: boolean }) {
           className="text-sm text-zinc-200">
           <p>{result.message}</p>
           {(result.status === "failed" || result.status === "inProgress" || result.status === "wait") && (
-            <button type="button" disabled={pending} onClick={() => submit(true)}
+            <button type="button" disabled={pending} onClick={onRetry}
               className="mt-3 rounded-md border border-zinc-500 px-3 py-2 font-medium disabled:opacity-50">Retry this load</button>
           )}
         </div>

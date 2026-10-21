@@ -1,4 +1,4 @@
-"""Reproduce fitness counterexamples for the strengthened 6a database Journey checks.
+"""Reproduce fitness counterexamples for the strengthened 6a SQL-probe checks.
 
 Usage, from the repository root:
 

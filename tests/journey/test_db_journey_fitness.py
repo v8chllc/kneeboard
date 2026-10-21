@@ -36,6 +36,18 @@ class FitnessAnchorTests(TestCase):
         self.assertEqual(fitness.PROBE, ROOT / "scripts/db-journey.sql")
         self.assertEqual(JOURNEY_SQL.count(fitness.TRANSACTION_START), 1)
         self.assertEqual(JOURNEY_SQL.count(fitness.ROLLBACK), 1)
+        self.assertNotIn("COMMIT", JOURNEY_SQL)
+        verify_sql = (ROOT / "scripts/verify-local-schema.sql").read_text()
+        self.assertEqual(verify_sql.count(fitness.TRANSACTION_START), 1)
+        self.assertEqual(verify_sql.count(fitness.ROLLBACK), 1)
+        self.assertNotIn("COMMIT", verify_sql)
+
+    def test_cases_keep_every_mutation_inside_the_rolled_back_transaction(self) -> None:
+        for case in fitness.CASES.values():
+            with self.subTest(case=case.name):
+                self.assertNotEqual(case.anchor, fitness.ROLLBACK)
+                self.assertNotIn("COMMIT", case.replacement.upper())
+                self.assertEqual(case.mutated().count(fitness.ROLLBACK), 1)
 
     def test_sql_raise_texts_are_unique_and_labelled_6a(self) -> None:
         self.assertGreater(len(RAISE_TEXTS), 30)

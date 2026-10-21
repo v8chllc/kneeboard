@@ -81,6 +81,9 @@ file for the label.
 The other 6a claims (C-7a, C-8, C-8a, C-10, C-13, C-14, and C-17) were already
 fully covered and are unchanged apart from the `6a` label prefix.
 
+[v8chllc/kneeboard#88](https://github.com/v8chllc/kneeboard/issues/88) retired C-2b and
+C-15 because they guarded only single-user local data; do not restore them.
+
 ## Not proved here
 
 This Journey uses synthetic storage states. It does not prove authentication,

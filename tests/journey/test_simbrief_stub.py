@@ -7,10 +7,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+import simbrief_stub  # noqa: E402
 from simbrief_stub import FETCHER_PATH, RESERVED_IDS, StubServer  # noqa: E402
 
 
@@ -51,3 +53,15 @@ class SimbriefStubTests(TestCase):
             error.exception.close()
         with urllib.request.urlopen(f"{self.base}/__requests", timeout=2) as response:
             self.assertEqual(json.load(response), {"999999": 1})
+
+    def test_main_closes_its_listener_after_keyboard_interrupt(self) -> None:
+        with (
+            patch.object(sys, "argv", ["simbrief_stub.py", "--port", "8765"]),
+            patch.object(simbrief_stub, "StubServer") as server_type,
+            patch("builtins.print"),
+        ):
+            server_type.return_value.serve_forever.side_effect = KeyboardInterrupt
+            simbrief_stub.main()
+        server_type.assert_called_once_with(8765)
+        server_type.return_value.serve_forever.assert_called_once_with(poll_interval=0.2)
+        server_type.return_value.server_close.assert_called_once_with()

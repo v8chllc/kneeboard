@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { LoadUiResult } from "@/server/ofp-load-operations";
+import { createLoadOperation, type LoadUiResult } from "../server/ofp-load-operations";
 import { createLoadOfpController } from "./load-control";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -39,5 +39,22 @@ describe("home OFP load control", () => {
     await controller.submit(true);
     expect(load.mock.calls.map(([key]) => key)).toEqual([originalKey, originalKey]);
     unsubscribe();
+  });
+
+  it("shows the remaining cooldown wait without fetching", async () => {
+    const fetch = vi.fn();
+    const operation = createLoadOperation({
+      resolveAccountId: async () => "account-a",
+      readPilotId: async () => "000123",
+      load: async () => ({ outcome: "wait", remainingMs: 11_200 }),
+      fetch,
+    });
+    const controller = createLoadOfpController((key) => operation(new Headers(), key), vi.fn(), () => crypto.randomUUID());
+
+    await controller.submit(false);
+    const markup = render(controller.getSnapshot());
+    expect(markup).toContain("Wait 12 seconds before another load.");
+    expect(markup).toContain('role="status"');
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

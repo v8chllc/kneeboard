@@ -102,6 +102,20 @@ class E2EJourneyTests(TestCase):
         self.assertIn('FROM "user" WHERE email IN', checked.call_args.args[0][-1])
         self.assertNotIn("account_settings", checked.call_args.args[0][-1])
 
+    def test_fixed_database_inspection_rejects_a_journey_tracker(self) -> None:
+        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "1"]) as checked:
+            with self.assertRaisesRegex(AssertionError, "journey tracker appeared in a fixed database"):
+                journey.fixed_database_isolation({}, ("journey-a@example.invalid",))
+        self.assertIn("kneeboard_dev", checked.call_args.args[0])
+        self.assertIn("FROM tracker t JOIN", checked.call_args.args[0][-1])
+
+    def test_fixed_database_inspection_reports_a_stopped_project_without_querying(self) -> None:
+        with patch.object(journey, "checked", return_value="") as checked, \
+                patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            journey.fixed_database_isolation({}, ("journey-a@example.invalid",))
+        checked.assert_called_once()
+        self.assertIn("pass (fixed project stopped)", stdout.getvalue())
+
     def test_output_capture_fails_when_a_deliberate_sentinel_is_logged(self) -> None:
         process = MagicMock(stdout=io.BytesIO(b"ordinary app output\nprivate-sentinel\n"))
         output = journey.AppOutput(process)

@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { createInitialSnapshot } from "../domain";
-import { navlogFor } from "../../tests/support/tracker-scenarios";
+import { createInitialSnapshot, deriveEligibleSequenceForSnapshot, formatPosition } from "../domain";
+import { applyOrThrow, navlogFor, reachState } from "../../tests/support/tracker-scenarios";
 
 import { TrackerClient } from "./tracker-client";
 
@@ -43,5 +43,43 @@ describe("tracker page markup", () => {
     expect(origin).not.toContain("tracker-row-actions");
     expect(html).toContain("SID included");
     expect(html).toContain("STAR included");
+  });
+
+  it("renders the six distinct state labels and glyphs with an outlined queued slot", () => {
+    const route = navlogFor("valid-multi-page.json");
+    const tracker = (snapshot: typeof initial.snapshot) => renderToStaticMarkup(<TrackerClient trackerId="tracker"
+      initial={{ ...initial, navlog: route, snapshot }} />);
+    const fresh = createInitialSnapshot(route);
+    const entered = reachState(route, { entered: 3, passed: 1 });
+    const skippedIndex = deriveEligibleSequenceForSnapshot(route, fresh)[0];
+    const skipped = applyOrThrow(route, fresh, { type: "skipWaypoint", routeIndex: skippedIndex, expectedVersion: fresh.version });
+    const samples = [tracker(fresh), tracker(entered), tracker(skipped)];
+    for (const [state, glyph, label] of [
+      ["queued", "○", "Queued"], ["pending", "▶", "Pending"],
+      ["saved", "✓", "Saved"], ["passed", "↗", "Passed"],
+      ["skipped", "×", "Skipped"], ["ineligible", "·", "Not slot-eligible"],
+    ]) {
+      const row = samples.flatMap((html) => [...html.matchAll(new RegExp(`<li class="tracker-row" data-state="${state}"[\\s\\S]*?<\\/li>`, "g"))]
+        .map((match) => match[0]))[0];
+      expect(row, `${state} row is present`).toBeDefined();
+      expect(row).toContain(`<span class="tracker-state" aria-label="${label}"><span aria-hidden="true">${glyph}</span> ${label}</span>`);
+      if (state === "queued") expect(row).toMatch(/class="tracker-slot tracker-slot-outline" aria-label="INS slot [1-9]"/);
+    }
+  });
+
+  it("shows a skipped row's LIDO position and distances without keypad values", () => {
+    const route = navlogFor("valid-multi-page.json");
+    const fresh = createInitialSnapshot(route);
+    const index = deriveEligibleSequenceForSnapshot(route, fresh)[0];
+    const skipped = applyOrThrow(route, fresh, { type: "skipWaypoint", routeIndex: index, expectedVersion: fresh.version });
+    const html = renderToStaticMarkup(<TrackerClient trackerId="tracker"
+      initial={{ ...initial, navlog: route, snapshot: skipped }} />);
+    const row = html.match(/<li class="tracker-row" data-state="skipped"[\s\S]*?<\/li>/)?.[0];
+    expect(row).toBeDefined();
+    const point = route.points[index];
+    const position = formatPosition(point.latitude, point.longitude);
+    expect(row).toContain(`<span class="tracker-lido">${position.latitude.lido.replaceAll("'", "&#x27;")} · ${position.longitude.lido.replaceAll("'", "&#x27;")}</span>`);
+    expect(row).toContain(`<span class="tracker-distance">DIS ${point.dis ?? "—"} · RDIS ${point.rdis} NM</span>`);
+    expect(row).not.toContain("tracker-keypad");
   });
 });

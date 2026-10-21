@@ -2,7 +2,8 @@
 -- Every RAISE text is unique and starts with its 6a claim label, because
 -- scripts/db_journey_fitness.py identifies the failing assertion by that text.
 -- Keep exactly one transaction start and one rollback statement: the fitness
--- runner inserts mutations after the start and swaps the rollback for a commit.
+-- runner inserts mutations after the start or replaces one query fragment; no
+-- mutation may move or replace the rollback.
 BEGIN;
 
 DO $$

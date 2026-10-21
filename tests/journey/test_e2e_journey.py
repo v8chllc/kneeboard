@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -125,6 +125,16 @@ class E2EJourneyTests(TestCase):
         process = MagicMock(stdout=io.BytesIO(b"ordinary app output\n00246802\n"))
         output = journey.AppOutput(process)
         self.assertTrue(output.contains_private_value(["00135791", "00246802"]))
+
+    def test_output_capture_rejects_registered_coordinate_and_raw_ofp_categories(self) -> None:
+        values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS}
+        values.update({"token:one": "synthetic-token", "fault-token:one": "synthetic-fault-token"})
+        for identity in ("navlog-latitude-raw", "navlog-longitude-raw", "navlog-latitude-number",
+                         "navlog-longitude-number", "raw-ofp-marker"):
+            with self.subTest(identity=identity):
+                output = journey.AppOutput(MagicMock(stdout=io.BytesIO(b"ordinary app output\n" + values[identity].encode())))
+                with self.assertRaisesRegex(AssertionError, "log-exclusion failed"):
+                    journey.verify_private_output(output, values)
 
     def test_session_category_omissions_fail_independently(self) -> None:
         output = journey.AppOutput(MagicMock(stdout=io.BytesIO(b"ordinary app output\n")))
@@ -264,16 +274,22 @@ class E2EJourneyTests(TestCase):
             patch.object(journey.db, "journal", return_value=",".join(map(str, journey.db.EXPECTED_MIGRATIONS))),
             patch.object(journey.subprocess, "Popen", return_value=process) as popen,
             patch.object(journey, "start_simbrief_stub", return_value=MagicMock()) as stub,
-            patch.object(journey, "await_simbrief_stub"),
+            patch.object(journey, "await_simbrief_stub") as ready,
             patch.object(journey, "await_app"),
             patch.object(journey.db, "terminate_process_group", return_value=[]) as stop,
             patch.object(journey.db, "cleanup_compose") as cleanup,
         ):
+            order = Mock()
+            order.attach_mock(stub, "stub")
+            order.attach_mock(ready, "ready")
+            order.attach_mock(popen, "app")
             uuid4.return_value.hex = "abcdef12345600000000000000000000"
             receiver.return_value.values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS} | {"token:one": "synthetic-token", "fault-token:one": "synthetic-fault-token"}
             receiver.return_value.server_port = 12345
             output.return_value.contains_private_value.return_value = False
             journey.main()
+        self.assertEqual([call[0] for call in order.mock_calls if call[0] in {"stub", "ready", "app"}],
+                         ["stub", "ready", "app"])
         env = local.call_args_list[0].args[1]
         self.assertEqual(env["KNEEBOARD_DB_PROJECT"], "kneeboard_journey_abcdef123456")
         self.assertEqual(env["KNEEBOARD_DB_PORT"], "54441")
@@ -293,6 +309,20 @@ class E2EJourneyTests(TestCase):
         probes.assert_called_once()
         fixed.assert_called_once()
         cleanup.assert_called_once_with(env, None)
+
+    def test_stub_readiness_retries_until_health_responds(self) -> None:
+        response = MagicMock()
+        response.__enter__.return_value.status = 204
+        process = MagicMock(returncode=None)
+        with (
+            patch.object(journey.time, "monotonic", side_effect=[0, 0, 0]),
+            patch.object(journey.db, "leader_exited", return_value=False),
+            patch.object(journey.urllib.request, "urlopen", side_effect=[urllib.error.URLError("not ready"), response]) as open_url,
+            patch.object(journey.time, "sleep") as sleep,
+        ):
+            journey.await_simbrief_stub(process, 8761)
+        self.assertEqual(open_url.call_count, 2)
+        sleep.assert_called_once_with(0.2)
 
     def test_failure_after_start_preserves_failure_and_cleans_project(self) -> None:
         with (

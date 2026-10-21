@@ -44,6 +44,14 @@ async function signInAndLoad(context: BrowserContext, request: APIRequestContext
   await registerSensitive(request, `email-tracker-${identity}`, email);
   await registerSensitive(request, `session-tracker-${identity}`, cookie!.value);
   if (identity === "a") await registerSensitive(request, "pilot-stub", PILOT_ID);
+  if (identity === "a") {
+    const fix = multiPageFixture.navlog.fix[0];
+    await registerSensitive(request, "navlog-latitude-raw", fix.pos_lat);
+    await registerSensitive(request, "navlog-longitude-raw", fix.pos_long);
+    await registerSensitive(request, "navlog-latitude-number", String(Number(fix.pos_lat)));
+    await registerSensitive(request, "navlog-longitude-number", String(Number(fix.pos_long)));
+    await registerSensitive(request, "raw-ofp-marker", multiPageFixture.params.time_generated);
+  }
   await page.getByRole("textbox", { name: "Pilot ID" }).fill(PILOT_ID);
   await page.getByRole("button", { name: "Save Pilot ID" }).click();
   await expect(page.getByRole("status")).toHaveText("Pilot ID saved.");

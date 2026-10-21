@@ -32,7 +32,9 @@ APP_START_TIMEOUT_SECONDS = 60
 OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024
 REQUIRED_SENTINELS = {"email-a", "email-b", "pilot-a", "pilot-b", "session-a", "session-b",
                       "session-repeat-0", "session-repeat-1", "email-tracker-a", "email-tracker-b",
-                      "pilot-stub", "session-tracker-a", "session-tracker-b"}
+                      "pilot-stub", "session-tracker-a", "session-tracker-b", "navlog-latitude-raw",
+                      "navlog-longitude-raw", "navlog-latitude-number", "navlog-longitude-number",
+                      "raw-ofp-marker"}
 
 
 class AppOutput:

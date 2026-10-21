@@ -518,6 +518,8 @@ def main() -> None:
     env.update(KNEEBOARD_DB_PROJECT=project, KNEEBOARD_DB_PORT=str(port))
     env.pop("DATABASE_URL", None)
     env.pop("COMPOSE_FILE", None)
+    env.pop("COMPOSE_PROJECT_NAME", None)
+    env.pop("COMPOSE_ENV_FILES", None)
     (ROOT / ".local").mkdir(exist_ok=True)
     compose_started = False
     try:

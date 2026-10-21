@@ -12,6 +12,11 @@ PROJECT = "kneeboard_journey_123456789abc"
 
 
 class LocalDbTargetTests(TestCase):
+    def test_journey_strips_ambient_compose_selectors(self) -> None:
+        source = (ROOT / "scripts/db_journey.py").read_text()
+        for name in ("DATABASE_URL", "COMPOSE_FILE", "COMPOSE_PROJECT_NAME", "COMPOSE_ENV_FILES"):
+            self.assertIn(f'env.pop("{name}", None)', source)
+
     def test_compose_actions_pin_file_directory_and_project(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             temporary = Path(directory)

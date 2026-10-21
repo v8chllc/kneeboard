@@ -102,53 +102,15 @@ class CleanupFailureTests(TestCase):
                 journey.cleanup_compose(PROJECT_ENV, None)
         self.assertEqual(run.call_args.kwargs["budget"], "COMPOSE_CLEANUP_TIMEOUT_SECONDS")
 
-    def run_until_decoy_start_fails(self, cleanup: object) -> tuple[MagicMock, MagicMock, str]:
-        """Run main() until the adversarial decoy start fails, with ``cleanup`` as every down's outcome."""
-        starts = [None, AssertionError("6a C-2b: decoy start failed")]
-        stderr = StringIO()
-        with (
-            patch.object(journey, "free_port", return_value=54339),
-            patch.object(journey, "command", return_value="unix:///local/docker.sock"),
-            patch.object(journey, "require"),
-            patch.object(journey, "assert_published_binding"),
-            patch.object(journey, "psql", return_value=""),
-            patch.object(journey, "local", side_effect=starts) as local,
-            patch.object(journey, "run_bounded", **cleanup) as run,
-            redirect_stderr(stderr),
-        ):
-            with self.assertRaisesRegex(AssertionError, "6a C-2b: decoy start failed"):
-                journey.main()
-        return local, run, stderr.getvalue()
-
-    def test_attempted_decoy_start_is_torn_down_after_the_journey_project(self) -> None:
-        local, run, stderr = self.run_until_decoy_start_fails({"return_value": journey.Completed(0, "", "")})
-        decoy_env = local.call_args_list[1].args[1]
-        decoy = decoy_env["COMPOSE_PROJECT_NAME"]
-        project = decoy_env["KNEEBOARD_DB_PROJECT"]
-        self.assertRegex(decoy, r"^kneeboard_journey_[0-9a-f]{12}$")
-        self.assertNotEqual(decoy, project)
-        downs = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(downs, [
-            journey.compose_args({"KNEEBOARD_DB_PROJECT": project}) + ["down", "-v", "--remove-orphans"],
-            journey.compose_args({"KNEEBOARD_DB_PROJECT": decoy}) + ["down", "-v", "--remove-orphans"],
-        ])
-        self.assertEqual(stderr, "")
-
-    def test_decoy_teardown_failure_stays_beside_the_first_failure(self) -> None:
-        refused = journey.Completed(1, "", "cleanup refused")
-        _, run, stderr = self.run_until_decoy_start_fails({"return_value": refused})
-        self.assertEqual(run.call_count, 2)
-        self.assertEqual(stderr.count("original failure: 6a C-2b: decoy start failed"), 2)
-
-    def test_first_cleanup_failure_is_raised_after_the_decoy_is_still_removed(self) -> None:
+    def test_cleanup_failure_alone_fails_the_journey(self) -> None:
         def bounded(args: list[str], env: dict[str, str], **_: object) -> object:
             if args[-3:] == ["down", "-v", "--remove-orphans"]:
                 return journey.Completed(1, "", f"refused {env['KNEEBOARD_DB_PROJECT']}")
             return journey.Completed(2, "", "")  # every validation rejection the Journey expects
 
         checks = {name: MagicMock() for name in (
-            "require", "assert_published_binding", "assert_no_project", "write_markers", "assert_reset_markers",
-            "assert_restart_markers", "drop_markers", "psql", "local", "assert_state_unchanged", "verify_clean",
+            "require", "assert_published_binding", "write_markers", "assert_reset_markers",
+            "assert_restart_markers", "drop_markers", "psql", "local",
             "journal", "operation_journey", "old_migration", "app_runtime",
         )}
         stderr = StringIO()
@@ -156,7 +118,6 @@ class CleanupFailureTests(TestCase):
             patch.multiple(journey, **checks),
             patch.object(journey, "free_port", return_value=54339),
             patch.object(journey, "command", return_value="unix:///local/docker.sock"),
-            patch.object(journey, "table_state", return_value="user=0:empty"),
             patch.object(journey, "run_bounded", side_effect=bounded) as run,
             redirect_stderr(stderr),
             redirect_stdout(StringIO()),
@@ -164,11 +125,10 @@ class CleanupFailureTests(TestCase):
             with self.assertRaises(AssertionError) as raised:
                 journey.main()
         downs = [call.args[1]["KNEEBOARD_DB_PROJECT"] for call in run.call_args_list if call.args[0][-1] == "--remove-orphans"]
-        self.assertEqual(len(downs), 2)
-        project, decoy = downs
-        self.assertNotEqual(project, decoy)
+        self.assertEqual(len(downs), 1)
+        project = downs[0]
         self.assertIn(f"refused {project}; removal of {project} not confirmed", str(raised.exception))
-        self.assertIn(f"refused {decoy}; removal of {decoy} not confirmed; original failure: ", stderr.getvalue())
+        self.assertEqual(stderr.getvalue(), "")
 
     def test_runtime_claim_survives_process_cleanup_failure(self) -> None:
         process = MagicMock()

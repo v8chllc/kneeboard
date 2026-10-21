@@ -1,9 +1,9 @@
 # Database Journey coverage map
 
-This map links the ten section 6a storage claims strengthened in
+This map links the section 6a storage claims strengthened in
 [v8chllc/kneeboard#52](https://github.com/v8chllc/kneeboard/issues/52) to the
-committed checks that prove them and the counterexamples that prove those checks
-fail for the right reason.
+committed checks that prove them and, for the SQL-probe claims, the
+counterexamples that prove those checks fail for the right reason.
 
 Claim IDs use two separate namespaces. **6a** claims are the database Journey's
 Compose lifecycle and SQL-probe claims, checked by `scripts/db_journey.py` and
@@ -36,20 +36,17 @@ mise exec -- python3 scripts/db_journey_fitness.py --list
 Each case removes or inverts one guarded behavior in a disposable context. It
 counts as demonstrated only if the canonical check fails with the exact expected
 label. An unexpected pass, a different failure, or a setup error is reported as
-not demonstrated. SQL cases change the probe text in memory. Lifecycle cases
-change scratch copies of `compose.yaml` and `scripts/local-db.sh` under the
-git-ignored `.local/`. All SQL cases share one `kneeboard_journey_<id>`
-project. Each lifecycle case uses its own project, and the C-2b case also
-creates a decoy project on purpose. The runner removes every project it creates,
-then verifies that no containers, volumes, or scratch files remain and that
-`git status` is unchanged.
+not demonstrated. Every case is a SQL case: it changes the
+`scripts/db-journey.sql` probe text in memory. All cases share one
+`kneeboard_journey_<id>` project. The runner removes that project, then verifies
+that no containers or volumes remain and that `git status` is unchanged.
 `tests/journey/test_db_journey_fitness.py` runs in `pnpm test` without Docker.
 It fails if a source edit moves a mutation anchor or renames an expected label.
 
 ## Status key
 
 - **Strengthened**: a gap named in the issue. The check is new or now exact.
-  Each has at least one fitness case.
+  Each SQL-probe claim has at least one fitness case.
 - **Existing guard**: already satisfied at the baseline and kept unchanged
   apart from the `6a` label prefix. It is a regression guard, not new evidence.
   Fitness is shown only where the same case also covers it.
@@ -61,15 +58,13 @@ file for the label.
 
 | 6a claim | Constituent obligation | Status | Check locator | Positive output | Fitness case → expected failure | Related 6b |
 | --- | --- | --- | --- | --- | --- | --- |
-| C-1 | Published binding is loopback on the allocated port | Strengthened | `scripts/db_journey.py` `assert_published_binding`, `6a C-1 published loopback binding on the allocated port` | `6a C-1 published loopback binding on the allocated port: pass` | `c1-loopback-address` (binds `[::1]`) and `c1-allocated-port` (binds another free port) → `6a C-1 published loopback binding on the allocated port` | None |
+| C-1 | Published binding is loopback on the allocated port | Strengthened | `scripts/db_journey.py` `assert_published_binding`, `6a C-1 published loopback binding on the allocated port` | `6a C-1 published loopback binding on the allocated port: pass` | None | None |
 | C-1 | Running image is the pinned digest | Existing guard | `scripts/db_journey.py` `6a C-1 pinned image` | `6a C-1 pinned image: pass` | None | None |
 | C-1 | Both databases exist under their exact names | Existing guard | `scripts/db_journey.py` `6a C-1 development database`, `6a C-1 test database` | `... : pass` for each | None | None |
-| C-2 | Each selected reset removes its own marker | Strengthened | `scripts/db_journey.py` `assert_reset_markers`, `6a C-2 dev reset removes the dev marker`, `6a C-2 test reset removes the test marker` | `... : pass` for each | `c2-noop-reset-dev`, `c2-noop-reset-test` (reset becomes a successful no-op) → the matching removal label | None |
+| C-2 | Each selected reset removes its own marker | Strengthened | `scripts/db_journey.py` `assert_reset_markers`, `6a C-2 dev reset removes the dev marker`, `6a C-2 test reset removes the test marker` | `... : pass` for each | None | None |
 | C-2 | Each reset preserves the exact sibling marker | Existing guard, now an exact marker | `scripts/db_journey.py` `assert_reset_markers`, `6a C-2 dev reset preserves the exact test marker`, `6a C-2 test reset preserves the exact dev marker` | `... : pass` for each | None | None |
-| C-2 | Both exact markers survive stop and start | Strengthened | `scripts/db_journey.py` `assert_restart_markers`, `6a C-2 restart retains the exact dev marker`, `6a C-2 restart retains the exact test marker` | `... : pass` for each | `c2-destructive-stop` (stop becomes `down -v`) → `6a C-2 restart retains the exact dev marker` | None |
+| C-2 | Both exact markers survive stop and start | Strengthened | `scripts/db_journey.py` `assert_restart_markers`, `6a C-2 restart retains the exact dev marker`, `6a C-2 restart retains the exact test marker` | `... : pass` for each | None | None |
 | C-2 | Stop stops the container current at the stop boundary, even if Compose replaced the startup container; restart reconnects; unknown, remote, invalid-port, and remote-Docker inputs exit 2 | Existing guard; current-ID regression test | `scripts/db_journey.py` `6a C-2 stop`, `tests/journey/test_db_journey_stop.py`, `6a C-2 restart`, `6a C-2: ...` rejection lines | `6a C-2 stop: pass`, `6a C-2 restart: pass`, `6a C-2: ... rejected` | `test_stop_inspects_current_container_after_recreation` fails on the stale startup ID; a fresh-pull Journey with the fix removed fails at `docker inspect` with `no such object` | None |
-| C-2b | No container or volume exists for a uniquely named caller-selected decoy project | Strengthened | `scripts/db_journey.py` `assert_no_project`, `6a C-2b no containers for the caller-selected decoy project`, `6a C-2b no volumes for the caller-selected decoy project` | `... : pass` for each | `c2b-decoy-project` (drops the `-p` pin) → `6a C-2b no containers for the caller-selected decoy project` | None |
-| C-2b | Intended pinned image and project are used under hostile selectors; an arbitrary `--journey-project` is rejected | Existing guard | `scripts/db_journey.py` `6a C-2b pinned Postgres image`, `6a C-2b adversarial Compose project ignored`, `6a C-2b adversarial Compose file ignored`, `6a C-2b: arbitrary Compose project rejected` | `... : pass` and the rejection line | None | None |
 | C-4 | Every supplied user, session, account, verification, and rate-limit field round-trips exactly | Strengthened | `scripts/db-journey.sql` `6a C-4: user fields changed`, `6a C-4: session fields changed`, `6a C-4: account fields changed`, `6a C-4: verification fields changed`, `6a C-4: rate-limit fields changed` | `6a C-4 through 6a C-11: exact database assertions passed` | `c4-user-email`, `c4-session-expiry`, `c4-account-subject`, `c4-verification-value`, `c4-rate-limit-last-request` (an insert trigger changes one supplied field) → the matching label | None |
 | C-4 | All ten persistence tables exist | Existing guard | `scripts/db-journey.sql` `6a C-4: required table missing` | Same summary line | None | None |
 | C-5 | A NULL Pilot ID is accepted and stored as NULL | Strengthened | `scripts/db-journey.sql` `6a C-5: NULL Pilot ID rejected`, `6a C-5: NULL Pilot ID not stored as NULL` | Same summary line | `c5-null-pilot-id` (column made `NOT NULL`) → `6a C-5: NULL Pilot ID rejected` | None |
@@ -82,14 +77,9 @@ file for the label.
 | C-9 | An active key without a timestamp and a second reservation for an account are rejected | Existing guard | `scripts/db-journey.sql` `6a C-9: active key without attempt accepted`, `6a C-9: duplicate account reservation accepted` | Same summary line | None | None |
 | C-11 | Returned order is compared directly, with no second sort, proving the timestamp/ID descending tie order, the ten-row limit, and the account filter | Strengthened | `scripts/db-journey.sql` `6a C-11: recent-ten membership or order incorrect` | Same summary line | `c11-tie-order` (inner `id DESC` becomes `id ASC`), `c11-account-filter`, `c11-row-limit` → `6a C-11: recent-ten membership or order incorrect` | None |
 | C-11 | The query uses the recent-load index and never reads raw payloads | Existing guard | `scripts/db-journey.sql` `6a C-11: recent-load index not used`, `6a C-11: metadata query touches raw table` | Same summary line | `c11-index` (index dropped) → `6a C-11: recent-load index not used` | None |
-| C-15 | Each SQL probe leaves every table unchanged | Strengthened | `scripts/db_journey.py` `table_state`, `assert_state_unchanged`, `6a C-15 verify-local-schema.sql leaves every kneeboard_test table unchanged`, `6a C-15 verify-local-schema.sql leaves every kneeboard_dev table unchanged`, `6a C-15 db-journey.sql leaves every kneeboard_test table unchanged` | `... : pass` for each | `c15-verify-commit`, `c15-journey-commit` (`ROLLBACK;` becomes `COMMIT;`) → the matching kneeboard_test label | 6b C-13 checks that a failed load operation rolls back |
 
 The other 6a claims (C-7a, C-8, C-8a, C-10, C-13, C-14, and C-17) were already
 fully covered and are unchanged apart from the `6a` label prefix.
-
-The C-1 address case uses `[::1]` so that no case publishes PostgreSQL beyond
-loopback. Docker Desktop on macOS cannot bind `127.0.0.2`, and a start that
-fails never reaches the assertion.
 
 ## Not proved here
 

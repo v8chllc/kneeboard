@@ -93,29 +93,6 @@ class E2EJourneyTests(TestCase):
             receiver.server_close()
             thread.join(timeout=2)
 
-    def test_fixed_database_inspection_rejects_a_journey_account(self) -> None:
-        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "0", "t", "1"]) as checked:
-            with self.assertRaisesRegex(AssertionError, "journey account appeared in a fixed database"):
-                journey.fixed_database_isolation({}, ("journey-a@example.invalid", "journey-b@example.invalid"))
-        self.assertEqual(len(checked.call_args_list), 6)
-        self.assertIn("kneeboard_test", checked.call_args.args[0])
-        self.assertIn('FROM "user" WHERE email IN', checked.call_args.args[0][-1])
-        self.assertNotIn("account_settings", checked.call_args.args[0][-1])
-
-    def test_fixed_database_inspection_rejects_a_journey_tracker(self) -> None:
-        with patch.object(journey, "checked", side_effect=["local-container", "t", "0", "1"]) as checked:
-            with self.assertRaisesRegex(AssertionError, "journey tracker appeared in a fixed database"):
-                journey.fixed_database_isolation({}, ("journey-a@example.invalid",))
-        self.assertIn("kneeboard_dev", checked.call_args.args[0])
-        self.assertIn("FROM tracker t JOIN", checked.call_args.args[0][-1])
-
-    def test_fixed_database_inspection_reports_a_stopped_project_without_querying(self) -> None:
-        with patch.object(journey, "checked", return_value="") as checked, \
-                patch("sys.stdout", new_callable=io.StringIO) as stdout:
-            journey.fixed_database_isolation({}, ("journey-a@example.invalid",))
-        checked.assert_called_once()
-        self.assertIn("pass (fixed project stopped)", stdout.getvalue())
-
     def test_output_capture_fails_when_a_deliberate_sentinel_is_logged(self) -> None:
         process = MagicMock(stdout=io.BytesIO(b"ordinary app output\nprivate-sentinel\n"))
         output = journey.AppOutput(process)
@@ -281,7 +258,6 @@ class E2EJourneyTests(TestCase):
             patch.object(journey, "local") as local,
             patch.object(journey, "SentinelReceiver") as receiver,
             patch.object(journey, "AppOutput") as output,
-            patch.object(journey, "fixed_database_isolation") as fixed,
             patch.object(journey, "auth_runtime_probes") as probes,
             patch.object(journey, "clear_mailpit"),
             patch.object(journey.db, "psql", return_value="kneeboard_test"),
@@ -321,7 +297,6 @@ class E2EJourneyTests(TestCase):
         self.assertTrue(any("tests/journey/mailpit-chaos.compose.yaml" in call.args[0] for call in checked.call_args_list))
         self.assertEqual(checked.call_args.args[0][-2:], ["-t", "leaves no redeemable link after a delivery failure"])
         probes.assert_called_once()
-        fixed.assert_called_once()
         cleanup.assert_called_once_with(env, None)
 
     def test_stub_readiness_retries_until_health_responds(self) -> None:

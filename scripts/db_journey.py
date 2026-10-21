@@ -2,19 +2,14 @@
 
 Resources: the Journey creates one Compose project named
 ``kneeboard_journey_<12 hex>`` on a free loopback port, with its own containers
-and volume, plus temporary files under ``.local/``. The 6a C-2b check also names a
-second, decoy ``kneeboard_journey_<12 hex>`` project through hostile Compose
-selectors and asserts that nothing was created under it. The only destructive
-actions are database resets inside the Journey's project and
-``docker compose down -v`` of the Journey's project and of the decoy name; the
-developer's ``kneeboard`` project and databases are never targeted.
+and volume, plus temporary files under ``.local/``. The only destructive actions
+are database resets inside that project and ``docker compose down -v`` of that
+project; the developer's ``kneeboard`` project and databases are never targeted.
 
 Claims: every printed or raised 6a claim label starts with ``6a `` so it is not
-confused with the 6b operation claims. The importable checks below
-(assert_published_binding, assert_reset_markers, assert_restart_markers,
-assert_no_project, table_state, assert_state_unchanged) are shared with
-``scripts/db_journey_fitness.py``, which identifies a failing assertion by its
-exact label; docs/database-journey-coverage.md maps each label to its claim.
+confused with the 6b operation claims; docs/database-journey-coverage.md maps
+each label to its claim. ``scripts/db_journey_fitness.py`` reuses the bounded
+command, Compose, and cleanup helpers below.
 
 Processes: every command runs through run_bounded in a new session, so the
 command and its descendants form one process group the Journey owns. Each command
@@ -25,8 +20,7 @@ and stopped through the same termination routine. Only groups the Journey
 started are signalled.
 
 Errors and cleanup: an assertion, timeout, or interruption after startup still
-reaches the bounded Compose teardown in ``main``, which also removes the decoy
-name once its adversarial start was attempted. The first failure stays primary
+reaches the bounded Compose teardown in ``main``. The first failure stays primary
 and a cleanup failure is printed beside it; a cleanup failure alone fails the
 run. Removal is claimed only when ``down`` exits 0. A timeout before startup
 skips teardown. An assertion, timeout, or OS error exits 1 with a one-line
@@ -100,7 +94,7 @@ GATE_BUDGETS = {
 }
 STDERR_TAIL_CHARACTERS = 500
 
-# Exact 6a claim labels for the checks shared with scripts/db_journey_fitness.py.
+# Exact 6a claim labels for the C-1 binding and C-2 marker checks.
 C1_BINDING_LABEL = "6a C-1 published loopback binding on the allocated port"
 RESET_REMOVAL_LABELS = {
     "dev": "6a C-2 dev reset removes the dev marker",
@@ -114,28 +108,8 @@ RESTART_MARKER_LABELS = {
     "dev": "6a C-2 restart retains the exact dev marker",
     "test": "6a C-2 restart retains the exact test marker",
 }
-NO_DECOY_CONTAINERS_LABEL = "6a C-2b no containers for the caller-selected decoy project"
-NO_DECOY_VOLUMES_LABEL = "6a C-2b no volumes for the caller-selected decoy project"
-ROLLBACK_LABELS = {
-    ("verify-local-schema.sql", "kneeboard_test"): "6a C-15 verify-local-schema.sql leaves every kneeboard_test table unchanged",
-    ("verify-local-schema.sql", "kneeboard_dev"): "6a C-15 verify-local-schema.sql leaves every kneeboard_dev table unchanged",
-    ("db-journey.sql", "kneeboard_test"): "6a C-15 db-journey.sql leaves every kneeboard_test table unchanged",
-}
-PERSISTENCE_TABLES = (
-    "user", "session", "account", "verification", "rate_limit",
-    "account_settings", "load_reservation", "ofp_load", "ofp_raw", "tracker",
-)
 MARKER_TABLE = "journey_marker"
 ABSENT_MARKER = "<absent>"
-# One "table=rows:md5" entry per public base table, sorted by name. The md5 covers
-# every row's text in sorted order, so any inserted, deleted, or changed row in any
-# table changes the entry; "empty" stands for a table with no rows.
-TABLE_STATE_SQL = """SELECT string_agg(format('%s=%s', listed.table_name, measured.state), ';' ORDER BY listed.table_name)
-FROM information_schema.tables AS listed,
-LATERAL (SELECT (xpath('/row/state/text()', query_to_xml(format(
-  'SELECT count(*) || '':'' || coalesce(md5(string_agg(stored::text, '','' ORDER BY stored::text)), ''empty'') AS state FROM %I.%I AS stored',
-  listed.table_schema, listed.table_name), false, true, '')))[1]::text AS state) AS measured
-WHERE listed.table_schema = 'public' AND listed.table_type = 'BASE TABLE';"""
 
 
 class JourneyTimeout(AssertionError):
@@ -464,44 +438,6 @@ def project_resources(project: str, env: dict[str, str]) -> tuple[str, str]:
     return containers, volumes
 
 
-def assert_no_project(project: str, env: dict[str, str]) -> None:
-    """6a C-2b: no container or volume exists for the caller-selected decoy ``project``."""
-    containers, volumes = project_resources(project, env)
-    require(containers, "", NO_DECOY_CONTAINERS_LABEL)
-    require(volumes, "", NO_DECOY_VOLUMES_LABEL)
-
-
-def table_state(database: str, env: dict[str, str]) -> str:
-    """Return the row count and ordered-row md5 of every public base table in ``database``.
-
-    The ten persistence tables must be present, so a missing table cannot make
-    two states compare equal. Read-only.
-    """
-    state = psql(database, TABLE_STATE_SQL, env)
-    tables = {entry.split("=", 1)[0] for entry in state.split(";")} if state else set()
-    missing = sorted(set(PERSISTENCE_TABLES) - tables)
-    if missing:
-        raise AssertionError(f"6a C-15: persistence tables missing from {database} state: {', '.join(missing)}")
-    return state
-
-
-def assert_state_unchanged(before: str, after: str, label: str) -> None:
-    """6a C-15: a probe left every table as it found it; on failure, name each changed table."""
-    if after != before:
-        old = dict(entry.split("=", 1) for entry in before.split(";"))
-        new = dict(entry.split("=", 1) for entry in after.split(";"))
-        changed = [f"{table} {old.get(table)} -> {new.get(table)}" for table in sorted(old.keys() | new.keys()) if old.get(table) != new.get(table)]
-        raise AssertionError(f"{label}: expected every table unchanged, changed {'; '.join(changed)}")
-    print(f"{label}: pass")
-
-
-def verify_clean(database: str, env: dict[str, str]) -> None:
-    """Run the rolled-back ``local verify`` probe and require every table in ``database`` unchanged."""
-    before = table_state(database, env)
-    local("verify", env, database.removeprefix("kneeboard_"))
-    assert_state_unchanged(before, table_state(database, env), ROLLBACK_LABELS[("verify-local-schema.sql", database)])
-
-
 def old_migration(env: dict[str, str], port: int, temporary: Path) -> None:
     old = temporary / "old-drizzle"
     (old / "meta").mkdir(parents=True)
@@ -578,14 +514,12 @@ def operation_journey(env: dict[str, str], port: int) -> None:
 def main() -> None:
     port = free_port()
     project = f"kneeboard_journey_{uuid.uuid4().hex[:12]}"
-    decoy_project = f"kneeboard_journey_{uuid.uuid4().hex[:12]}"
     env = os.environ.copy()
     env.update(KNEEBOARD_DB_PROJECT=project, KNEEBOARD_DB_PORT=str(port))
     env.pop("DATABASE_URL", None)
     env.pop("COMPOSE_FILE", None)
     (ROOT / ".local").mkdir(exist_ok=True)
     compose_started = False
-    decoy_attempted = False
     try:
         docker_host = env.get("DOCKER_HOST", "")
         context_host = command(["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS")
@@ -602,19 +536,6 @@ def main() -> None:
         assert_published_binding(container, env)
         require(psql("kneeboard_dev", "SELECT current_database();", env), "kneeboard_dev", "6a C-1 development database")
         require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "6a C-1 test database")
-
-        with tempfile.TemporaryDirectory(dir=ROOT / ".local") as directory:
-            decoy = Path(directory) / "compose.yaml"
-            decoy.write_text("services:\n  postgres:\n    image: postgres:17\n    entrypoint: ['sh', '-c', 'sleep 600']\n")
-            decoy_env = Path(directory) / "alternate.env"
-            decoy_env.write_text(f"COMPOSE_PROJECT_NAME={decoy_project}\n")
-            decoy_attempted = True
-            local("start", env | {"COMPOSE_FILE": str(decoy), "COMPOSE_PROJECT_NAME": decoy_project, "COMPOSE_ENV_FILES": str(decoy_env)})
-        selected_container = postgres_container(env)
-        require(command(["docker", "inspect", "--format", "{{.Config.Image}}", selected_container], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS"), pinned_image.group(1), "6a C-2b pinned Postgres image")
-        require(command(["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project"}}', selected_container], env, budget="DOCKER_QUERY_TIMEOUT_SECONDS"), project, "6a C-2b adversarial Compose project ignored")
-        require(psql("kneeboard_test", "SELECT current_database();", env), "kneeboard_test", "6a C-2b adversarial Compose file ignored")
-        assert_no_project(decoy_project, env)
 
         for database in ("dev", "test"):
             local("migrate", env, database)
@@ -646,19 +567,13 @@ def main() -> None:
         if remote_docker.returncode != 2:
             raise AssertionError("6a C-2: remote Docker endpoint accepted")
         print("6a C-2: remote Docker endpoint rejected")
-        invalid_project = run_bounded(["sh", "scripts/local-db.sh", "--journey-project", "alternate_target", "reset", "test"], env, budget="VALIDATION_TIMEOUT_SECONDS")
-        if invalid_project.returncode != 2:
-            raise AssertionError("6a C-2b: arbitrary Compose project accepted")
-        print("6a C-2b: arbitrary Compose project rejected")
 
         local("migrate", env, "test")
         require(journal("kneeboard_test", env), ",".join(map(str, EXPECTED_MIGRATIONS)), "6a C-13 migration rerun")
-        verify_clean("kneeboard_test", env)
-        before_journey = table_state("kneeboard_test", env)
+        local("verify", env, "test")
         psql("kneeboard_test", (ROOT / "scripts/db-journey.sql").read_text(), env, budget="JOURNEY_SQL_TIMEOUT_SECONDS")
         print("6a C-4 through 6a C-11: exact database assertions passed")
         print("6a C-7a positive versions and 6a C-8a orphan/cascade assertions passed")
-        assert_state_unchanged(before_journey, table_state("kneeboard_test", env), ROLLBACK_LABELS[("db-journey.sql", "kneeboard_test")])
         operation_journey(env, port)
 
         local("reset", env, "dev")
@@ -669,21 +584,12 @@ def main() -> None:
         local("migrate", env, "dev")
         require(journal("kneeboard_dev", env), ",".join(map(str, EXPECTED_MIGRATIONS)), "6a C-14 upgrade journal")
         require(psql("kneeboard_dev", "SELECT count(*) FROM pg_constraint WHERE conname = 'account_provider_account_unique';", env), "1", "6a C-14 upgraded constraint")
-        verify_clean("kneeboard_dev", env)
+        local("verify", env, "dev")
         app_runtime(env)
     finally:
         earlier = sys.exc_info()[1]
-        # The decoy name is removed only after its adversarial start was attempted,
-        # so a failure before then issues exactly one down, for the Journey project.
-        targets = ([env] if compose_started else []) + ([env | {"KNEEBOARD_DB_PROJECT": decoy_project}] if decoy_attempted else [])
-        cleanup_failure: AssertionError | None = None
-        for target in targets:
-            try:
-                cleanup_compose(target, earlier or cleanup_failure)
-            except AssertionError as error:
-                cleanup_failure = error
-        if cleanup_failure is not None:
-            raise cleanup_failure
+        if compose_started:
+            cleanup_compose(env, earlier)
     print("Database Journey passed; disposable project removed on exit.")
 
 

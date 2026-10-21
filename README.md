@@ -232,9 +232,8 @@ temporary loopback ports, then builds and starts the local application.
 Chromium requests and redeems links, saves and reloads Pilot IDs for two
 accounts, checks validation, link reuse, rate limiting, sign-out, and the
 warning. The Journey reads and clears Mailpit messages through its REST API
-and checks in-memory app output for private values without printing them. It
-also verifies the journey accounts did not appear in either running fixed
-local database. Run `mise exec -- pnpm journey` to run both Journeys in order.
+and checks in-memory app output for private values without printing them.
+Run `mise exec -- pnpm journey` to run both Journeys in order.
 These Journeys run locally, by a person or an agent, and never in CI. Existing
 development and test databases are left intact by both Journeys.
 
@@ -251,18 +250,15 @@ removal can leave containers, a volume, or both. List leftover projects with
 which finds a volume whose containers are already gone. Remove each
 `kneeboard_journey_<id>` project from the repository root with
 `docker compose -p kneeboard_journey_<id> down -v --remove-orphans`. The
-database Journey also names a second `kneeboard_journey_<id>` project as a decoy
-when it checks that hostile Compose selectors are ignored. It removes that name
-too, but a failed removal can leave it, and it is removed the same way. The
 Journey supports macOS and Linux only.
 
 The [database Journey coverage map](docs/database-journey-coverage.md) links
 each section 6a claim to its committed check and its fitness evidence. To show
-that the strengthened checks fail for the right reason, run
+that the strengthened SQL checks fail for the right reason, run
 `mise exec -- python3 scripts/db_journey_fitness.py`. It removes or inverts each
 guarded behavior in a disposable project and requires the exact claim label to
-fail. Then it removes every project and scratch file it created. Add
-`--case <name>` to rerun one case, or `--list` to show them all.
+fail. Then it removes the project it created. Add `--case <name>` to rerun one
+case, or `--list` to show them all.
 
 Run the auth-endpoint concurrency fitness check alongside `journey:e2e` and
 the database fitness check:

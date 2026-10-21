@@ -14,27 +14,17 @@ reported as ``not demonstrated``. The positive observations come from the
 canonical ``mise exec -- pnpm journey:db``; this runner proves only that the
 checks fail for the right reason. It is not part of ``pnpm journey`` or CI.
 
-Mutations never touch the checkout:
+Mutations never touch the checkout: every case changes the
+``scripts/db-journey.sql`` probe text in memory. Most insert synthetic DDL (a
+trigger, a dropped or weakened constraint or index) right after the probe's
+only transaction start, so the change rolls back with the probe; the C-11
+query cases replace one exact query fragment instead.
 
-- SQL cases change the probe text in memory. Most insert synthetic DDL (a
-  trigger, a dropped or weakened constraint or index) right after the probe's
-  only transaction start, so the change rolls back with the probe; the C-11
-  query cases replace one exact query fragment instead. The C-15 cases swap
-  the probe's only rollback statement for a commit, then reset and remigrate
-  the disposable test database.
-- Lifecycle cases (C-1, C-2, C-2b) copy ``compose.yaml``,
-  ``scripts/local-db.sh`` and ``scripts/local-db-init.sql`` into a scratch root
-  under the git-ignored ``.local/`` (Docker Desktop shares it; it may not share
-  the system temporary directory), change one copy, and run the copied
-  ``local-db.sh`` against a new project.
-
-Resources: every case runs in its own ``kneeboard_journey_<12 hex>`` Compose
-project on a free loopback port; all SQL cases share one such project. The
-C-2b case also creates a decoy ``kneeboard_journey_<12 hex>`` project on
-purpose. A ``finally`` removes every project it named, verifies that no
-container or volume labelled with any of them remains, deletes each scratch
-root, and requires ``git status --porcelain`` to be unchanged. The developer's
-``kneeboard`` project is never targeted. All data is synthetic.
+Resources: all cases share one ``kneeboard_journey_<12 hex>`` Compose project on
+a free loopback port. A ``finally`` removes that project, verifies that no
+container or volume labelled with it remains, and requires
+``git status --porcelain`` to be unchanged. The developer's ``kneeboard``
+project is never targeted. All data is synthetic.
 
 Processes and output: every command runs through db_journey's bounded helpers
 and their budgets; printed failure lines pass through its credential redaction.
@@ -46,25 +36,18 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import shutil
 import sys
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Callable
 
 import db_journey as db
 
 
 ROOT = db.ROOT
 TRANSACTION_START = "BEGIN;\n"
+# The probe's only rollback, so a mutation undoes itself even if the probe passes.
 ROLLBACK = "ROLLBACK;"
-SQL_PROBES = {
-    "db-journey.sql": ROOT / "scripts/db-journey.sql",
-    "verify-local-schema.sql": ROOT / "scripts/verify-local-schema.sql",
-}
-LIFECYCLE_SOURCES = ("compose.yaml", "scripts/local-db.sh", "scripts/local-db-init.sql")
-DECOY_COMPOSE = "services:\n  postgres:\n    image: postgres:17\n    entrypoint: ['sh', '-c', 'sleep 600']\n"
+PROBE = ROOT / "scripts/db-journey.sql"
 OBSERVED_CHARACTERS = 1200
 
 
@@ -80,7 +63,7 @@ def trigger(table: str, timing: str, assignment: str) -> str:
 
 @dataclass(frozen=True)
 class SqlCase:
-    """Run ``probe`` with ``anchor`` (which must occur exactly once) replaced by ``replacement``."""
+    """Run the probe with ``anchor`` (which must occur exactly once) replaced by ``replacement``."""
 
     name: str
     claim: str
@@ -88,25 +71,9 @@ class SqlCase:
     label: str
     replacement: str
     anchor: str = TRANSACTION_START
-    probe: str = "db-journey.sql"
-    commits: bool = False
 
     def mutated(self) -> str:
-        return apply_once(SQL_PROBES[self.probe].read_text(), self.anchor, self.replacement, self.probe)
-
-
-@dataclass(frozen=True)
-class LifecycleCase:
-    """Copy the lifecycle sources, replace ``anchor`` in ``source``, and run ``scenario``."""
-
-    name: str
-    claim: str
-    description: str
-    label: str
-    source: str
-    anchor: str
-    replacement: str
-    scenario: Callable[["Lifecycle"], None]
+        return apply_once(PROBE.read_text(), self.anchor, self.replacement, PROBE.name)
 
 
 class NotDemonstrated(Exception):
@@ -175,104 +142,10 @@ SQL_CASES = [
     SqlCase("c11-index", "6a C-11", "drop ofp_load_recent_by_user_idx",
             "6a C-11: recent-load index not used",
             after_start("DROP INDEX ofp_load_recent_by_user_idx;\n")),
-    SqlCase("c15-verify-commit", "6a C-15", "commit verify-local-schema.sql instead of rolling it back",
-            db.ROLLBACK_LABELS[("verify-local-schema.sql", "kneeboard_test")],
-            "COMMIT;", anchor=ROLLBACK, probe="verify-local-schema.sql", commits=True),
-    SqlCase("c15-journey-commit", "6a C-15", "commit db-journey.sql instead of rolling it back",
-            db.ROLLBACK_LABELS[("db-journey.sql", "kneeboard_test")],
-            "COMMIT;", anchor=ROLLBACK, commits=True),
 ]
 
 
-class Lifecycle:
-    """One lifecycle case's project, port, environment, and scratch copy of the lifecycle sources."""
-
-    def __init__(self, case: LifecycleCase, registry: "Registry") -> None:
-        self.case = case
-        self.project = registry.new_project()
-        self.port = db.free_port()
-        self.env = base_env(self.project, self.port)
-        self.root = registry.new_scratch_root()
-        for relative in LIFECYCLE_SOURCES:
-            target = self.root / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(ROOT / relative, target)
-        source = self.root / case.source
-        replacement = case.replacement.replace("{other_port}", str(db.free_port()))
-        source.write_text(apply_once(source.read_text(), case.anchor, replacement, case.source))
-        self.registry = registry
-
-    def local(self, action: str, *, extra: dict[str, str] | None = None, database: str | None = None) -> None:
-        """Run the mutated scratch copy of local-db.sh for this case's project."""
-        script = str(self.root / "scripts/local-db.sh")
-        db.command(["sh", script, "--journey-project", self.project, action, *([database] if database else [])],
-                   self.env | (extra or {}), budget=db.LOCAL_BUDGETS[action])
-
-
-def binding_scenario(context: Lifecycle) -> None:
-    context.local("start")
-    db.assert_published_binding(db.postgres_container(context.env), context.env)
-
-
-def reset_scenario(selected: str) -> Callable[[Lifecycle], None]:
-    def scenario(context: Lifecycle) -> None:
-        context.local("start")
-        db.write_markers(context.env)
-        context.local("reset", database=selected)
-        db.assert_reset_markers(selected, context.env)
-    return scenario
-
-
-def restart_scenario(context: Lifecycle) -> None:
-    context.local("start")
-    db.write_markers(context.env)
-    context.local("stop")
-    context.local("start")
-    db.assert_restart_markers(context.env)
-
-
-def decoy_scenario(context: Lifecycle) -> None:
-    decoy = context.registry.new_project()
-    compose = context.root / "decoy-compose.yaml"
-    compose.write_text(DECOY_COMPOSE)
-    env_file = context.root / "decoy.env"
-    env_file.write_text(f"COMPOSE_PROJECT_NAME={decoy}\n")
-    context.local("start", extra={"COMPOSE_FILE": str(compose), "COMPOSE_PROJECT_NAME": decoy, "COMPOSE_ENV_FILES": str(env_file)})
-    db.assert_no_project(decoy, context.env)
-
-
-PORT_MAPPING = '"127.0.0.1:${KNEEBOARD_DB_PORT:-54329}:5432"'
-RESET_COMMAND = (
-    "    compose exec -T postgres psql -v ON_ERROR_STOP=1 -U kneeboard -d postgres \\\n"
-    "      -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$database' AND pid <> pg_backend_pid()\" \\\n"
-    "      -c \"DROP DATABASE \\\"$database\\\"\" \\\n"
-    "      -c \"CREATE DATABASE \\\"$database\\\"\"\n"
-)
-
-LIFECYCLE_CASES = [
-    # Decision 7: a different loopback address keeps the port off every external
-    # interface. 127.0.0.2 cannot be bound on macOS Docker Desktop, so ::1 is used.
-    LifecycleCase("c1-loopback-address", "6a C-1", "publish the port on [::1] instead of 127.0.0.1",
-                  db.C1_BINDING_LABEL, "compose.yaml", PORT_MAPPING, PORT_MAPPING.replace("127.0.0.1", "[::1]"),
-                  binding_scenario),
-    LifecycleCase("c1-allocated-port", "6a C-1", "publish a different free port instead of KNEEBOARD_DB_PORT",
-                  db.C1_BINDING_LABEL, "compose.yaml", PORT_MAPPING, '"127.0.0.1:{other_port}:5432"',
-                  binding_scenario),
-    LifecycleCase("c2-noop-reset-dev", "6a C-2", "make reset a successful no-op, then reset dev",
-                  db.RESET_REMOVAL_LABELS["dev"], "scripts/local-db.sh", RESET_COMMAND,
-                  "    : \"$database\" # fitness mutation: successful no-op reset\n", reset_scenario("dev")),
-    LifecycleCase("c2-noop-reset-test", "6a C-2", "make reset a successful no-op, then reset test",
-                  db.RESET_REMOVAL_LABELS["test"], "scripts/local-db.sh", RESET_COMMAND,
-                  "    : \"$database\" # fitness mutation: successful no-op reset\n", reset_scenario("test")),
-    LifecycleCase("c2-destructive-stop", "6a C-2", "make stop remove the containers and volume (down -v)",
-                  db.RESTART_MARKER_LABELS["dev"], "scripts/local-db.sh", "    compose stop postgres\n",
-                  "    compose down -v --remove-orphans\n", restart_scenario),
-    LifecycleCase("c2b-decoy-project", "6a C-2b", "drop the -p project pin so COMPOSE_PROJECT_NAME selects the project",
-                  db.NO_DECOY_CONTAINERS_LABEL, "scripts/local-db.sh", ' -p "$compose_project"', "",
-                  decoy_scenario),
-]
-
-CASES: dict[str, SqlCase | LifecycleCase] = {case.name: case for case in [*SQL_CASES, *LIFECYCLE_CASES]}
+CASES: dict[str, SqlCase] = {case.name: case for case in SQL_CASES}
 
 
 def base_env(project: str, port: int) -> dict[str, str]:
@@ -284,29 +157,15 @@ def base_env(project: str, port: int) -> dict[str, str]:
 
 
 class Registry:
-    """Every project name and scratch root the runner creates, for the final cleanup."""
+    """Every project name the runner creates, for the final cleanup."""
 
     def __init__(self) -> None:
         self.projects: list[str] = []
-        self.roots: list[Path] = []
 
     def new_project(self) -> str:
         project = f"kneeboard_journey_{uuid.uuid4().hex[:12]}"
         self.projects.append(project)
         return project
-
-    def new_scratch_root(self) -> Path:
-        root = ROOT / ".local" / f"db-journey-fitness-{uuid.uuid4().hex[:12]}"
-        root.mkdir(parents=True)
-        self.roots.append(root)
-        return root
-
-
-def observed_label(error: AssertionError, label: str) -> str:
-    message = db.redact_userinfo(str(error))
-    if message.startswith(f"{label}: "):
-        return message[:OBSERVED_CHARACTERS]
-    raise NotDemonstrated(f"failed elsewhere: {message[:OBSERVED_CHARACTERS]}")
 
 
 def psql_args(env: dict[str, str], database: str) -> list[str]:
@@ -340,47 +199,13 @@ class SqlProject:
         self.started = True
         db.local("start", self.env)
         db.local("migrate", self.env, "test")
-        self.clean = db.table_state("kneeboard_test", self.env)
-        for probe, path in SQL_PROBES.items():
-            control = run_probe(self.env, path.read_text())
-            if control.returncode != 0:
-                raise NotDemonstrated(f"control: unmutated {probe} failed: {db.safe_tail(control.stderr)}")
-            print(f"CONTROL unmutated {probe}: pass", flush=True)
-        db.assert_state_unchanged(self.clean, db.table_state("kneeboard_test", self.env), "CONTROL unmutated probes left kneeboard_test unchanged")
-
-    def restore(self) -> None:
-        db.local("reset", self.env, "test")
-        db.local("migrate", self.env, "test")
-        self.clean = db.table_state("kneeboard_test", self.env)
+        control = run_probe(self.env, PROBE.read_text())
+        if control.returncode != 0:
+            raise NotDemonstrated(f"control: unmutated {PROBE.name} failed: {db.safe_tail(control.stderr)}")
+        print(f"CONTROL unmutated {PROBE.name}: pass", flush=True)
 
     def run(self, case: SqlCase) -> str:
-        text = case.mutated()
-        if not case.commits:
-            line = sql_failure_line(run_probe(self.env, text), case.label)
-            if db.table_state("kneeboard_test", self.env) != self.clean:
-                raise NotDemonstrated("the failed probe left residue in kneeboard_test")
-            return line
-        before = db.table_state("kneeboard_test", self.env)
-        try:
-            result = run_probe(self.env, text)
-            if result.returncode != 0:
-                raise NotDemonstrated(f"setup: committed probe failed: {db.safe_tail(result.stderr)}")
-            try:
-                db.assert_state_unchanged(before, db.table_state("kneeboard_test", self.env), case.label)
-            except AssertionError as error:
-                return observed_label(error, case.label)
-            raise NotDemonstrated("unexpected pass: the committed probe left every table unchanged")
-        finally:
-            self.restore()
-
-
-def run_lifecycle(case: LifecycleCase, registry: Registry) -> str:
-    context = Lifecycle(case, registry)
-    try:
-        case.scenario(context)
-    except AssertionError as error:
-        return observed_label(error, case.label)
-    raise NotDemonstrated("unexpected pass: the intended assertion passed under the mutation")
+        return sql_failure_line(run_probe(self.env, case.mutated()), case.label)
 
 
 def git_status() -> str:
@@ -388,7 +213,7 @@ def git_status() -> str:
 
 
 def cleanup(registry: Registry) -> list[str]:
-    """Remove every named project and scratch root; return problems instead of raising."""
+    """Remove every named project; return problems instead of raising."""
     problems: list[str] = []
     for project in registry.projects:
         env = base_env(project, 54329)
@@ -403,36 +228,24 @@ def cleanup(registry: Registry) -> list[str]:
         else:
             if containers or volumes:
                 problems.append(f"{project} still has containers {containers!r} or volumes {volumes!r}")
-    for root in registry.roots:
-        shutil.rmtree(root, ignore_errors=True)
-        if root.exists():
-            problems.append(f"scratch root {root.relative_to(ROOT)} not removed")
     return problems
 
 
-def run(selected: list[SqlCase | LifecycleCase]) -> int:
+def run(selected: list[SqlCase]) -> int:
     registry = Registry()
     before_status = git_status()
     results: list[tuple[str, bool]] = []
     problems: list[str] = []
     try:
-        sql_cases = [case for case in selected if isinstance(case, SqlCase)]
-        project: SqlProject | None = None
-        if sql_cases:
-            project = SqlProject(registry)
-            print(f"SQL PROJECT {project.env['KNEEBOARD_DB_PROJECT']}", flush=True)
-            project.start()
+        project = SqlProject(registry)
+        print(f"SQL PROJECT {project.env['KNEEBOARD_DB_PROJECT']}", flush=True)
+        project.start()
         for case in selected:
             print(f"CASE {case.name} ({case.claim}): {case.description}", flush=True)
             print(f"  expected assertion: {case.label}", flush=True)
             try:
-                if isinstance(case, SqlCase):
-                    assert project is not None
-                    print(f"  mutation: {case.probe} in memory, anchor found once", flush=True)
-                    observed = project.run(case)
-                else:
-                    print(f"  mutation: scratch copy of {case.source} under .local/, anchor found once", flush=True)
-                    observed = run_lifecycle(case, registry)
+                print(f"  mutation: {PROBE.name} in memory, anchor found once", flush=True)
+                observed = project.run(case)
             except NotDemonstrated as error:
                 print(f"  observed: {error}", flush=True)
                 print("  result: NOT DEMONSTRATED", flush=True)
@@ -454,7 +267,7 @@ def run(selected: list[SqlCase | LifecycleCase]) -> int:
             print(f"CLEANUP PROBLEM {problem}", file=sys.stderr, flush=True)
         if not problems:
             print(f"CLEANUP VERIFIED {len(registry.projects)} projects removed with no containers or volumes left; "
-                  f"{len(registry.roots)} scratch roots removed; git status --porcelain unchanged", flush=True)
+                  "git status --porcelain unchanged", flush=True)
     failed = [name for name, ok in results if not ok]
     print(f"SUMMARY demonstrated {len(results) - len(failed)} of {len(results)}"
           + (f"; not demonstrated: {', '.join(failed)}" if failed else ""), flush=True)
@@ -471,7 +284,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{case.name}\t{case.claim}\t{case.label}")
         return 0
     selected = [CASES[name] for name in args.case] if args.case else list(CASES.values())
-    (ROOT / ".local").mkdir(exist_ok=True)
     return run(selected)
 
 

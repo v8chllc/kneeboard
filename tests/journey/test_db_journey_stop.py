@@ -20,7 +20,7 @@ class StopContainerTests(TestCase):
     def test_stop_inspects_current_container_after_recreation(self) -> None:
         image = re.search(r"^    image: (.+)$", (journey.ROOT / "compose.yaml").read_text(), re.MULTILINE)
         assert image
-        ids = iter(("startup-container", "decoy-start-container", "current-stop-container"))
+        ids = iter(("startup-container", "current-stop-container"))
         events: list[tuple[str, str]] = []
         starts = 0
 
@@ -35,8 +35,6 @@ class StopContainerTests(TestCase):
                 template, container = args[3:]
                 if template == "{{.Config.Image}}":
                     return image.group(1)
-                if template == '{{index .Config.Labels "com.docker.compose.project"}}':
-                    return env["KNEEBOARD_DB_PROJECT"]
                 if template == "{{.State.Running}}":
                     events.append(("inspect", container))
                     if container != "current-stop-container":
@@ -48,7 +46,7 @@ class StopContainerTests(TestCase):
             nonlocal starts
             if action == "start":
                 starts += 1
-                if starts == 3:
+                if starts == 2:
                     raise AssertionError("reached restart after C-2 stop")
             if action == "stop":
                 events.append(("stop", ""))
@@ -60,7 +58,6 @@ class StopContainerTests(TestCase):
             patch.object(journey, "local", side_effect=local),
             patch.object(journey, "psql", side_effect=lambda database, *_: database),
             patch.object(journey, "assert_published_binding"),
-            patch.object(journey, "assert_no_project"),
             patch.object(journey, "write_markers"),
             patch.object(journey, "assert_reset_markers"),
             patch.object(journey, "cleanup_compose"),

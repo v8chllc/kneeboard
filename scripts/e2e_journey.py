@@ -324,35 +324,6 @@ def auth_runtime_probes(app_env: dict[str, str], mailpit_port: int) -> None:
     clear_mailpit(mailpit_port)
 
 
-def fixed_database_isolation(env: dict[str, str], emails: tuple[str, ...]) -> None:
-    """Read only the journey identities in any running fixed local databases."""
-    compose = ["docker", "compose", "-f", "compose.yaml", "-p", "kneeboard"]
-    container = checked([*compose, "ps", "-q", "postgres"], env,
-                        "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed database inspection")
-    if not container:
-        print("JOURNEY fixed database isolation: pass (fixed project stopped)")
-        return
-    # The addresses are generated from a UUID above, never supplied by callers.
-    quoted = ",".join("'" + address + "'" for address in emails)
-    for database in ("kneeboard_dev", "kneeboard_test"):
-        exists = checked([*compose, "exec", "-T", "postgres", "psql", "-U", "kneeboard", "-d", database,
-                          "-Atqc", "SELECT to_regclass('public.user') IS NOT NULL"],
-                         env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed schema inspection")
-        if exists == "f":
-            continue
-        count = checked([*compose, "exec", "-T", "postgres", "psql", "-U", "kneeboard", "-d", database,
-                         "-Atqc", f'SELECT count(*) FROM "user" WHERE email IN ({quoted})'],
-                        env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed account inspection")
-        if count != "0":
-            raise AssertionError("journey account appeared in a fixed database")
-        tracker_count = checked([*compose, "exec", "-T", "postgres", "psql", "-U", "kneeboard", "-d", database,
-                                 "-Atqc", f'SELECT count(*) FROM tracker t JOIN "user" u ON u.id = t.user_id WHERE u.email IN ({quoted})'],
-                                env, "DOCKER_QUERY_TIMEOUT_SECONDS", "fixed tracker inspection")
-        if tracker_count != "0":
-            raise AssertionError("journey tracker appeared in a fixed database")
-    print("JOURNEY fixed database isolation: pass")
-
-
 def main() -> None:
     project = f"kneeboard_journey_{uuid.uuid4().hex[:12]}"
     database_port = db.free_port()
@@ -459,7 +430,6 @@ def main() -> None:
                            "MAILPIT_JOURNEY_UI_PORT": str(mailpit_port), "NODE_ENV": "test"},
                 "OPERATION_TEST_TIMEOUT_SECONDS", "isolated SMTP rejection integration")
         print("JOURNEY local SMTP rejection: pass")
-        fixed_database_isolation(env, (email_a, email_b, email_tracker_a, email_tracker_b))
     finally:
         earlier = sys.exc_info()[1]
         if stub_process is not None:

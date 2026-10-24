@@ -46,6 +46,19 @@ describe("allowlisted failure logger", () => {
     expect(lines.join("\n")).not.toContain("private");
   });
 
+  it("rejects prototype-inherited event names at the runtime boundary", () => {
+    const lines: string[] = [];
+    const log = createFailureLogger((line) => lines.push(line));
+    for (const [event, errorCode] of [
+      ["toString", Object.prototype.toString],
+      ["constructor", Object],
+      ["__proto__", Object.prototype],
+    ] as const) {
+      log({ severity: "error", event, errorCode } as unknown as FailureLogInput);
+    }
+    expect(lines).toEqual([]);
+  });
+
   it("does not change the caller's failure result when output is unavailable", () => {
     const log = createFailureLogger(() => { throw new Error("output unavailable"); });
     expect(() => log({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" }))

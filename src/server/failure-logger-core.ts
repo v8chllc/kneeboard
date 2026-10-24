@@ -13,6 +13,7 @@ export function createFailureLogger(
   return (input) => {
     // Logging must not turn an already-handled failure into a new failure.
     try {
+      if (!Object.hasOwn(failureLogCodes, input.event)) return;
       const errorCode = failureLogCodes[input.event];
       if (
         errorCode === undefined

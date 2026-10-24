@@ -24,7 +24,7 @@ function TrackerRow({ row, busy, onSave, onPass, onSkip }: {
   row: TrackerRowView;
   busy: boolean;
   onSave: (routeIndex: number) => void;
-  onPass: (routeIndex: number) => void;
+  onPass: (routeIndex: number, invoker: HTMLButtonElement) => void;
   onSkip: (routeIndex: number) => void;
 }) {
   const { glyph, label } = stateDisplay[row.state];
@@ -48,7 +48,7 @@ function TrackerRow({ row, busy, onSave, onPass, onSkip }: {
       </div>
       {(row.canSave || row.canPass || row.canSkip) && <div className="tracker-row-actions">
         {row.canSave && <button type="button" disabled={busy} onClick={() => onSave(row.routeIndex)}>Save</button>}
-        {row.canPass && <button type="button" disabled={busy} onClick={() => onPass(row.routeIndex)}>Pass</button>}
+        {row.canPass && <button type="button" disabled={busy} onClick={(event) => onPass(row.routeIndex, event.currentTarget)}>Pass</button>}
         {row.canSkip && <button type="button" disabled={busy} onClick={() => onSkip(row.routeIndex)}>Skip</button>}
       </div>}
       {row.railStart && <span className="tracker-rail-cap tracker-rail-cap-start" aria-hidden="true" />}
@@ -64,17 +64,19 @@ function CascadeDialog({ affected, onCancel, onConfirm, busy }: {
   busy: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const element = dialog.current;
     element?.showModal();
+    cancelButton.current?.focus();
     return () => { element?.close(); };
   }, []);
-  return <dialog ref={dialog} onCancel={onCancel} onClose={onCancel} className="tracker-dialog" aria-labelledby="cascade-title">
+  return <dialog ref={dialog} onCancel={(event) => { event.preventDefault(); onCancel(); }} className="tracker-dialog" aria-labelledby="cascade-title" aria-describedby="cascade-description">
     <h2 id="cascade-title">Pass these waypoints?</h2>
-    <p>Passing the selected fix will also pass every earlier saved fix listed here.</p>
+    <p id="cascade-description">Passing the selected fix will also pass every earlier saved fix listed here.</p>
     <ol>{affected.map((fix) => <li key={fix.routeIndex}>{fix.ident} · route position {fix.routeIndex}</li>)}</ol>
     <div className="tracker-dialog-actions">
-      <button type="button" disabled={busy} onClick={onCancel}>Cancel</button>
+      <button ref={cancelButton} type="button" disabled={busy} onClick={onCancel}>Cancel</button>
       <button type="button" disabled={busy} onClick={onConfirm}>Pass listed waypoints</button>
     </div>
   </dialog>;
@@ -85,8 +87,9 @@ export function TrackerClient({ trackerId, initial }: { trackerId: string; initi
   const [snapshot, setSnapshot] = useState<TrackerSnapshot>(initial.snapshot);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
-  const [notice, setNotice] = useState<{ message: string; stale: boolean } | null>(null);
+  const [notice, setNotice] = useState<{ message: string; stale: boolean; kind: "success" | "error" } | null>(null);
   const [cascade, setCascade] = useState<{ routeIndex: number; expectedVersion: number; affected: readonly { routeIndex: number; ident: string }[] } | null>(null);
+  const cascadeInvoker = useRef<HTMLButtonElement | null>(null);
   const view = buildTrackerView(initial.navlog, snapshot);
   const controlsBusy = busy || notice?.stale === true;
 
@@ -99,24 +102,26 @@ export function TrackerClient({ trackerId, initial }: { trackerId: string; initi
       const result = await mutateTrackerAction(trackerId, command);
       if (result.status === "applied") {
         setSnapshot(result.snapshot);
+        setNotice({ message: command.type === "saveWaypoint" ? "Waypoint saved." : command.type === "passWaypoint" ? "Waypoint passed." : command.type === "skipWaypoint" ? "Waypoint skipped." : "Procedure inclusion updated.", stale: false, kind: "success" });
       } else {
-        setNotice({ message: result.message, stale: result.status === "stale" });
+        setNotice({ message: result.message, stale: result.status === "stale", kind: "error" });
       }
     } catch {
-      setNotice({ message: "Tracker could not be updated. Try again.", stale: false });
+      setNotice({ message: "Tracker could not be updated. Try again.", stale: false, kind: "error" });
     } finally {
       inFlight.current = false;
       setBusy(false);
     }
   }
 
-  function pass(routeIndex: number) {
+  function pass(routeIndex: number, invoker: HTMLButtonElement) {
     const preview = previewPass(snapshot, routeIndex);
     if (preview.outcome === "rejected") {
-      setNotice({ message: "This waypoint cannot be passed. Reload and try again.", stale: false });
+      setNotice({ message: "This waypoint cannot be passed. Reload and try again.", stale: false, kind: "error" });
       return;
     }
     if (preview.routeIndexes.length > 1) {
+      cascadeInvoker.current = invoker;
       setCascade({ routeIndex, expectedVersion: snapshot.version,
         affected: preview.routeIndexes.map((index) => ({ routeIndex: index, ident: initial.navlog.points[index].ident })) });
       return;
@@ -155,8 +160,8 @@ export function TrackerClient({ trackerId, initial }: { trackerId: string; initi
       {view.procedureControlsLocked && <p>Procedure controls locked after the first Save.</p>}
     </section>
 
-    {notice && <div className="tracker-notice" role="alert"><p>{notice.message}</p>
-      {!notice.stale && <p>Try the same action again.</p>}
+    {notice && <div className="tracker-notice" role={notice.kind === "success" ? "status" : "alert"}><p>{notice.message}</p>
+      {notice.kind === "error" && !notice.stale && <p>Try the same action again.</p>}
       {notice.stale && <button type="button" onClick={() => window.location.reload()}>Reload tracker</button>}
     </div>}
 
@@ -170,9 +175,13 @@ export function TrackerClient({ trackerId, initial }: { trackerId: string; initi
         onSkip={(index) => { void send({ type: "skipWaypoint", routeIndex: index, expectedVersion: snapshot.version }); }} />)}</ol>
     </section>
 
-    {cascade && <CascadeDialog affected={cascade.affected} busy={busy} onCancel={() => setCascade(null)}
+    {cascade && <CascadeDialog affected={cascade.affected} busy={busy} onCancel={() => {
+      setCascade(null);
+      requestAnimationFrame(() => { cascadeInvoker.current?.focus(); cascadeInvoker.current = null; });
+    }}
       onConfirm={() => {
         const selected = cascade;
+        cascadeInvoker.current = null;
         setCascade(null);
         void send({ type: "passWaypoint", routeIndex: selected.routeIndex, expectedVersion: selected.expectedVersion });
       }} />}

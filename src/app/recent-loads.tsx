@@ -5,7 +5,7 @@ import { RecentLoadsRetry } from "./recent-loads-retry";
 
 /** The list contains metadata only; tracker state is read on its own route. */
 export function RecentLoads({ result }: { result: RecentLoadsResult }) {
-  return <section className="mt-8 rounded-xl border border-zinc-700 bg-zinc-900 p-6" aria-label="Recent OFP loads">
+  return <section className="mt-8 min-w-0 break-words rounded-xl border border-zinc-700 bg-zinc-900 p-6" aria-label="Recent OFP loads">
     <h2 className="text-xl font-semibold">Recent OFP loads</h2>
     {result.status === "unavailable" ? (
       <div className="mt-4 space-y-3">

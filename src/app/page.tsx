@@ -14,8 +14,8 @@ export default async function Home() {
   const pilotId = accountId === null ? null : await getAccountSettings().readPilotId(requestHeaders);
   const recentLoads = accountId === null ? null : await getRecentLoadsForAccount(accountId);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 py-16 text-zinc-50">
-      <div className="w-full max-w-3xl">
+    <main className="min-h-screen bg-zinc-950 px-4 py-10 text-zinc-50 sm:px-8 sm:py-16">
+      <div className="mx-auto w-full max-w-5xl min-w-0">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-300">
           Kneeboard
         </p>
@@ -34,8 +34,10 @@ export default async function Home() {
             <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-300">
               {pilotId === null ? "Set up your Pilot ID to prepare for OFP loading." : "Your Pilot ID is saved for this account."}
             </p>
-            <PilotIdForm pilotId={pilotId} />
-            <LoadOfpControl ready={pilotId !== null} />
+            <div className="mt-8 grid min-w-0 gap-6 md:grid-cols-2 md:items-start">
+              <PilotIdForm pilotId={pilotId} />
+              <LoadOfpControl ready={pilotId !== null} />
+            </div>
             {recentLoads !== null && <RecentLoads result={recentLoads} />}
             <SignOutButton />
           </>

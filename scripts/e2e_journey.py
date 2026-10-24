@@ -88,6 +88,18 @@ def verify_private_output(output: AppOutput, values: dict[str, str]) -> None:
         raise AssertionError("log-exclusion failed")
 
 
+def verify_structured_output(output: AppOutput) -> None:
+    """Require the recent-read failure to reach captured server standard output."""
+    records = [json.loads(line) for line in output.data.decode("utf-8", errors="replace").splitlines()
+               if line.startswith('{"timestamp":')]
+    required_keys = {"timestamp", "severity", "event", "correlationId", "errorCode"}
+    if not records or any(set(record) != required_keys for record in records):
+        raise AssertionError("structured server log record missing or malformed")
+    if not any(record["event"] == "unexpected_server_error" and
+               record["errorCode"] == "UNEXPECTED_SERVER_ERROR" for record in records):
+        raise AssertionError("recent-read failure did not reach server standard output")
+
+
 class SentinelReceiver(ThreadingHTTPServer):
     """Receive private journey values over loopback, keeping them in memory."""
 
@@ -418,6 +430,8 @@ def main() -> None:
             receiver_thread.join(timeout=5)
         verify_private_output(output, receiver.values)
         print("JOURNEY log-exclusion: pass")
+        verify_structured_output(output)
+        print("JOURNEY structured server logging: pass")
         auth_runtime_probes(app_env, mailpit_port)
         checked(["docker", "compose", "-f", "compose.yaml", "-f", "tests/journey/mailpit-chaos.compose.yaml",
                  "-p", project, "up", "-d", "--no-deps", "--force-recreate", "--wait", "mailpit"],

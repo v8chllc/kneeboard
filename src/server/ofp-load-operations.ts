@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { OfpLoadResult, PreparedOfpLoad } from "../db/ofp-load";
 import { buildNavlog } from "../domain/navlog-construction";
+import type { FailureLogger } from "./failure-logger-core";
 import { SimbriefOfpError, type FetchedSimbriefOfp, type SimbriefOfpFailure } from "./simbrief-ofp";
 
 export type LoadUiResult =
@@ -14,6 +15,17 @@ export interface LoadDependencies {
   readonly readPilotId: (accountId: string) => Promise<string | null>;
   readonly load: (accountId: string, key: string, work: () => Promise<PreparedOfpLoad>) => Promise<OfpLoadResult>;
   readonly fetch: (pilotId: string) => Promise<FetchedSimbriefOfp>;
+  readonly logFailure?: FailureLogger;
+}
+
+function logLoadFailure(logFailure: FailureLogger | undefined, failure: SimbriefOfpFailure | undefined): void {
+  if (failure === undefined) {
+    logFailure?.({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
+  } else if (failure === "upstream") {
+    logFailure?.({ severity: "error", event: "ofp_fetch_failure", errorCode: "OFP_FETCH_FAILED" });
+  } else {
+    logFailure?.({ severity: "warning", event: "ofp_validation_failure", errorCode: "OFP_VALIDATION_FAILED" });
+  }
 }
 
 function unreachable(value: never): never {
@@ -56,16 +68,24 @@ export function createLoadOperation(dependencies: LoadDependencies) {
       if (pilotId === null) return { status: "pilotIdRequired", message: "Save your SimBrief Pilot ID before loading an OFP." };
 
       const result = await dependencies.load(accountId, parsedKey.data, async () => {
+        let fetched: FetchedSimbriefOfp;
         try {
-          const fetched = await dependencies.fetch(pilotId);
-          return { rawPayload: fetched.rawPayload, navlog: buildNavlog(fetched.ofpInput) };
+          fetched = await dependencies.fetch(pilotId);
         } catch (error) {
           failure = error instanceof SimbriefOfpError ? error.reason : "upstream";
           throw error;
         }
+        try {
+          return { rawPayload: fetched.rawPayload, navlog: buildNavlog(fetched.ofpInput) };
+        } catch (error) {
+          failure = "invalidOfp";
+          throw error;
+        }
       });
+      if (result.outcome === "failed") logLoadFailure(dependencies.logFailure, failure);
       return mapLoadResult(result, failure);
     } catch {
+      logLoadFailure(dependencies.logFailure, failure);
       return { status: "failed", message: "The OFP could not be loaded. Check your plan and try again." };
     }
   };

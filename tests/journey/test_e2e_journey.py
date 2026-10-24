@@ -277,6 +277,11 @@ class E2EJourneyTests(TestCase):
             receiver.return_value.values = {identity: f"synthetic-{identity}" for identity in journey.REQUIRED_SENTINELS} | {"token:one": "synthetic-token", "fault-token:one": "synthetic-fault-token"}
             receiver.return_value.server_port = 12345
             output.return_value.contains_private_value.return_value = False
+            output.return_value.data = bytearray((json.dumps({
+                "timestamp": "2026-10-24T19:00:00.000Z", "severity": "error",
+                "event": "unexpected_server_error", "correlationId": "e3295a0b-8aa5-44d6-aa90-d2b5a4f3a111",
+                "errorCode": "UNEXPECTED_SERVER_ERROR",
+            }, separators=(",", ":")) + "\n").encode())
             journey.main()
         self.assertEqual([call[0] for call in order.mock_calls if call[0] in {"stub", "ready", "app"}],
                          ["stub", "ready", "app"])

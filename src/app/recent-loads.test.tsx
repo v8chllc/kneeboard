@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RecentLoadsResult } from "../server/recent-load-contract";
+import { createFailureLogger } from "../server/failure-logger-core";
 import { createRecentLoadOperation } from "../server/recent-load-operations";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -14,8 +15,12 @@ function render(result: RecentLoadsResult) {
 
 describe("recent loads home states", () => {
   it("shows empty history separately from a failed read with a refresh retry", async () => {
+    const lines: string[] = [];
     const empty = await createRecentLoadOperation(async () => [])("account-a");
-    const failure = await createRecentLoadOperation(async () => { throw new Error("private upstream sentinel"); })("account-a");
+    const failure = await createRecentLoadOperation(
+      async () => { throw new Error("private upstream sentinel"); },
+      createFailureLogger((line) => lines.push(line)),
+    )("account-a");
     expect(empty).toEqual({ status: "ready", loads: [] });
     expect(failure).toEqual({ status: "unavailable" });
     const emptyMarkup = render(empty);
@@ -27,6 +32,9 @@ describe("recent loads home states", () => {
     expect(failureMarkup).toContain("Retry recent loads");
     expect(failureMarkup).not.toContain("No OFPs loaded yet");
     expect(failureMarkup).not.toContain("private upstream sentinel");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
+    expect(lines[0]).not.toContain("private upstream sentinel");
   });
 
   it("shows distinct tracker links and aviation UTC metadata for matching flights", () => {

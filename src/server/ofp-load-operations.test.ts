@@ -4,6 +4,7 @@ import type { OfpLoadResult } from "../db/ofp-load";
 import { buildNavlog } from "../domain/navlog-construction";
 import { loadOfpFixture } from "../../tests/support/ofp-fixture-adapter";
 import { createLoadOperation, mapLoadResult, type LoadDependencies } from "./ofp-load-operations";
+import { createFailureLogger } from "./failure-logger-core";
 import { SimbriefOfpError } from "./simbrief-ofp";
 
 const key = "a4a420e8-6f34-4411-936a-97ce73364d3f";
@@ -100,6 +101,41 @@ describe("authenticated OFP load", () => {
       const result = await createLoadOperation(dependencies(testCase.overrides))(headers, testCase.submittedKey);
       expect(result).toEqual({ status: "failed", message: "The OFP could not be loaded. Check your plan and try again." });
     }
+  });
+
+  it("logs fetch, validation, and unexpected failures once without upstream content", async () => {
+    const sensitive = "pilot-000123@example.invalid raw-OFP session-token 42.123N upstream-secret";
+    const cases = [
+      { error: new SimbriefOfpError("upstream", [sensitive]), event: "ofp_fetch_failure", code: "OFP_FETCH_FAILED" },
+      { error: new SimbriefOfpError("nonLido", [sensitive]), event: "ofp_validation_failure", code: "OFP_VALIDATION_FAILED" },
+      { error: new SimbriefOfpError("missingNavlog", [sensitive]), event: "ofp_validation_failure", code: "OFP_VALIDATION_FAILED" },
+      { error: new SimbriefOfpError("invalidOfp", [sensitive]), event: "ofp_validation_failure", code: "OFP_VALIDATION_FAILED" },
+    ];
+    for (const testCase of cases) {
+      const lines: string[] = [];
+      const deps = dependencies({
+        logFailure: createFailureLogger((line) => lines.push(line)),
+        fetch: async () => { throw testCase.error; },
+        load: async (_accountId, _key, work) => {
+          try { await work(); } catch { return { outcome: "failed" }; }
+          throw new Error("Expected work failure");
+        },
+      });
+      expect((await createLoadOperation(deps)(headers, key)).status).toBe("failed");
+      expect(lines).toHaveLength(1);
+      expect(JSON.parse(lines[0])).toMatchObject({ event: testCase.event, errorCode: testCase.code });
+      expect(lines[0]).not.toContain(sensitive);
+    }
+
+    const unexpectedLines: string[] = [];
+    const unexpected = dependencies({
+      logFailure: createFailureLogger((line) => unexpectedLines.push(line)),
+      load: async () => { throw new Error(sensitive); },
+    });
+    expect((await createLoadOperation(unexpected)(headers, key)).status).toBe("failed");
+    expect(unexpectedLines).toHaveLength(1);
+    expect(JSON.parse(unexpectedLines[0])).toMatchObject({ event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
+    expect(unexpectedLines[0]).not.toContain(sensitive);
   });
 });
 

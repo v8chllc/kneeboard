@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import { getAccountSettings } from "@/server/account-settings";
+import { logFailure } from "@/server/failure-logger";
 import { loadLatestOfp } from "@/server/ofp-load";
 import type { LoadUiResult } from "@/server/ofp-load-operations";
 
@@ -20,6 +21,7 @@ export async function savePilotIdAction(_previous: SavePilotIdState, formData: F
     if (error instanceof Error && error.message === "Sign-in required") {
       return { status: "error", message: "Sign in again to save your Pilot ID." };
     }
+    logFailure({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
     return { status: "error", message: "Your Pilot ID could not be saved. Try again." };
   }
   revalidatePath("/");
@@ -31,6 +33,7 @@ export async function loadLatestOfpAction(key: string): Promise<LoadUiResult> {
   try {
     return await loadLatestOfp(await headers(), key);
   } catch {
+    logFailure({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
     return { status: "failed", message: "The OFP could not be loaded. Check your plan and try again." };
   }
 }

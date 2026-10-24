@@ -1,8 +1,10 @@
 import { headers } from "next/headers";
 
 import { getAccountSettings, resolveAccountId } from "@/server/account-settings";
+import { getRecentLoadsForAccount } from "@/server/recent-loads";
 
 import { LoadOfpControl, PilotIdForm, SignInForm, SignOutButton } from "./home-forms";
+import { RecentLoads } from "./recent-loads";
 
 export default async function Home() {
   const requestHeaders = await headers();
@@ -10,6 +12,7 @@ export default async function Home() {
   // state and no auth or settings connection is needed.
   const accountId = requestHeaders.has("cookie") ? await resolveAccountId(requestHeaders) : null;
   const pilotId = accountId === null ? null : await getAccountSettings().readPilotId(requestHeaders);
+  const recentLoads = accountId === null ? null : await getRecentLoadsForAccount(accountId);
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 py-16 text-zinc-50">
       <div className="w-full max-w-3xl">
@@ -33,6 +36,7 @@ export default async function Home() {
             </p>
             <PilotIdForm pilotId={pilotId} />
             <LoadOfpControl ready={pilotId !== null} />
+            {recentLoads !== null && <RecentLoads result={recentLoads} />}
             <SignOutButton />
           </>
         )}

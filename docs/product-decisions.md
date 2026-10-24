@@ -53,6 +53,18 @@ detect or relabel this case.
 Selecting a recent item opens that tracker. Older trackers remain stored but are
 not listed or searchable in the MVP.
 
+The list contains up to 10 successful load instances for the signed-in account,
+ordered by load time descending and then load ID descending when times tie.
+Separate successful loads remain separate entries even when their flight details
+match. Each entry links to its existing tracker; reopening reads its persisted
+state through the usual account authorization and never creates a tracker or
+fetches an OFP. Navigation to home and reload refresh the list from the server;
+there is no automatic polling.
+
+When the account has no successful loads, home says **No OFPs loaded yet** beside
+the existing Pilot ID setup or Load action. A failed list read shows a generic
+error and a retry action that refreshes home, never the empty-history message.
+
 ### Loading an OFP
 
 - A load always fetches the latest OFP for the configured Pilot ID.
@@ -141,8 +153,11 @@ server-side account ownership; knowing an ID never grants access.
 - Layout and component design are mobile-first because tablet and phone support
   is expected soon after launch.
 - The MVP is a responsive website, not an installable Progressive Web App.
-- Supported browsers are current Chrome, Edge, Firefox, and Safari, with
-  responsive verification in mobile Safari and Chrome.
+- Target browsers are current Chrome, Edge, Firefox, and Safari. The responsive
+  layout is checked locally in Chromium at 390×844 (phone), 768×1024 (tablet),
+  and 1440×900 (desktop). This evidence covers those viewports in Chromium only.
+  Cross-browser compatibility checks and real-device testing are deferred until
+  after the MVP production release.
 - The initial visual design is a single dark, high-contrast,
   cockpit-oriented theme.
 - Core flows target WCAG 2.2 AA without making a formal conformance claim.

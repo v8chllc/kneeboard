@@ -58,6 +58,26 @@ describe("Better Auth policy", () => {
     expect(lines[0]).not.toMatch(/private provider detail|pilot@example.invalid|synthetic-token|localhost/);
   });
 
+  it("logs a failed token revocation separately from the delivery failure", async () => {
+    const sensitive = "private cleanup marker synthetic-token";
+    const lines: string[] = [];
+    const logFailure = createFailureLogger((line) => lines.push(line));
+    const send = guardedMagicLinkSender(
+      config,
+      async () => { throw new Error("private provider detail"); },
+      async () => { throw new Error(sensitive); },
+      logFailure,
+    );
+
+    await expect(send({ email: "pilot@example.invalid", url: "http://localhost:3000/link", token: "synthetic-token" }))
+      .rejects.toThrow(/^Magic-link delivery failed$/);
+    expect(lines.map((line) => JSON.parse(line))).toMatchObject([
+      { severity: "error", event: "authentication_delivery_failure", errorCode: "AUTH_DELIVERY_FAILED" },
+      { severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" },
+    ]);
+    expect(lines.join("\n")).not.toMatch(/private provider detail|private cleanup marker|pilot@example.invalid|synthetic-token|localhost/);
+  });
+
   it("refuses account creation through the database hook for a disallowed address", async () => {
     const options = createAuthOptions(config, database, vi.fn());
     const before = options.databaseHooks.user.create.before;

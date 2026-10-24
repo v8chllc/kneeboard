@@ -28,7 +28,7 @@ export function guardedMagicLinkSender(
       try {
         await revoke(token);
       } catch {
-        // The caller sees only a generic failure, even if cleanup fails.
+        logFailure?.({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
       }
       throw new Error("Magic-link delivery failed");
     }

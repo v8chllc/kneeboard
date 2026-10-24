@@ -38,6 +38,7 @@ async function signInAndLoad(context: BrowserContext, request: APIRequestContext
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
   await page.goto(await readOneLink(request, email));
   await expect(page.getByRole("heading", { name: "Set up your SimBrief Pilot ID" })).toBeVisible();
+  await expect(page.getByText("No OFPs loaded yet")).toBeVisible();
   await expect(page.getByRole("button", { name: "Load latest OFP", exact: true })).toBeDisabled();
   const cookie = (await context.cookies()).find((item) => item.name.endsWith("session_token"));
   expect(cookie?.value).toBeTruthy();
@@ -117,6 +118,47 @@ test("valid fixture Load creates an owned tracker at phone width", async ({ brow
       expect(box!.x + box!.width).toBeLessThanOrEqual(390);
     }
     await testInfo.attach("tracker-phone", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+    await page.goto("/");
+    const recent = page.getByRole("region", { name: "Recent OFP loads" });
+    const entry = recent.locator(`a[href="/trackers/${trackerId}"]`);
+    await expect(entry).toHaveAttribute("href", `/trackers/${trackerId}`);
+    await expect(entry).toContainText(utcAviation(row.loaded_at));
+    await expect(entry).toContainText(utcAviation(row.generated_at));
+    // A second deliberate load in another tab adds a separate instance with
+    // matching flight metadata; the first tab refreshes only on navigation.
+    await pool.query(
+      "UPDATE load_reservation SET accepted_at = clock_timestamp() - interval '31 seconds' WHERE user_id = (SELECT user_id FROM tracker WHERE id = $1)",
+      [trackerId],
+    );
+    const secondPage = await context.newPage();
+    await secondPage.goto("/");
+    await secondPage.getByRole("button", { name: "Load latest OFP", exact: true }).click();
+    await expect(secondPage).toHaveURL(/\/trackers\/[0-9a-f-]{36}$/, { timeout: 10_000 });
+    const secondTrackerId = secondPage.url().split("/").at(-1)!;
+    expect(secondTrackerId).not.toBe(trackerId);
+    await expect(recent.getByRole("link")).toHaveCount(1);
+    const fetchesBeforeReopen = await stubCount(request, isolatedSettings().stubUrl);
+    await page.reload();
+    await expect(recent.getByRole("link")).toHaveCount(2);
+    await expect(recent.getByRole("link").first()).toHaveAttribute("href", `/trackers/${secondTrackerId}`);
+    await expect(recent.getByRole("link").last()).toHaveAttribute("href", `/trackers/${trackerId}`);
+    await entry.click();
+    await expect(page).toHaveURL(new RegExp(`/trackers/${trackerId}$`));
+    expect(await stubCount(request, isolatedSettings().stubUrl)).toBe(fetchesBeforeReopen);
+
+    // This disposable Journey database temporarily hides only the metadata
+    // table to prove a read failure is not mistaken for an empty history.
+    await pool.query("ALTER TABLE ofp_load RENAME TO ofp_load_recent_test_hidden");
+    try {
+      await page.goto("/");
+      await expect(recent.getByRole("alert")).toContainText("Recent loads could not be shown");
+      await expect(page.getByText("No OFPs loaded yet")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Retry recent loads" })).toBeVisible();
+    } finally {
+      await pool.query("ALTER TABLE ofp_load_recent_test_hidden RENAME TO ofp_load");
+    }
+    await page.getByRole("button", { name: "Retry recent loads" }).click();
+    await expect(recent.getByRole("link")).toHaveCount(2);
     console.log("JOURNEY fixture Load and phone tracker: pass");
   } finally {
     await context?.close();
@@ -228,6 +270,18 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);
     await expect(page.locator('li.tracker-row[data-state="skipped"]')).toHaveCount(1);
     await expect(page.getByRole("button", { name: "STAR included" })).toBeDisabled();
+    const { stubUrl } = isolatedSettings();
+    const fetchesBeforeReopen = await stubCount(request, stubUrl);
+    const trackerCountBeforeReopen = (await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM tracker')).rows[0].count;
+    await page.goto("/");
+    await page.getByRole("region", { name: "Recent OFP loads" }).getByRole("link").click();
+    await expect(page).toHaveURL(new RegExp(`/trackers/${trackerId}$`));
+    await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);
+    await expect(page.locator('li.tracker-row[data-state="skipped"]')).toHaveCount(1);
+    expect((await trackerRow(pool, trackerId, email)).version).toBeGreaterThan(1);
+    expect(await stubCount(request, stubUrl)).toBe(fetchesBeforeReopen);
+    expect((await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM tracker')).rows[0].count)
+      .toBe(trackerCountBeforeReopen);
     console.log("JOURNEY persisted tracker workflow: pass");
   } finally {
     await context?.close();

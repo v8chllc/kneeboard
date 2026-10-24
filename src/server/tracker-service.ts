@@ -5,6 +5,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { mutateTracker } from "../db/tracker-operations";
 import { resolveAccountId } from "./account-settings";
 import { getDatabase } from "./database";
+import { logFailure } from "./failure-logger";
 import { selectTrackerForAccount } from "./tracker-data";
 import { createTrackerTransport } from "./tracker-transport";
 
@@ -15,5 +16,6 @@ export function getTrackerTransport() {
     resolveAccountId,
     read: (accountId, trackerId) => selectTrackerForAccount(database, accountId, trackerId),
     mutate: (accountId, trackerId, command) => mutateTracker(database, accountId, trackerId, command),
+    logFailure,
   });
 }

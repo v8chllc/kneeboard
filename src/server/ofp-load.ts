@@ -7,6 +7,7 @@ import { loadOfpForAccount } from "../db/ofp-load";
 import { accountSettings } from "../db/schema";
 import { resolveAccountId } from "./account-settings";
 import { getDatabase } from "./database";
+import { logFailure } from "./failure-logger";
 import { createLoadOperation } from "./ofp-load-operations";
 import { fetchSimbriefOfp } from "./simbrief-ofp";
 
@@ -22,5 +23,6 @@ export function loadLatestOfp(headers: Headers, key: unknown) {
     },
     load: (accountId, actionKey, work) => loadOfpForAccount(database as unknown as NodePgDatabase, accountId, actionKey, work),
     fetch: fetchSimbriefOfp,
+    logFailure,
   })(headers, key);
 }

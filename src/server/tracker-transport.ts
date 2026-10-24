@@ -9,6 +9,7 @@ import {
 import type { TrackerCommandRejection } from "../domain/engine";
 import type { Navlog } from "../domain/navlog";
 import type { TrackerSnapshot } from "../domain/tracker";
+import type { FailureLogger } from "./failure-logger-core";
 import type { StoredTrackerView } from "./tracker-data";
 
 export interface TrackerHeader {
@@ -32,6 +33,15 @@ export interface TrackerTransportDependencies {
   readonly resolveAccountId: (headers: Headers) => Promise<string | null>;
   readonly read: (accountId: string, trackerId: string) => Promise<StoredTrackerView | null>;
   readonly mutate: (accountId: string, trackerId: string, command: TrackerCommand) => Promise<TrackerMutationResult>;
+  readonly logFailure?: FailureLogger;
+}
+
+function logCommandFailure(logFailure: FailureLogger | undefined, stale = false): void {
+  if (stale) {
+    logFailure?.({ severity: "warning", event: "stale_version_conflict", errorCode: "STALE_VERSION" });
+  } else {
+    logFailure?.({ severity: "warning", event: "tracker_command_failure", errorCode: "TRACKER_COMMAND_FAILED" });
+  }
 }
 
 const trackerIdSchema = z.uuid();
@@ -129,6 +139,7 @@ export function createTrackerTransport(dependencies: TrackerTransportDependencie
           loadedAtUtc: row.loadedAt.toISOString(),
         } };
       } catch {
+        dependencies.logFailure?.({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
         return { status: "unreadable", message: "Tracker could not be opened. Try again." };
       }
     },
@@ -137,12 +148,24 @@ export function createTrackerTransport(dependencies: TrackerTransportDependencie
       try {
         const accountId = await dependencies.resolveAccountId(headers);
         if (accountId === null) return { status: "signInRequired", message: "Sign in to change a tracker." };
-        if (!parsedTrackerId.success) return { status: "notFound", message: "Tracker not found." };
+        if (!parsedTrackerId.success) {
+          logCommandFailure(dependencies.logFailure);
+          return { status: "notFound", message: "Tracker not found." };
+        }
         const parsed = parseTrackerCommand(input);
-        if ("status" in parsed) return parsed;
+        if ("status" in parsed) {
+          logCommandFailure(dependencies.logFailure);
+          return parsed;
+        }
         const result = await dependencies.mutate(accountId, parsedTrackerId.data, parsed);
+        if (result.outcome === "stale" || (result.outcome === "rejected" && result.reason === "versionMismatch")) {
+          logCommandFailure(dependencies.logFailure, true);
+        } else if (result.outcome === "rejected" || result.outcome === "notFound") {
+          logCommandFailure(dependencies.logFailure);
+        }
         return mapTrackerMutation(result);
       } catch {
+        dependencies.logFailure?.({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
         return { status: "unreadable", message: "Tracker could not be updated. Reload and try again." };
       }
     },

@@ -83,7 +83,7 @@ describe("tracker page markup", () => {
     expect(row).not.toContain("tracker-keypad");
   });
 
-  it("retains separate rows when the route repeats a waypoint identifier", () => {
+  it("preserves route-index identity when waypoint identifiers repeat", () => {
     const route = navlogFor("valid-ten-boundary-cases.json");
     const repeated = route.points.flatMap((point, index) => point.ident === "REPEAT" ? [index] : []);
     expect(repeated.length).toBeGreaterThan(1);

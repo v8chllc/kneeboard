@@ -14,7 +14,11 @@ export function createFailureLogger(
     // Logging must not turn an already-handled failure into a new failure.
     try {
       const errorCode = failureLogCodes[input.event];
-      if (errorCode === undefined || (input.severity !== "warning" && input.severity !== "error")) return;
+      if (
+        errorCode === undefined
+        || input.errorCode !== errorCode
+        || (input.severity !== "warning" && input.severity !== "error")
+      ) return;
       const record = {
         timestamp: now().toISOString(),
         severity: input.severity,

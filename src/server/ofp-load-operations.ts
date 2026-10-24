@@ -72,7 +72,7 @@ export function createLoadOperation(dependencies: LoadDependencies) {
         try {
           fetched = await dependencies.fetch(pilotId);
         } catch (error) {
-          failure = error instanceof SimbriefOfpError ? error.reason : "upstream";
+          if (error instanceof SimbriefOfpError) failure = error.reason;
           throw error;
         }
         try {

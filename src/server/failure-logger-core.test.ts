@@ -33,18 +33,16 @@ describe("allowlisted failure logger", () => {
     }
   });
 
-  it("generates independent random UUIDs and ignores a forged runtime code or event", () => {
+  it("rejects a forged runtime code or event", () => {
     const lines: string[] = [];
     const log = createFailureLogger((line) => lines.push(line));
     log({ severity: "error", event: "authentication_delivery_failure", errorCode: "FORGED", secret: "private" } as unknown as FailureLogInput);
     log({ severity: "error", event: "authentication_delivery_failure", errorCode: "AUTH_DELIVERY_FAILED" });
     log({ severity: "error", event: "private-event", errorCode: "PRIVATE" } as unknown as FailureLogInput);
-    expect(lines).toHaveLength(2);
+    expect(lines).toHaveLength(1);
     const records = lines.map((line) => JSON.parse(line) as { correlationId: string; errorCode: string });
-    expect(records.map((record) => record.errorCode)).toEqual(["AUTH_DELIVERY_FAILED", "AUTH_DELIVERY_FAILED"]);
+    expect(records.map((record) => record.errorCode)).toEqual(["AUTH_DELIVERY_FAILED"]);
     expect(records[0].correlationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-    expect(records[1].correlationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-    expect(records[0].correlationId).not.toBe(records[1].correlationId);
     expect(lines.join("\n")).not.toContain("private");
   });
 

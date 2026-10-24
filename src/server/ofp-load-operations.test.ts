@@ -136,6 +136,22 @@ describe("authenticated OFP load", () => {
     expect(unexpectedLines).toHaveLength(1);
     expect(JSON.parse(unexpectedLines[0])).toMatchObject({ event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
     expect(unexpectedLines[0]).not.toContain(sensitive);
+
+    const unexpectedFetchLines: string[] = [];
+    const unexpectedFetch = dependencies({
+      logFailure: createFailureLogger((line) => unexpectedFetchLines.push(line)),
+      fetch: async () => { throw new Error(sensitive); },
+      load: async (_accountId, _key, work) => {
+        try { await work(); } catch { return { outcome: "failed" }; }
+        throw new Error("Expected work failure");
+      },
+    });
+    expect((await createLoadOperation(unexpectedFetch)(headers, key)).status).toBe("failed");
+    expect(unexpectedFetchLines).toHaveLength(1);
+    expect(JSON.parse(unexpectedFetchLines[0])).toMatchObject({
+      event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR",
+    });
+    expect(unexpectedFetchLines[0]).not.toContain(sensitive);
   });
 });
 

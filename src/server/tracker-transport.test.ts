@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createInitialSnapshot } from "../domain/engine";
 import type { TrackerCommandRejection } from "../domain/engine";
 import { navlogFor } from "../../tests/support/tracker-scenarios";
+import { createFailureLogger } from "./failure-logger-core";
 import { createTrackerTransport, mapTrackerMutation, parseTrackerCommand, type TrackerTransportDependencies } from "./tracker-transport";
 
 const trackerId = "a4a420e8-6f34-4411-936a-97ce73364d3f";
@@ -115,6 +116,37 @@ describe("tracker request transport", () => {
       expect(result).toMatchObject({ status: "unreadable" });
       expect(JSON.stringify(result)).not.toContain("private identity marker");
     }
+  });
+
+  it("logs command rejection, stale conflict, and unexpected failures once without private input", async () => {
+    const sensitive = "private coordinate 42.123N session-token /trackers/private upstream-secret";
+    const lines: string[] = [];
+    const logFailure = createFailureLogger((line) => lines.push(line));
+    const transport = createTrackerTransport(deps({
+      logFailure,
+      mutate: async () => ({ outcome: "rejected", reason: "notSaved", message: sensitive }),
+    }));
+    expect((await transport.command(new Headers(), trackerId, { ...command, extra: sensitive })).status).toBe("rejected");
+    expect((await transport.command(new Headers(), trackerId, command)).status).toBe("rejected");
+    const stale = createTrackerTransport(deps({
+      logFailure,
+      mutate: async () => ({ outcome: "stale", message: "tracker changed; reload and try again" }),
+    }));
+    expect((await stale.command(new Headers(), trackerId, command)).status).toBe("stale");
+    const failed = createTrackerTransport(deps({
+      logFailure,
+      mutate: async () => { throw new Error(sensitive); },
+    }));
+    expect((await failed.command(new Headers(), trackerId, command)).status).toBe("unreadable");
+    expect((await failed.read(new Headers(), trackerId)).status).toBe("found");
+    expect(lines).toHaveLength(4);
+    expect(lines.map((line) => JSON.parse(line).event)).toEqual([
+      "tracker_command_failure", "tracker_command_failure", "stale_version_conflict", "unexpected_server_error",
+    ]);
+    expect(lines.map((line) => JSON.parse(line).errorCode)).toEqual([
+      "TRACKER_COMMAND_FAILED", "TRACKER_COMMAND_FAILED", "STALE_VERSION", "UNEXPECTED_SERVER_ERROR",
+    ]);
+    expect(lines.join("\n")).not.toContain(sensitive);
   });
 });
 

@@ -82,4 +82,14 @@ describe("tracker page markup", () => {
     expect(row).toContain(`<span class="tracker-distance">DIS ${point.dis ?? "—"} · RDIS ${point.rdis} NM</span>`);
     expect(row).not.toContain("tracker-keypad");
   });
+
+  it("preserves route-index identity when waypoint identifiers repeat", () => {
+    const route = navlogFor("valid-ten-boundary-cases.json");
+    const repeated = route.points.flatMap((point, index) => point.ident === "REPEAT" ? [index] : []);
+    expect(repeated.length).toBeGreaterThan(1);
+    const html = renderToStaticMarkup(<TrackerClient trackerId="tracker"
+      initial={{ ...initial, navlog: route, snapshot: createInitialSnapshot(route) }} />);
+    expect((html.match(/class="tracker-row"/g) ?? [])).toHaveLength(route.points.length);
+    expect((html.match(/class="tracker-ident">REPEAT<\/strong>/g) ?? [])).toHaveLength(repeated.length);
+  });
 });

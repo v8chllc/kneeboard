@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type BrowserContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 import { Pool } from "pg";
 
 import { previewPass, type TrackerSnapshot } from "../../src/domain";
@@ -11,6 +11,51 @@ import { registerSensitive } from "./privacy";
 const PILOT_ID = "100001";
 if (reservedIds[PILOT_ID] !== "valid-multi-page.json") throw new Error("Tracker fixture mapping changed");
 const expectedRoute = [multiPageFixture.origin.icao_code, ...multiPageFixture.navlog.fix.map((fix) => fix.ident)];
+const viewports = [
+  { label: "phone", width: 390, height: 844 },
+  { label: "tablet", width: 768, height: 1024 },
+  { label: "desktop", width: 1440, height: 900 },
+] as const;
+
+async function expectUsableViewport(page: Page, width: number) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  for (const control of await page.locator("a:visible, button:visible, input:visible").all()) {
+    const box = await control.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(24);
+    expect(box?.height).toBeGreaterThanOrEqual(24);
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+  }
+}
+
+async function expectTextContrast(page: Page, samples: readonly { text: string; surface: string }[]) {
+  for (const sample of samples) {
+    const colors = await page.evaluate(({ text, surface }) => {
+      const foreground = document.querySelector(text);
+      const background = document.querySelector(surface);
+      if (!foreground || !background) throw new Error(`Missing contrast sample ${text} or ${surface}`);
+      const toRgb = (color: string) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 1;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Canvas color conversion unavailable");
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+      };
+      return [toRgb(getComputedStyle(foreground).color), toRgb(getComputedStyle(background).backgroundColor)];
+    }, sample);
+    const luminance = (values: number[]) => {
+      const [red, green, blue] = values.map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    };
+    const [foreground, background] = colors.map(luminance);
+    expect((Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05), sample.text).toBeGreaterThanOrEqual(4.5);
+  }
+}
 
 function isolatedSettings() {
   const databaseUrl = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
@@ -38,6 +83,7 @@ async function signInAndLoad(context: BrowserContext, request: APIRequestContext
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
   await page.goto(await readOneLink(request, email));
   await expect(page.getByRole("heading", { name: "Set up your SimBrief Pilot ID" })).toBeVisible();
+  await expect(page.getByText("No OFPs loaded yet")).toBeVisible();
   await expect(page.getByRole("button", { name: "Load latest OFP", exact: true })).toBeDisabled();
   const cookie = (await context.cookies()).find((item) => item.name.endsWith("session_token"));
   expect(cookie?.value).toBeTruthy();
@@ -79,8 +125,8 @@ function utcAviation(date: Date): string {
   return `${String(date.getUTCDate()).padStart(2, "0")} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()} ${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}Z`;
 }
 
-test("valid fixture Load creates an owned tracker at phone width", async ({ browser, request }, testInfo) => {
-  test.setTimeout(90_000);
+test("valid fixture Load creates an owned tracker at three viewports", async ({ browser, request }, testInfo) => {
+  test.setTimeout(150_000);
   const email = process.env.JOURNEY_TRACKER_EMAIL_A;
   if (!email) throw new Error("Isolated tracker email is required");
   const pool = new Pool({ connectionString: isolatedSettings().databaseUrl });
@@ -109,23 +155,101 @@ test("valid fixture Load creates an owned tracker at phone width", async ({ brow
     await expect(page.locator("li.tracker-row").nth(38).locator(".tracker-slot")).toHaveText("9");
     await expect(page.locator("li.tracker-row").nth(35).locator(".tracker-ident")).toHaveText("TOD");
     await expect(page.locator("li.tracker-row").last().locator(".tracker-ident")).toHaveText("KJFK");
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-    for (const button of await page.locator(".tracker-shell button").all()) {
-      const box = await button.boundingBox();
-      expect(box?.width).toBeGreaterThan(0);
-      expect(box?.x).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await expectUsableViewport(page, viewport.width);
+      await expect(page.locator("li.tracker-row")).toHaveCount(43);
+      await expect(page.locator(".tracker-page-rule")).toHaveCount(5);
+      await expectTextContrast(page, [
+        { text: ".tracker-eyebrow", surface: "body" },
+        { text: ".tracker-row-detail", surface: "body" },
+        { text: ".tracker-shell button", surface: ".tracker-shell button" },
+      ]);
+      await testInfo.attach(`tracker-${viewport.label}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+      await page.goto("/");
+      await expectUsableViewport(page, viewport.width);
+      await expect(page.getByRole("region", { name: "Recent OFP loads" })).toBeVisible();
+      await expectTextContrast(page, [
+        { text: "main h1", surface: "body" },
+        { text: "button.bg-amber-300", surface: "button.bg-amber-300" },
+        { text: "section[aria-label='Recent OFP loads'] h2", surface: "section[aria-label='Recent OFP loads']" },
+      ]);
+      await testInfo.attach(`home-${viewport.label}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+      await page.goto(`/trackers/${trackerId}`);
     }
-    await testInfo.attach("tracker-phone", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
-    console.log("JOURNEY fixture Load and phone tracker: pass");
+    await page.goto("/");
+    const recent = page.getByRole("region", { name: "Recent OFP loads" });
+    const entry = recent.locator(`a[href="/trackers/${trackerId}"]`);
+    await expect(entry).toHaveAttribute("href", `/trackers/${trackerId}`);
+    await expect(entry).toContainText(utcAviation(row.loaded_at));
+    await expect(entry).toContainText(utcAviation(row.generated_at));
+    // A second deliberate load in another tab adds a separate instance with
+    // matching flight metadata; the first tab refreshes only on navigation.
+    await pool.query(
+      "UPDATE load_reservation SET accepted_at = clock_timestamp() - interval '31 seconds' WHERE user_id = (SELECT user_id FROM tracker WHERE id = $1)",
+      [trackerId],
+    );
+    const secondPage = await context.newPage();
+    await secondPage.goto("/");
+    await secondPage.getByRole("button", { name: "Load latest OFP", exact: true }).click();
+    await expect(secondPage).toHaveURL(/\/trackers\/[0-9a-f-]{36}$/, { timeout: 10_000 });
+    const secondTrackerId = secondPage.url().split("/").at(-1)!;
+    expect(secondTrackerId).not.toBe(trackerId);
+    await expect(recent.getByRole("link")).toHaveCount(1);
+    const fetchesBeforeReopen = await stubCount(request, isolatedSettings().stubUrl);
+    await page.reload();
+    await expect(recent.getByRole("link")).toHaveCount(2);
+    await expect(recent.getByRole("link").first()).toHaveAttribute("href", `/trackers/${secondTrackerId}`);
+    await expect(recent.getByRole("link").last()).toHaveAttribute("href", `/trackers/${trackerId}`);
+    await entry.click();
+    await expect(page).toHaveURL(new RegExp(`/trackers/${trackerId}$`));
+    expect(await stubCount(request, isolatedSettings().stubUrl)).toBe(fetchesBeforeReopen);
+
+    // This disposable Journey database temporarily hides only the metadata
+    // table to prove a read failure is not mistaken for an empty history.
+    await pool.query("ALTER TABLE ofp_load RENAME TO ofp_load_recent_test_hidden");
+    try {
+      await page.goto("/");
+      await expect(recent.getByRole("alert")).toContainText("Recent loads could not be shown");
+      await expect(page.getByText("No OFPs loaded yet")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Retry recent loads" })).toBeVisible();
+      for (const viewport of viewports) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await expectUsableViewport(page, viewport.width);
+        await testInfo.attach(`recent-error-${viewport.label}`, { body: await page.screenshot(), contentType: "image/png" });
+      }
+    } finally {
+      await pool.query("ALTER TABLE ofp_load_recent_test_hidden RENAME TO ofp_load");
+    }
+    await page.getByRole("button", { name: "Retry recent loads" }).click();
+    await expect(recent.getByRole("link")).toHaveCount(2);
+    // A fixture with two distinct fixes named REPEAT exercises route identity
+    // and layout without shortening the navlog or changing tracker rules.
+    await page.getByRole("textbox", { name: "Pilot ID" }).fill("100004");
+    await page.getByRole("button", { name: "Save Pilot ID" }).click();
+    await expect(page.getByRole("status")).toHaveText("Pilot ID saved.");
+    await pool.query(
+      "UPDATE load_reservation SET accepted_at = clock_timestamp() - interval '31 seconds' WHERE user_id = (SELECT user_id FROM tracker WHERE id = $1)",
+      [trackerId],
+    );
+    await page.getByRole("button", { name: "Load latest OFP", exact: true }).click();
+    await expect(page).toHaveURL(/\/trackers\/[0-9a-f-]{36}$/, { timeout: 10_000 });
+    const repeatedCount = await page.locator("li.tracker-row .tracker-ident", { hasText: "REPEAT" }).count();
+    expect(repeatedCount).toBeGreaterThan(1);
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await expectUsableViewport(page, viewport.width);
+      await expect(page.locator("li.tracker-row .tracker-ident", { hasText: "REPEAT" })).toHaveCount(repeatedCount);
+    }
+    console.log("JOURNEY fixture Load and responsive trackers: pass");
   } finally {
     await context?.close();
     await pool.end();
   }
 });
 
-test("Save, single Pass, confirmed cascade and Skip persist after reload", async ({ browser, request }) => {
-  test.setTimeout(90_000);
+test("Save, single Pass, confirmed cascade and Skip persist after reload", async ({ browser, request }, testInfo) => {
+  test.setTimeout(150_000);
   const email = process.env.JOURNEY_TRACKER_EMAIL_B;
   if (!email) throw new Error("Isolated tracker email is required");
   const pool = new Pool({ connectionString: isolatedSettings().databaseUrl });
@@ -178,6 +302,7 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     for (let count = 1; count <= 3; count += 1) {
       await page.getByRole("button", { name: "Save", exact: true }).first().click();
       await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(count);
+      await expect(page.getByRole("status")).toContainText("Waypoint saved.");
       await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(1);
       if (count === 1) {
         await stalePage.getByRole("button", { name: "Save", exact: true }).first().click();
@@ -194,9 +319,13 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     await page.locator('li.tracker-row[data-state="saved"]').first().getByRole("button", { name: "Pass" }).click();
     await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(1);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.locator('li.tracker-row[data-state="saved"]').last().getByRole("button", { name: "Pass" }).click();
+    const invokingPass = page.locator('li.tracker-row[data-state="saved"]').last().getByRole("button", { name: "Pass" });
+    await invokingPass.focus();
+    await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Pass these waypoints?" });
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+    await expect(dialog).toHaveAttribute("aria-describedby", "cascade-description");
     const beforeCascade = await trackerRow(pool, trackerId, email);
     const savedIndexes = beforeCascade.snapshot.waypoints.filter((fix) => fix.state === "saved").map((fix) => fix.routeIndex);
     const preview = previewPass(beforeCascade.snapshot, savedIndexes.at(-1)!);
@@ -207,12 +336,22 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     const versionBeforeCancel = beforeCascade.version;
     const displayBeforeCancel = await page.locator(".tracker-route-list ol").innerText();
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "passed")).toHaveLength(1);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
+    await expect(invokingPass).toBeFocused();
     expect(await page.locator(".tracker-route-list ol").innerText()).toBe(displayBeforeCancel);
     expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeCancel);
     expect((await trackerRow(pool, trackerId, email)).snapshot.waypoints.filter((point) => point.state === "passed")).toHaveLength(1);
-    await page.locator('li.tracker-row[data-state="saved"]').last().getByRole("button", { name: "Pass" }).click();
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await invokingPass.click();
+      await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+      await expectUsableViewport(page, viewport.width);
+      await testInfo.attach(`cascade-${viewport.label}`, { body: await page.screenshot(), contentType: "image/png" });
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(invokingPass).toBeFocused();
+    }
+    await invokingPass.click();
     await page.getByRole("dialog", { name: "Pass these waypoints?" }).getByRole("button", { name: "Pass listed waypoints" }).click();
     await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);
     const pendingBeforeSkip = page.locator('li.tracker-row[data-state="pending"]').first();
@@ -228,6 +367,24 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);
     await expect(page.locator('li.tracker-row[data-state="skipped"]')).toHaveCount(1);
     await expect(page.getByRole("button", { name: "STAR included" })).toBeDisabled();
+    const { stubUrl } = isolatedSettings();
+    const fetchesBeforeReopen = await stubCount(request, stubUrl);
+    const trackerCountBeforeReopen = (await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM tracker')).rows[0].count;
+    await page.goto("/");
+    await page.getByRole("region", { name: "Recent OFP loads" }).getByRole("link").click();
+    await expect(page).toHaveURL(new RegExp(`/trackers/${trackerId}$`));
+    await expect(page.locator('li.tracker-row[data-state="passed"]')).toHaveCount(3);
+    await expect(page.locator('li.tracker-row[data-state="skipped"]')).toHaveCount(1);
+    expect((await trackerRow(pool, trackerId, email)).version).toBeGreaterThan(1);
+    expect(await stubCount(request, stubUrl)).toBe(fetchesBeforeReopen);
+    expect((await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM tracker')).rows[0].count)
+      .toBe(trackerCountBeforeReopen);
+    const versionBeforeReopenedSave = (await trackerRow(pool, trackerId, email)).version;
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(1);
+    expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeReopenedSave + 1);
+    await page.reload();
+    await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(1);
     console.log("JOURNEY persisted tracker workflow: pass");
   } finally {
     await context?.close();

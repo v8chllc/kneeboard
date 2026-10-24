@@ -6,8 +6,8 @@ import { localTestDatabaseUrl } from "../support/local-test-db";
 import { clearInbox, listMessages, readLinks, readOneLink } from "./mailpit";
 import { registerSensitive } from "./privacy";
 
-test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sentinels", async ({ browser, request }) => {
-  test.setTimeout(90000);
+test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sentinels", async ({ browser, request }, testInfo) => {
+  test.setTimeout(150000);
   const url = localTestDatabaseUrl(process.env.TEST_DATABASE_URL);
   const emailA = process.env.JOURNEY_EMAIL_A;
   const emailB = process.env.JOURNEY_EMAIL_B;
@@ -24,6 +24,15 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
     await expect(pageA.getByRole("heading", { name: "Sign in with a magic link" })).toBeVisible();
     await expect(pageA.getByRole("textbox", { name: "Pilot ID" })).toHaveCount(0);
     await expect(pageA.getByRole("complementary", { name: "Simulation-only warning" })).toBeVisible();
+    for (const viewport of [{ label: "phone", width: 390, height: 844 }, { label: "tablet", width: 768, height: 1024 }, { label: "desktop", width: 1440, height: 900 }]) {
+      await pageA.setViewportSize({ width: viewport.width, height: viewport.height });
+      expect(await pageA.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+      await pageA.getByRole("textbox", { name: "Email address" }).focus();
+      await expect(pageA.getByRole("textbox", { name: "Email address" })).toBeFocused();
+      expect(await pageA.getByRole("textbox", { name: "Email address" }).evaluate((element) =>
+        getComputedStyle(element).outlineStyle)).not.toBe("none");
+      await testInfo.attach(`sign-in-${viewport.label}`, { body: await pageA.screenshot(), contentType: "image/png" });
+    }
     console.log("JOURNEY visitor state: pass");
 
     const emailInput = pageA.getByRole("textbox", { name: "Email address" });
@@ -99,6 +108,8 @@ test("isolated magic-link sign-in, Pilot ID, account isolation, and privacy sent
       await input.fill(invalid);
       await pageA.getByRole("button", { name: "Save Pilot ID" }).click();
       await expect(pageA.getByText("Enter 1–16 digits for your Pilot ID.")).toBeVisible();
+      await expect(pageA.getByRole("textbox", { name: "Pilot ID" })).toHaveAttribute("aria-invalid", "true");
+      await expect(pageA.getByRole("textbox", { name: "Pilot ID" })).toHaveAttribute("aria-describedby", "pilot-id-error");
       const unchanged = await pool.query('select s.pilot_id from account_settings s join "user" u on u.id = s.user_id where u.email = $1', [emailA]);
       expect(unchanged.rows[0].pilot_id === pilotA).toBe(true);
     }

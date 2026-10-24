@@ -8,6 +8,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import * as schema from "../db/schema";
 import { isAllowedEmail, type ServerConfig } from "./config";
+import type { FailureLogger } from "./failure-logger-core";
 
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -16,16 +17,18 @@ export function guardedMagicLinkSender(
   config: ServerConfig,
   deliver: (email: string, url: string) => Promise<void>,
   revoke: (token: string) => Promise<void>,
+  logFailure?: FailureLogger,
 ) {
   return async ({ email, url, token }: { email: string; url: string; token: string }) => {
     if (!isAllowedEmail(config, email)) return;
     try {
       await deliver(email, url);
     } catch {
+      logFailure?.({ severity: "error", event: "authentication_delivery_failure", errorCode: "AUTH_DELIVERY_FAILED" });
       try {
         await revoke(token);
       } catch {
-        // The caller sees only a generic failure, even if cleanup fails.
+        logFailure?.({ severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" });
       }
       throw new Error("Magic-link delivery failed");
     }
@@ -37,6 +40,7 @@ export function createAuthOptions(
   config: ServerConfig,
   database: NodePgDatabase<typeof schema>,
   deliver: (email: string, url: string) => Promise<void>,
+  logFailure?: FailureLogger,
 ) {
   return {
     baseURL: config.BETTER_AUTH_URL,
@@ -69,7 +73,7 @@ export function createAuthOptions(
         await database.delete(schema.verification).where(
           eq(schema.verification.identifier, tokenHash(token)),
         );
-      }),
+      }, logFailure),
     })],
   };
 }

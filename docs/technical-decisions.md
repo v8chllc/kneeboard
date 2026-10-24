@@ -203,6 +203,12 @@ Required persisted concepts:
 Indexed metadata must support the 10 most recent loads per account without
 deserializing raw OFPs.
 
+The recent-load read selects only `ofp_load` metadata and the joined tracker ID
+for the authenticated account. It orders by `loaded_at DESC, ofp_load.id DESC`
+and limits to 10, using `ofp_load_recent_by_user_idx`. It never reads `ofp_raw`,
+the navlog, or the snapshot. The server returns a typed display record with UTC
+ISO instants; the view formats them with the existing aviation UTC formatter.
+
 Every tracker mutation uses optimistic concurrency:
 
 - snapshots have an integer version, initially 1;
@@ -373,8 +379,29 @@ Use privacy-conscious structured server logs in Vercel for:
 - stale-version conflicts; and
 - unexpected server errors.
 
-Logs identify operation types and correlation identifiers, not sensitive
-payloads. Sentry or another third-party monitoring dependency is deferred.
+Each failure emits one JSON object to standard server output with exactly
+`timestamp`, `severity`, `event`, `correlationId`, and `errorCode`. `timestamp`
+is a UTC ISO instant. `severity` is `warning` or `error`. `correlationId` is a
+fresh random UUID generated for the operation, independently of account IDs,
+Pilot IDs, tracker URLs, and session values. Event and error-code pairs are
+fixed:
+
+| Event | Error code |
+| --- | --- |
+| `authentication_delivery_failure` | `AUTH_DELIVERY_FAILED` |
+| `ofp_fetch_failure` | `OFP_FETCH_FAILED` |
+| `ofp_validation_failure` | `OFP_VALIDATION_FAILED` |
+| `tracker_command_failure` | `TRACKER_COMMAND_FAILED` |
+| `stale_version_conflict` | `STALE_VERSION` |
+| `unexpected_server_error` | `UNEXPECTED_SERVER_ERROR` |
+
+The server-only logger accepts only a fixed event, matching error code, and
+severity. It never accepts or serializes an exception, request, headers, URL,
+account identifier, arbitrary context, request body, raw upstream error, OFP,
+coordinate, Pilot ID, email, session value, or magic-link token. A handled
+failure is logged once at its safe result boundary; an unexpected exception is
+logged once at its catch boundary. The records are for Vercel's standard output
+capture. Sentry and other monitoring dependencies remain deferred.
 
 ## Synchronization
 

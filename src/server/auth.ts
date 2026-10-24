@@ -5,11 +5,12 @@ import { betterAuth } from "better-auth";
 import { createAuthOptions } from "./auth-options";
 import { getDatabase } from "./database";
 import { getServerConfig } from "./env";
+import { logFailure } from "./failure-logger";
 import { createMailDelivery } from "./mail-delivery";
 
 function createAuth() {
   const config = getServerConfig();
-  return betterAuth(createAuthOptions(config, getDatabase(), createMailDelivery(config)));
+  return betterAuth(createAuthOptions(config, getDatabase(), createMailDelivery(config), logFailure));
 }
 
 let auth: ReturnType<typeof createAuth> | undefined;

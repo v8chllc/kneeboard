@@ -495,12 +495,13 @@ def app_runtime(env: dict[str, str]) -> None:
 
 
 def operation_journey(env: dict[str, str], port: int) -> None:
-    """Exercise 6b operations only against this Journey's disposable test database."""
+    """Exercise database operations only against this Journey's disposable test database."""
     operation_env = env.copy()
     operation_env["TEST_DATABASE_URL"] = f"postgresql://kneeboard:local_only_kneeboard@127.0.0.1:{port}/kneeboard_test"
     operation_env["DB_JOURNEY_ISOLATED"] = "1"
     output = command(
-        ["mise", "exec", "--", "pnpm", "exec", "vitest", "run", "src/db/db-journey.test.ts", "--reporter=verbose"],
+        ["mise", "exec", "--", "pnpm", "exec", "vitest", "run", "src/db/db-journey.test.ts",
+         "src/db/recent-loads.integration.test.ts", "--reporter=verbose"],
         operation_env,
         budget="OPERATION_TEST_TIMEOUT_SECONDS",
     )
@@ -509,6 +510,9 @@ def operation_journey(env: dict[str, str], port: int) -> None:
                    for line in output.splitlines()):
             raise AssertionError(f"6b operation C-{claim} did not report a passing assertion")
         print(f"6b C-{claim}: pass")
+    if "JOURNEY recent-load read: pass" not in output:
+        raise AssertionError("recent-load database assertion did not report a passing result")
+    print("JOURNEY recent-load read: pass")
 
 
 def main() -> None:

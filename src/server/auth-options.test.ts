@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 
 import * as schema from "../db/schema";
 import { parseServerConfig } from "./config";
+import { createFailureLogger } from "./failure-logger-core";
 import { createAuthOptions, guardedMagicLinkSender } from "./auth-options";
 
 const config = parseServerConfig({
@@ -44,10 +45,37 @@ describe("Better Auth policy", () => {
 
   it("revokes a failed delivery and keeps the error generic", async () => {
     const revoke = vi.fn(async () => {});
-    const send = guardedMagicLinkSender(config, async () => { throw new Error("private provider detail"); }, revoke);
+    const lines: string[] = [];
+    const logFailure = createFailureLogger((line) => lines.push(line));
+    const send = guardedMagicLinkSender(config, async () => { throw new Error("private provider detail"); }, revoke, logFailure);
     await expect(send({ email: "pilot@example.invalid", url: "http://localhost:3000/link", token: "synthetic-token" }))
       .rejects.toThrow(/^Magic-link delivery failed$/);
     expect(revoke).toHaveBeenCalledExactlyOnceWith("synthetic-token");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({
+      severity: "error", event: "authentication_delivery_failure", errorCode: "AUTH_DELIVERY_FAILED",
+    });
+    expect(lines[0]).not.toMatch(/private provider detail|pilot@example.invalid|synthetic-token|localhost/);
+  });
+
+  it("logs a failed token revocation separately from the delivery failure", async () => {
+    const sensitive = "private cleanup marker synthetic-token";
+    const lines: string[] = [];
+    const logFailure = createFailureLogger((line) => lines.push(line));
+    const send = guardedMagicLinkSender(
+      config,
+      async () => { throw new Error("private provider detail"); },
+      async () => { throw new Error(sensitive); },
+      logFailure,
+    );
+
+    await expect(send({ email: "pilot@example.invalid", url: "http://localhost:3000/link", token: "synthetic-token" }))
+      .rejects.toThrow(/^Magic-link delivery failed$/);
+    expect(lines.map((line) => JSON.parse(line))).toMatchObject([
+      { severity: "error", event: "authentication_delivery_failure", errorCode: "AUTH_DELIVERY_FAILED" },
+      { severity: "error", event: "unexpected_server_error", errorCode: "UNEXPECTED_SERVER_ERROR" },
+    ]);
+    expect(lines.join("\n")).not.toMatch(/private provider detail|private cleanup marker|pilot@example.invalid|synthetic-token|localhost/);
   });
 
   it("refuses account creation through the database hook for a disallowed address", async () => {

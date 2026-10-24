@@ -379,6 +379,12 @@ test("Save, single Pass, confirmed cascade and Skip persist after reload", async
     expect(await stubCount(request, stubUrl)).toBe(fetchesBeforeReopen);
     expect((await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM tracker')).rows[0].count)
       .toBe(trackerCountBeforeReopen);
+    const versionBeforeReopenedSave = (await trackerRow(pool, trackerId, email)).version;
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(1);
+    expect((await trackerRow(pool, trackerId, email)).version).toBe(versionBeforeReopenedSave + 1);
+    await page.reload();
+    await expect(page.locator('li.tracker-row[data-state="saved"]')).toHaveCount(1);
     console.log("JOURNEY persisted tracker workflow: pass");
   } finally {
     await context?.close();

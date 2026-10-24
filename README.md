@@ -138,7 +138,8 @@ Keep `SIMBRIEF_BASE_URL=http://127.0.0.1:8765` in `.env.local`, then start the
 application with `mise exec -- pnpm dev`. Sign in, save reserved Pilot ID
 `100001`, and press **Load latest OFP**. The stub serves the tracked multi-page
 LIDO fixture; `100002` serves the domestic fixture, `100003` the non-LIDO
-rejection fixture, and unknown IDs return HTTP 404. The stub binds to loopback
+rejection fixture, and `100004` the route with repeated waypoint identifiers
+and boundary cases. Unknown IDs return HTTP 404. The stub binds to loopback
 only and stops with Ctrl-C. The automated `pnpm journey:e2e` command starts
 its own stub on an allocated loopback port and shuts it down with the isolated
 application and database.

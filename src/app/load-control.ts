@@ -3,7 +3,19 @@ import { createLoadKeyState } from "./load-key";
 
 export type LoadControlSnapshot = { pending: boolean; result: LoadUiResult | null };
 
-/** Owns the load result and action key across a failed request and its retry. */
+/**
+ * Owns the load result and action key across a failed request and its retry.
+ * A new `submit(false)` creates an action key. `submit(true)` reuses that key;
+ * before any new action, it rejects with "No load action to retry" and leaves
+ * the snapshot unchanged. A submit while pending is ignored and notifies no
+ * listeners.
+ *
+ * A started submit notifies `{ pending: true, result: null }`, then notifies
+ * `{ pending: true, result }` after `load` settles. An exception thrown during
+ * submit becomes the generic failed result at that second notification.
+ * `navigate` runs for `created` and `completed` results between the second and
+ * final notifications; the final snapshot is `{ pending: false, result }`.
+ */
 export function createLoadOfpController(
   load: (key: string) => Promise<LoadUiResult>,
   navigate: (trackerId: string) => void,

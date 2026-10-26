@@ -154,14 +154,23 @@ The canonical local commands are:
 | `pnpm lint` | Run ESLint. |
 | `pnpm typecheck` | Run TypeScript without emitting files. |
 | `pnpm test` | Run the Vitest suite once. |
+| `pnpm test:integration` | Run the whole Vitest suite against a migrated local `kneeboard_test` database, one file at a time, and fail on unexpected skipped tests. |
 | `pnpm test:watch` | Run Vitest in interactive watch mode. |
 | `pnpm journey:db` | Run the isolated database Journey. |
 | `pnpm journey:e2e` | Build and test sign-in in Chromium with isolated PostgreSQL and Mailpit. |
 | `pnpm journey` | Run both Journeys in order, stopping if either fails. |
 
 With mise activated in the shell, run the commands directly. Otherwise prefix
-them with `mise exec --`, as in the fresh-clone procedure above. To exercise the
-production runtime locally:
+them with `mise exec --`, as in the fresh-clone procedure above.
+
+The database-backed Vitest files run through `pnpm test:integration` locally and
+in CI. Start local PostgreSQL, migrate the test database with
+`sh scripts/local-db.sh migrate test`, and set `TEST_DATABASE_URL` to its local
+`kneeboard_test` URL before running it locally. The database and browser
+journeys still run their isolated file lists through `pnpm journey:db` and
+`pnpm journey:e2e`; Playwright stays out of CI.
+
+To exercise the production runtime locally:
 
 ```bash
 mise exec -- pnpm build

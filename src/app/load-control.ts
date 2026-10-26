@@ -10,11 +10,16 @@ export type LoadControlSnapshot = { pending: boolean; result: LoadUiResult | nul
  * the snapshot unchanged. A submit while pending is ignored and notifies no
  * listeners.
  *
- * A started submit notifies `{ pending: true, result: null }`, then notifies
- * `{ pending: true, result }` after `load` settles. An exception thrown during
- * submit becomes the generic failed result at that second notification.
- * `navigate` runs for `created` and `completed` results between the second and
- * final notifications; the final snapshot is `{ pending: false, result }`.
+ * When `generateKey`, listeners, and `navigate` do not throw, a started submit
+ * notifies `{ pending: true, result: null }`, then `{ pending: true, result }`
+ * when `load` settles, and finally `{ pending: false, result }`. A `load`
+ * failure, whether thrown or rejected, becomes the generic failed result.
+ * For `created` and `completed` results, `navigate` runs between the second
+ * and final notifications.
+ *
+ * Only a `load` failure is guaranteed to become the generic failed result.
+ * If `generateKey`, a listener, or `navigate` throws, neither normalization
+ * nor a fixed notification sequence is promised.
  */
 export function createLoadOfpController(
   load: (key: string) => Promise<LoadUiResult>,

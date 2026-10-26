@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && python3 -m unittest discover -s tests/journey -p 'test_*.py'",
+    "test:integration": "node scripts/test-integration.mjs",
     "test:watch": "vitest watch",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

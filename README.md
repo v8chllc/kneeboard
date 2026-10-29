@@ -62,6 +62,8 @@ governing decisions are documented in this repository.
   and page construction.
 - [Technical decisions](docs/technical-decisions.md) — stack, integration,
   persistence, authentication, security, deployment, testing, and operations.
+- [Production launch](docs/deployment.md) — production settings, launch order,
+  DNS, smoke-test checklist, and application rollback.
 - [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
   payload structure, classification evidence, and gaps against documented
   tracker behavior.

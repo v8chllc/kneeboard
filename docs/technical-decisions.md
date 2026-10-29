@@ -296,8 +296,9 @@ not add application-level field encryption.
 ## Hosting and email
 
 - Host the Next.js application on Vercel.
-- Initial target tier is Vercel Hobby while the project remains personal and
-  non-commercial; confirm eligibility and limits at deployment time.
+- Production runs on Vercel Hobby because the deployment has no commercial
+  function: no payments, advertising or sales. It may be shown as an example
+  of the author's work. Move to Pro if Vercel treats that as commercial use.
 - Production domain is `kneeboard.v8ch.com`.
 - Resend is the email provider.
 - Mailpit captures email in local development only.

@@ -65,6 +65,8 @@ governing decisions are documented in this repository.
 - [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
   payload structure, classification evidence, and gaps against documented
   tracker behavior.
+- [Production deployment](docs/deployment.md) — production settings,
+  first-launch order, DNS, smoke test, and application rollback rules.
 
 ## MVP at a glance
 

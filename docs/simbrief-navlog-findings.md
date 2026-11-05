@@ -177,6 +177,8 @@ The payload provides dedicated procedure names in `general.sid_ident` and
 `general.star_ident`; both fields were strings in every accepted capture. They
 avoid parsing procedure names from `general.route`.
 
+SimBrief sends an absent SID or STAR as an empty object; the boundary stores it as an empty string.
+
 **Confirmed rule:** classify a `wpt` or `vor` row as SID or STAR only when
 `is_sid_star == "1"` and `via_airway` exactly matches the corresponding dedicated
 procedure identifier. Apply airport and `ltlg` classification first because

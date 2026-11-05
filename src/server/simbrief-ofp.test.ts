@@ -71,6 +71,41 @@ describe("SimBrief representation boundary", () => {
     }
     expect(expectedFailure({ ...base, params: {} }).paths).toEqual(["params.ofp_layout"]);
   });
+  it("accepts empty-object procedure identifiers", () => {
+    const base = fixture("valid-domestic.json") as { general: Record<string, unknown> };
+    const cases = [
+      { sid_ident: {}, star_ident: "VEECK5", sidIdent: "", starIdent: "VEECK5" },
+      { sid_ident: "VARNM2", star_ident: {}, sidIdent: "VARNM2", starIdent: "" },
+      { sid_ident: {}, star_ident: {}, sidIdent: "", starIdent: "" },
+    ];
+    for (const { sid_ident, star_ident, sidIdent, starIdent } of cases) {
+      const parsed = parseSimbriefOfp({ ...base, general: { ...base.general, sid_ident, star_ident } });
+      expect(parsed.sidIdent).toBe(sidIdent);
+      expect(parsed.starIdent).toBe(starIdent);
+    }
+  });
+  it("parses the no-SID-or-STAR fixture to empty identifiers and retains its fixes", () => {
+    const raw = fixture("valid-no-sid-star.json") as { navlog: { fix: unknown[] } };
+    const parsed = parseSimbriefOfp(raw);
+    expect(parsed.sidIdent).toBe("");
+    expect(parsed.starIdent).toBe("");
+    expect(parsed.fixes).toHaveLength(raw.navlog.fix.length);
+  });
+  describe.each(["sid_ident", "star_ident"] as const)("%s", (field) => {
+    const shapes: [string, () => unknown][] = [
+      ["null", () => null], ["a missing key", () => undefined], ["an array", () => []],
+      ["a non-empty object", () => ({ x: 1 })], ["a number", () => 7],
+    ];
+    it.each(shapes)("still rejects other procedure identifier shapes: %s", (_label, make) => {
+      const base = fixture("valid-domestic.json") as { general: Record<string, unknown> };
+      const general = { ...base.general };
+      const value = make();
+      if (value === undefined) delete general[field]; else general[field] = value;
+      const error = expectedFailure({ ...base, general });
+      expect(error.reason).toBe("invalidOfp");
+      expect(error.paths).toContain(`general.${field}`);
+    });
+  });
   it("rejects negative distances and non-integer Unix seconds", () => {
     const base = fixture("valid-domestic.json") as Record<string, unknown>;
     const navlog = base.navlog as { fix: Record<string, unknown>[] };

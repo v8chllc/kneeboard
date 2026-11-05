@@ -1,0 +1,63 @@
+{
+  "params": {
+    "ofp_layout": "LIDO",
+    "time_generated": "1767225601"
+  },
+  "general": {
+    "flight_number": "TST102",
+    "icao_airline": "TST",
+    "sid_ident": {},
+    "star_ident": {},
+    "route_distance": "60"
+  },
+  "origin": {
+    "icao_code": "KATL",
+    "pos_lat": "30.000000",
+    "pos_long": "-100.000000"
+  },
+  "destination": {
+    "icao_code": "KORD",
+    "pos_lat": "31.000000",
+    "pos_long": "-101.000000"
+  },
+  "navlog": {
+    "fix": [
+      {
+        "ident": "ALPHA",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.250000",
+        "pos_long": "-100.250000",
+        "distance": "15"
+      },
+      {
+        "ident": "BRAVO",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.500000",
+        "pos_long": "-100.500000",
+        "distance": "15"
+      },
+      {
+        "ident": "CHRLI",
+        "type": "wpt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "30.750000",
+        "pos_long": "-100.750000",
+        "distance": "15"
+      },
+      {
+        "ident": "KORD",
+        "type": "apt",
+        "is_sid_star": "0",
+        "via_airway": "DCT",
+        "pos_lat": "31.000000",
+        "pos_long": "-101.000000",
+        "distance": "15"
+      }
+    ]
+  }
+}

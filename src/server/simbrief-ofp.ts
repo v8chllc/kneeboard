@@ -44,12 +44,19 @@ const detailedFixes = z.preprocess(
   (value) => value && typeof value === "object" && !Array.isArray(value) ? [value] : value,
   z.array(fix).nonempty(),
 );
+// SimBrief sends an absent SID or STAR as an empty object. Only that shape means "no
+// procedure" and becomes ""; null, arrays, non-empty objects and numbers stay invalid.
+const procedureIdent = z.preprocess(
+  (value) => value && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === 0 ? "" : value,
+  z.string(),
+);
 const ofpSchema = z.object({
   params: z.object({ time_generated: unixSeconds }),
   general: z.object({
     flight_number: z.string().min(1),
-    sid_ident: z.string(),
-    star_ident: z.string(),
+    sid_ident: procedureIdent,
+    star_ident: procedureIdent,
     route_distance: nonNegativeDistance,
   }),
   origin: airport,

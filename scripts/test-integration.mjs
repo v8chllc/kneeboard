@@ -8,7 +8,6 @@ export const JOURNEY_ONLY_FILES = new Set([
   "src/db/recent-loads.integration.test.ts",
   "src/server/auth-integration.test.ts",
   "src/server/account-settings.integration.test.ts",
-  "src/server/mail-delivery.integration.test.ts",
 ]);
 
 export function inspectResults(report, root = process.cwd()) {

@@ -13,6 +13,7 @@ contact live SimBrief.
 | `valid-sparse-identity.json` | Accept | Blank airline and `N101SB` registration substitution |
 | `valid-exactly-nine.json` | Accept | Exactly one complete group of nine eligible fixes |
 | `valid-ten-boundary-cases.json` | Accept | Slot 9/page 2 boundary, coordinate rollover, mixed numeric tokens, repeated identifiers, and fail-closed classification |
+| `valid-no-sid-star.json` | Accept | Empty-object SID and STAR identifiers with a detailed navlog and no procedure rows |
 | `invalid-missing-detailed-navlog.json` | Reject | LIDO payload with `navlog.fix` absent |
 | `invalid-non-lido.json` | Reject | Populated DAL-layout navlog |
 | `invalid-malformed-numeric-values.json` | Reject | Invalid numeric syntax, ranges, and procedure flag |

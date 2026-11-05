@@ -15,13 +15,12 @@ function report(file, status = "passed") {
 }
 
 describe("integration test skip gate", () => {
-  it("allows only the five isolated Journey files to skip", () => {
+  it("allows only the four isolated Journey files to skip", () => {
     expect([...JOURNEY_ONLY_FILES]).toEqual([
       "src/db/db-journey.test.ts",
       "src/db/recent-loads.integration.test.ts",
       "src/server/auth-integration.test.ts",
       "src/server/account-settings.integration.test.ts",
-      "src/server/mail-delivery.integration.test.ts",
     ]);
     for (const file of JOURNEY_ONLY_FILES) {
       expect(inspectResults(report(file, "skipped"), "/repo").errors).toEqual([]);

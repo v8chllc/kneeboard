@@ -160,6 +160,10 @@ server-side account ownership; knowing an ID never grants access.
   after the MVP production release.
 - The initial visual design is a single dark, high-contrast,
   cockpit-oriented theme.
+- The [Kneeboard design baseline](https://www.figma.com/design/wGF3LRnLjjLBzv6iKBmDXe/Kneeboard-%E2%80%94-As-built-baseline)
+  in Figma renders the home and tracker screens as built at commit `46ae047`,
+  at 390, 768, and 1440 pixels wide. Its Read me page lists where the renders
+  approximate the browser and which states are not drawn yet.
 - Core flows target WCAG 2.2 AA without making a formal conformance claim.
 - Controls must be keyboard operable, have visible focus, use adequate touch
   targets, and never communicate status through color alone.

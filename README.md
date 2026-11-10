@@ -67,6 +67,9 @@ governing decisions are documented in this repository.
 - [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
   payload structure, classification evidence, and gaps against documented
   tracker behavior.
+- [Design baseline (Figma)](https://www.figma.com/design/wGF3LRnLjjLBzv6iKBmDXe/Kneeboard-%E2%80%94-As-built-baseline)
+  — view-only renders of the home and tracker screens as built, at the phone,
+  tablet, and desktop check widths, with the components and tokens they use.
 
 ## MVP at a glance
 

@@ -103,9 +103,6 @@ currently written into the INS unit. It appears only after the first Save.
 
 ### Row display
 
-These decisions were validated against
-a static tracker wireframe.
-
 - Waypoint state is encoded by a glyph, a written label, and type weight
   together. Color never carries state on its own, so every state remains
   distinguishable in grayscale and under color-vision deficiency.
@@ -150,8 +147,7 @@ server-side account ownership; knowing an ID never grants access.
 ## Responsive design and accessibility
 
 - The initial use case is desktop.
-- Layout and component design are mobile-first because tablet and phone support
-  is expected soon after launch.
+- Layout and component design are mobile-first to support tablet and phone use.
 - The MVP is a responsive website, not an installable Progressive Web App.
 - Target browsers are current Chrome, Edge, Firefox, and Safari. The responsive
   layout is checked locally in Chromium at 390×844 (phone), 768×1024 (tablet),

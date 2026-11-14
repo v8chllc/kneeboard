@@ -5,14 +5,15 @@
  * normalization and *before* any domain interpretation. Normalization —
  * coercing quoted numerics to numbers, collapsing SimBrief's
  * single-element-object-or-array shapes to lists, and rejecting non-LIDO or
- * incomplete payloads — is the Zod boundary's job and arrives in task-list
- * section 8. Interpretation — classification, eligibility, the synthesized
- * origin row, and derived `RDIS` — is domain work and lives in `src/domain/`.
+ * incomplete payloads — is the Zod boundary's job. Interpretation —
+ * classification, eligibility, the synthesized origin row, and derived `RDIS`
+ * — is domain work and lives in `src/domain/`.
  *
- * Section 8's Zod schema must produce exactly these types, which the compiler
+ * The Zod boundary schema must produce exactly these types, which the compiler
  * enforces at the call site.
  *
- * Field mapping is recorded in `docs/simbrief-navlog-findings.md`.
+ * Field mappings are documented on the properties below; representation
+ * validation lives in `src/server/simbrief-ofp.ts`.
  */
 
 /**

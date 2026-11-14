@@ -7,8 +7,9 @@ are database resets inside that project and ``docker compose down -v`` of that
 project; the developer's ``kneeboard`` project and databases are never targeted.
 
 Claims: every printed or raised 6a claim label starts with ``6a `` so it is not
-confused with the 6b operation claims; docs/database-journey-coverage.md maps
-each label to its claim. ``scripts/db_journey_fitness.py`` reuses the bounded
+confused with the 6b operation claims. Checks are defined by the assertions
+below and in ``scripts/db-journey.sql``; operation checks live in
+``src/db/db-journey.test.ts``. ``scripts/db_journey_fitness.py`` reuses the bounded
 command, Compose, and cleanup helpers below.
 
 Processes: every command runs through run_bounded in a new session, so the

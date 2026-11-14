@@ -2,23 +2,28 @@
 
 ## Start Here
 
-Before planning or changing application behavior, read:
+Before planning or changing application behavior, read `README.md` and the
+following governing documents:
 
-1. `README.md`
-2. `docs/product-decisions.md`
-3. `docs/tracker-behavior.md`
-4. `docs/technical-decisions.md`
-5. `docs/simbrief-navlog-findings.md`
-6. `CODING_STANDARDS.md`
-7. `WORKFLOW_STANDARDS.md`
+| Document | Governs |
+| --- | --- |
+| `docs/product-decisions.md` | Product scope, experience, safety and non-goals |
+| `docs/tracker-behavior.md` | Domain language and tracker behavior |
+| `docs/technical-decisions.md` | Technical constraints and their rationale |
+| `CODING_STANDARDS.md` | Implementation, privacy and testing practices |
+| `WORKFLOW_STANDARDS.md` | Workflow practices |
 
-The in-repository decision documents govern product, domain, and technical
-behavior over the implementation order below. If a product decision is not
-recorded in this repository, stop and ask before implementing it.
+`docs/deployment.md` and `docs/database-migrations.md` are runbooks for their
+named operations. Reading a runbook does not authorize performing those
+operations; production operations require separate explicit authority.
 
-Application implementation began with task-list section 4. Development tooling
-and planning artifacts may already exist, so inspect the repository and working
-tree before assuming a blank slate.
+The authorized work item defines implementation scope within these governing
+constraints. Reading supporting material, including research, fixtures, design
+references, planning and past verification evidence, does not authorize additional
+implementation or independently add acceptance obligations. Surface conflicts
+between the work item, governing documents and implementation rather than
+expanding scope to resolve them. If a product decision is not recorded in this
+repository, stop and ask before implementing it.
 
 ## Working Agreement
 
@@ -73,36 +78,14 @@ Follow [CODING_STANDARDS.md — Domain Invariants](CODING_STANDARDS.md#domain-in
 
 Follow [CODING_STANDARDS.md — SimBrief Data and Privacy](CODING_STANDARDS.md#simbrief-data-and-privacy).
 
-## Implementation Order
+## Delivery workflow
 
-Preserve these task-list dependencies. The in-repository decision documents
-above take precedence over this implementation order.
-
-Numbered sections run through the `feature-orchestrate` workflow skill and
-other work through `change-set-orchestrate`, both configured by the profile
-below. Review follows the profile's `review_capability`, and the sponsor merges
-every pull request. A finding that touches a safety, privacy, authorization, or
-test boundary is fixed or escalated, never accepted as-is. Production
-operations require separate explicit authority.
-
-1. Capture, inspect, map, and sanitize representative SimBrief fixtures.
-2. Resolve the remaining implementation-planning decisions.
-3. Validate the tracker display model with a throwaway static wireframe before
-   domain code depends on it.
-4. Establish the reproducible local development foundation, application
-   scaffold, test tooling, and CI command parity.
-5. Build domain types, domain interpretation of the route, coordinate
-   conversion, transitions, and unit tests. Boundary normalization of the
-   SimBrief payload belongs to section 8; see the representation and
-   interpretation seam in `CODING_STANDARDS.md` under Architecture Guardrails.
-6. Add local and production persistence with committed migrations and explicit
-   production migration procedures.
-7. Establish authentication and account isolation before introducing private
-   OFP data flows.
-8. Deliver one authenticated vertical slice from OFP load through a working
-   tracker.
-9. Complete responsive UI, accessibility, local E2E coverage, migration
-   procedures, and production validation.
+Added behavior runs through `feature-orchestrate`; changes to existing behavior
+run through `change-set-orchestrate`, both configured by the profile below.
+Review follows the profile's `review_capability`, and the sponsor merges every
+pull request. A finding that touches a safety, privacy, authorization, or test
+boundary is fixed or escalated, never accepted as-is. Production operations
+require separate explicit authority.
 
 ## Testing and Delivery
 

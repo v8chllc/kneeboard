@@ -7,11 +7,10 @@
  * and encodes no domain rule. Classification, eligibility, origin-row
  * synthesis, and `RDIS` all belong to `src/domain/`.
  *
- * This exists only because representation normalization is a Zod boundary
- * concern that arrives in task-list section 8. When that boundary lands, its
- * schema must be proven to produce output identical to this adapter for every
- * tracked fixture; otherwise the two can diverge on an edge case and the suite
- * keeps passing while production fails.
+ * Representation normalization belongs to the Zod integration boundary in
+ * `src/server/simbrief-ofp.ts`. Its tests compare the boundary output with this
+ * adapter for valid tracked fixtures, guarding against divergence that could
+ * leave domain tests passing while production fails.
  *
  * Not a Vitest suite: Vitest's default include matches only `*.test.ts`.
  */
@@ -117,8 +116,8 @@ const MAX_LONGITUDE_DEGREES = 180;
  * adapter cannot hand back an `OfpInput` that violates its own contract.
  *
  * This is distinct from `assertInRange` in `src/domain/coordinates.ts`. That
- * guard is currently the only range check on the path into the domain; this one
- * guards the shape of test input. Neither replaces the other.
+ * guard independently protects domain formatting; this one guards the shape of
+ * test input. Neither replaces the integration boundary's validation.
  */
 function requiredCoordinate(
   source: Record<string, unknown>,

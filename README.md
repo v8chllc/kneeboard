@@ -9,41 +9,13 @@ The MVP is designed around the CIVA/Delco Carousel IV-A and the three Litton
 LTN-72 units modeled in the iniBuilds Lockheed L-1011 TriStar. It is not intended
 for real-world navigation.
 
-## Status
-
-Planning is complete through the display model. Representative SimBrief OFPs
-have been captured, mapped, and sanitized into tracked fixtures; the core
-product and application-architecture decisions are resolved; and the tracker
-display model has been validated against a static wireframe.
-
-Task-list section 4 is complete. The pinned Next.js scaffold, canonical local
-quality commands, CI command parity, and review configuration are established.
-Task-list section 5 is complete. The framework-independent domain layer and its
-unit tests cover route interpretation, coordinates, slot and page assignment,
-and tracker transitions.
-
-Task-list section 6 is merged: local PostgreSQL, the persistence schema, tracker
-mutation concurrency, and atomic OFP-load reservation, cooldown and idempotency,
-plus the local Playwright journey harness. Production Neon provisioning is not
-established and belongs to section 9.
-
-Task-list sections 7 and 8 are complete: authentication and account isolation
-protect the authenticated OFP load flow, and users can open and operate the
-resulting persistent tracker. The next milestone is task-list section 9:
-responsive refinement, accessibility, recent loads, and production validation.
-Sections run through the `feature-orchestrate` workflow, and the sponsor merges
-every pull request.
-
 ## About this repository
 
 Kneeboard is built in the open as a demonstration of engineering process. Its
 governing decisions are documented in this repository.
 
-- The decision documents record the reasoning behind each choice, not only the
-  choice itself. Where a model proved wrong, the correction and its rationale
-  are documented rather than quietly replaced. The replacement of the original
-  "active page" concept with the sliding window is one such case, caught while
-  the cost was a document rather than a transition engine and its test suite.
+- The decision documents state current contracts and useful rationale. The
+  authority boundary and authorized work scope are defined in [AGENTS.md](AGENTS.md).
 - Deferred scope is deliberate. Features excluded from the MVP stay excluded
   until they are chosen explicitly, rather than becoming an implicit backlog.
 - Test fixtures contain no real account data. Raw SimBrief payloads never enter
@@ -62,11 +34,10 @@ governing decisions are documented in this repository.
   and page construction.
 - [Technical decisions](docs/technical-decisions.md) — stack, integration,
   persistence, authentication, security, deployment, testing, and operations.
-- [Production launch](docs/deployment.md) — production settings, launch order,
-  DNS, smoke-test checklist, and application rollback.
-- [SimBrief navlog findings](docs/simbrief-navlog-findings.md) — observed OFP
-  payload structure, classification evidence, and gaps against documented
-  tracker behavior.
+- [Deployment](docs/deployment.md) — production settings, recurring release
+  validation, DNS, and application rollback.
+- [Database migrations](docs/database-migrations.md) — local validation,
+  authorized manual production migration, and database rollback.
 - [Design baseline (Figma)](https://www.figma.com/design/wGF3LRnLjjLBzv6iKBmDXe/Kneeboard-%E2%80%94-As-built-baseline)
   — view-only renders of the home and tracker screens as built, at the phone,
   tablet, and desktop check widths, with the components and tokens they use.
@@ -196,7 +167,7 @@ Read captured mail at <http://127.0.0.1:8025>. Mailpit accepts SMTP at
 persistent volume. The image is pinned to the multi-platform digest of Mailpit
 v1.31.4, released 2026-10-03. This version includes the earlier SMTP and API
 security fixes in the 1.31 series; the service is never deployed or started by
-CI. The later browser journey will use its REST API to read and clear messages.
+CI. The browser journey uses its REST API to read and clear messages.
 
 Local configuration uses `MAIL_DELIVERY=mailpit`, `MAIL_FROM_EMAIL`, and the
 loopback SMTP host and port from `.env.local`. Production requires an HTTPS
@@ -237,7 +208,7 @@ synthetic schema probes in a rolled-back transaction.
 The [migration runbook](docs/database-migrations.md) covers empty-database
 validation, manual production migration, and rollback.
 
-For the section 6a database Journey, run `mise exec -- pnpm journey:db`. It
+For the database Journey, run `mise exec -- pnpm journey:db`. It
 creates and removes its own Compose project and volume on a temporary loopback
 port, exercises migration and database behavior, and checks the built local
 application. For the browser sign-in Journey, run `mise exec -- pnpm journey:e2e`.
@@ -267,11 +238,11 @@ which finds a volume whose containers are already gone. Remove each
 `docker compose -p kneeboard_journey_<id> down -v --remove-orphans`. The
 Journey supports macOS and Linux only.
 
-The [database Journey coverage map](docs/database-journey-coverage.md) links
-each section 6a claim to its committed check and its fitness evidence. To show
-that the strengthened SQL checks fail for the right reason, run
-`mise exec -- python3 scripts/db_journey_fitness.py`. It removes or inverts each
-guarded behavior in a disposable project and requires the exact claim label to
+The database Journey's current checks live in `scripts/db_journey.py` and
+`scripts/db-journey.sql`; application-operation checks live in
+`src/db/db-journey.test.ts`. To check that the SQL probes fail for the right
+reason, run `mise exec -- python3 scripts/db_journey_fitness.py`. It removes or
+inverts each guarded behavior in a disposable project and requires the exact claim label to
 fail. Then it removes the project it created. Add `--case <name>` to rerun one
 case, or `--list` to show them all.
 

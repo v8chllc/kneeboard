@@ -140,10 +140,9 @@ describe("isSlotEligibleClassification", () => {
 
 describe("classification against the tracked fixtures", () => {
   /**
-   * Expected eligible counts come from the original captures recorded in
-   * docs/simbrief-navlog-findings.md. Capture order is not filename order, so
-   * each fixture is mapped to its capture by ROUTE and cross-checked against
-   * the documented navlog entry count. Both agree for all five.
+   * Fixed eligible counts for the tracked sanitized fixtures. Route and row
+   * counts identify the fixture before checking classification; the current
+   * classification contract is in docs/tracker-behavior.md.
    */
   const DOCUMENTED_ELIGIBLE_COUNTS: ReadonlyArray<{
     fixture: string;
@@ -163,7 +162,7 @@ describe("classification against the tracked fixtures", () => {
     ({ fixture: fileName, route, navlogEntries, eligible }) => {
       const input = loadOfpFixture(fileName);
 
-      // Confirms the fixture-to-capture mapping before asserting its count.
+      // Confirms fixture identity before asserting its count.
       expect(`${input.origin.icaoCode}-${input.destination.icaoCode}`).toBe(route);
       expect(input.fixes).toHaveLength(navlogEntries);
 
@@ -172,10 +171,8 @@ describe("classification against the tracked fixtures", () => {
   );
 
   /**
-   * The two synthetic fixtures are hand-authored boundary constructions, not
-   * captures, so docs/simbrief-navlog-findings.md records no eligible count for
-   * them. These counts are derived from the documented classification rules and
-   * the fixtures' own README descriptions, and are asserted as such.
+   * Synthetic boundary counts follow docs/tracker-behavior.md and the fixture
+   * descriptions in tests/fixtures/simbrief/README.md.
    */
   it("counts nine eligible fixes in the exactly-nine boundary fixture", () => {
     expect(countEligible("valid-exactly-nine.json")).toBe(9);

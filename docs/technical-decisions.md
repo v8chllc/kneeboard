@@ -27,8 +27,7 @@
 - Mailpit for local-only email capture
 - `pnpm`
 
-Node.js uses the current LTS major selected at implementation time. The planning
-baseline is Node.js 24 LTS.
+Node.js uses the LTS major pinned in `mise.toml`.
 
 Mise is the checked-in development toolchain manager:
 
@@ -38,8 +37,7 @@ Mise is the checked-in development toolchain manager:
 
 ## Local development
 
-Local development is established before domain implementation. The initial
-scaffold creates one root Next.js project using the `src/` layout, with
+The application is one root Next.js project using the `src/` layout, with
 framework-independent tracker code under `src/domain/`. The Next.js development
 server runs the frontend and backend route handlers together.
 
@@ -50,14 +48,15 @@ and dependencies, run the application on localhost, and pass every currently
 applicable check using documented steps.
 
 `.env.example` contains only non-secret examples. `.env.local` is ignored, and
-Zod validation expands as each service is introduced rather than declaring
-unused configuration in advance.
+Zod validates current service configuration; do not declare unused
+configuration in advance.
 
 Persistence development uses a pinned ordinary PostgreSQL container with
 separate development and test databases. This keeps routine development
 self-contained and prevents accidental access to production Neon resources.
-Local start, stop, migration, and reset commands are documented when persistence
-is added. Production migrations remain separate and manually invoked.
+Local start, stop, migration, and reset commands are documented in
+[README.md](../README.md#local-postgresql). Production migrations remain separate
+and manually invoked.
 
 Authentication development uses a pinned Mailpit container as an SMTP sink and
 browser-visible inbox. It is local-only and is never deployed or used as a
@@ -68,9 +67,8 @@ configuration; production fails closed when Resend is missing. The Mailpit image
 is pinned for reproducibility and reviewed for compatibility and known security
 issues when introduced.
 
-Every implementation section extends the local environment in the same change
-that adds a new runtime dependency. The application must remain locally runnable
-and testable after each section.
+Extend the local environment in the same change that adds a new runtime
+dependency. The application must remain locally runnable and testable.
 
 ## SimBrief integration
 
@@ -94,10 +92,9 @@ Decisions:
 - Abort the upstream request after 20 seconds, below the 30-second load
   reservation. Limit the streamed response to 8 MiB before JSON parsing;
   `Content-Length` alone is insufficient because it can be absent or false.
-  The largest valid sanitized fixture is 9,581 bytes. This is a limited basis:
-  sanitized fixtures cannot establish the size of complete raw OFPs, and no raw
-  capture is currently available locally. Measure a fresh capture when one is
-  available before treating 8 MiB as a measured production bound.
+  Sanitized fixtures cannot establish the size of complete raw OFPs. Measure a
+  complete raw capture before treating 8 MiB as a measured production bound; see
+  the [release validation](deployment.md#release-validation) procedure.
 - Take the origin from required `SIMBRIEF_BASE_URL` server configuration with
   no local fallback. Production accepts exactly `https://www.simbrief.com`.
   Development and test accept only an explicit loopback HTTP origin. Reject
@@ -134,8 +131,8 @@ reservation. Request handling follows this order:
    account indefinitely.
 
 A unique account-plus-idempotency-key constraint remains the final defense
-against duplicate successful loads. The reservation's exact columns are chosen
-with the section 6 schema, but these externally visible semantics are fixed.
+against duplicate successful loads. The physical schema is defined in
+`src/db/schema.ts`.
 
 SimBrief publishes no formal JSON Schema. Its JSON mirrors XML and may represent
 numbers as strings and empty sections as empty strings.
@@ -175,11 +172,10 @@ Pending and queued are the exception that proves the shape: they *are* stored in
 `waypoints[].state`, following the five-state model at
 [tracker behavior](tracker-behavior.md), and they are recalculated from the
 remaining facts on every transition. The safeguard is that recalculation never
-consults the previous pending or queued values, and `recalculateSnapshot` is
-proven idempotent by test.
+consults the previous pending or queued values, and `recalculateSnapshot` must
+remain idempotent.
 
-Reversing this after section 6 persists snapshots would be expensive, because
-every persisted row would carry the old shape and need migrating.
+Changing the persisted snapshot shape requires migrating existing rows.
 
 ## Persistence requirements
 
@@ -262,7 +258,7 @@ semantics:
 - one or more normalized email addresses: allow exact matches only; and
 - `*`: explicitly permit any valid email address.
 
-The checked-in `.env.example` will contain:
+The checked-in `.env.example` contains:
 
 ```dotenv
 AUTH_EMAIL_ALLOWLIST=example@email.local
@@ -303,13 +299,13 @@ not add application-level field encryption.
 - Resend is the email provider.
 - Mailpit captures email in local development only.
 - Resend domain verification should use the kneeboard subdomain.
-- A sender such as `Kneeboard <login@kneeboard.v8ch.com>` is the current
-  direction.
+- The verified sender is `login@kneeboard.v8ch.com`; see the
+  [production settings](deployment.md#production-settings).
 - Neon is connected through Vercel's integration where practical.
 
-## Soft-launch deployment
+## Deployment
 
-The initial production deployment is intentionally lean:
+Production deployment is intentionally lean:
 
 - `main` automatically deploys to the Vercel production environment.
 - Non-`main` preview deployments are disabled.
@@ -318,16 +314,14 @@ The initial production deployment is intentionally lean:
 - Migrations never run automatically during a Vercel build.
 - Drizzle Kit migration files are committed to the repository.
 
-Vercel CLI may inject production environment variables into a local migration
-process without writing them to a file:
-
-```bash
-vercel env run -e production -- pnpm db:migrate
-```
+The [deployment runbook](deployment.md) defines production configuration,
+release validation and application rollback. The [migration runbook](database-migrations.md)
+defines the separately authorized manual migration procedure without writing
+production variables to a local file.
 
 No custom deployment or migration automation is required for MVP. Preview
 environments, isolated preview databases, promotion, and stronger deployment
-gates will be reconsidered after the application stabilizes.
+gates remain deferred.
 
 ## CI and testing
 
@@ -338,11 +332,9 @@ GitHub Actions runs on pull requests and pushes to `main`:
 - Vitest; and
 - a production build.
 
-Playwright is required for MVP but does not run in CI/CD initially. Its journeys
-are a lean, documented suite run locally, by a person or an agent, against local
-or test infrastructure, and never in CI. They are built section by section once
-the journey harness exists, and the full suite runs as the pre-release check.
-E2E-on-PR is deferred until app behavior and test flows are stable.
+Playwright is required for MVP. Its journeys are a lean, documented suite run
+locally, by a person or an agent, against local or test infrastructure, and never
+in CI. The full suite runs as the pre-release check. E2E-on-PR remains deferred.
 
 Tests use sanitized, fixed SimBrief fixtures and never call live SimBrief,
 Resend, or production infrastructure.
@@ -362,13 +354,10 @@ High-value unit coverage includes:
 - SimBrief timeout, oversize, non-success, and invalid-JSON responses through a
   mocked transport.
 
-The initial Playwright journeys are:
-
-- a harness smoke journey, built with the journey harness;
-- magic-link sign-in and Pilot ID setup, built in section 7;
-- loading a valid OFP into a new tracker, built in section 8; and
-- completing the essential Save, Pass, cascade-confirmation, and Skip workflow,
-  built in section 8.
+The local Playwright journeys cover harness startup, magic-link sign-in and
+Pilot ID setup, loading a valid OFP into a new tracker, and the essential Save,
+Pass, cascade-confirmation and Skip workflow. Canonical commands are in
+[README.md](../README.md#local-postgresql).
 
 ## Observability
 

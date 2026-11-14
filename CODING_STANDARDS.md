@@ -1,11 +1,10 @@
 # Coding Standards
 
-These standards govern Kneeboard implementation and tests. The architecture,
-domain, privacy, and testing rules below were extracted from `AGENTS.md`;
-the governing decisions are in `docs/`. Consult those decisions before
-changing governed behavior.
+These standards govern Kneeboard implementation and tests. The governing
+product, domain and technical decisions are identified in `AGENTS.md`. Consult those decisions
+before changing governed behavior.
 
-Read [AGENTS.md](AGENTS.md) for the reading order, working agreement, delivery
+Read [AGENTS.md](AGENTS.md) for document authority, working agreement, delivery
 instructions, and agent workflow profile, and [WORKFLOW_STANDARDS.md](WORKFLOW_STANDARDS.md)
 for workflow procedures.
 
@@ -45,12 +44,11 @@ do not add redundant derived state to it.
 Representation and interpretation are separate concerns with a fixed seam.
 Representation is the shape of the incoming payload — string-to-number
 coercion, collapsed single-element arrays, empty sections — and is validated
-with Zod at the integration boundary, in task-list section 8. Interpretation is
-the fail-closed classification order, eligibility, origin-row synthesis, and
-`RDIS` derivation; it is pure domain logic, owned by task-list section 5 and
-already built. Section 5 owns the domain input type. Section 8's schema must
-satisfy that type rather than restate it, and must not re-decide any question
-interpretation has already settled.
+with Zod at the integration boundary. Interpretation is the fail-closed
+classification order, eligibility, origin-row synthesis, and `RDIS` derivation;
+it is pure domain logic in `src/domain/`. The domain owns its input type. The
+boundary schema must satisfy that type rather than restate it, and must not
+re-decide questions owned by domain interpretation.
 
 ## Domain Invariants
 
@@ -86,7 +84,7 @@ tracker logic. In particular:
 - The sliding window is the tracker's representation of current INS unit
   contents: the nine most recently saved fixes, always saved or passed, changing
   membership only on Save. It is distinct from pages, which are display
-  grouping. There is no "active page"; that concept was replaced.
+  grouping. There is no "active page".
 - SID and STAR inclusion controls lock permanently after the first Save.
 - Excluded points between a page's slot 9 and the next page's slot 1 belong to
   the preceding page.
@@ -127,10 +125,9 @@ shared domain implementation.
 - The endpoint returns only the most recent OFP. Verify a generated route covers
   its scenario before fetching, and record each capture in
   `.local/simbrief/manifest.md`.
-- Consult `docs/simbrief-navlog-findings.md` before writing parsing or
-  classification code. It records observed payload structure, the evidence
-  behind each classification rule, and the gaps between the payload and
-  `docs/tracker-behavior.md`.
+- Consult `docs/tracker-behavior.md`, the field mappings in
+  `src/domain/ofp-input.ts`, the boundary parser in `src/server/simbrief-ofp.ts`, and
+  `tests/fixtures/simbrief/README.md` before changing parsing or classification.
 - Treat the payload as loosely typed at the boundary. SimBrief collapses
   single-element arrays into bare objects and quotes some numeric values, so
   normalize both shapes rather than assuming consistency.

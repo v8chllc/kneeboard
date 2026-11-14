@@ -111,10 +111,9 @@ function present(
  * first would pull an out-of-range value such as 90.00001 back onto the pole
  * and admit it silently.
  *
- * Task-list section 8 is expected to range-check the payload with Zod at the
- * transport boundary, but that boundary does not exist yet, so this guard is
- * currently the only range check on the path into the domain and must not be
- * weakened when the boundary lands.
+ * This domain guard independently enforces finite values and axis bounds for
+ * formatting, including direct callers that do not pass through the Zod
+ * integration boundary.
  */
 function assertInRange(value: number, maxDegrees: number, axis: string): void {
   if (!Number.isFinite(value)) {

@@ -11,9 +11,9 @@ import { loadReservation, ofpLoad, ofpRaw, tracker } from "./schema";
 const rawPayloadSchema = z.record(z.string(), z.json());
 
 export interface PreparedOfpLoad {
-  /** Complete JSON payload; section 8 supplies the provider boundary. */
+  /** Complete JSON payload returned by the provider integration. */
   readonly rawPayload: unknown;
-  /** Normalized primary navlog; section 8 supplies representation validation. */
+  /** Primary navlog built from representation-validated provider input. */
   readonly navlog: unknown;
 }
 
@@ -65,8 +65,8 @@ function isFinalDuplicateGuard(error: unknown): boolean {
 
 /**
  * Reserve, prepare, and persist one explicit account-scoped OFP load.
- * `work` runs only for a newly claimed attempt and must be bounded below the
- * 30-second reservation lifetime by section 8's real provider integration.
+ * `work` fetches and prepares provider data only for a newly claimed attempt;
+ * preparation must finish below the 30-second reservation lifetime.
  * Raw JSON, metadata, and the initial tracker commit in one transaction. A
  * failed attempt clears only its own active key and retains acceptedAt so the
  * cooldown remains. No error includes OFP contents or account data.

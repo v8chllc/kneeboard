@@ -146,11 +146,8 @@ describe.runIf(Boolean(url) && process.env.DB_JOURNEY_ISOLATED === "1").sequenti
   }, 15000);
 
   // These states are deliberate SQL fault injections into this disposable
-  // database. Normal 6b writes validate JSON and cannot produce them.
-  // Forward obligation — task-list section 8 authenticated tracker operation:
-  // after the same controlled corruption setup, reach each malformed state
-  // through the authenticated tracker action and compare its generic failure
-  // and unchanged persisted row. This tests the transport boundary when it exists.
+  // database. Normal writes validate JSON and cannot produce them. The mutation
+  // rejects malformed persisted data and leaves the stored row unchanged.
   it("C-5 fails closed through the real mutation on corrupted persisted JSON", async () => {
     for (const patch of [
       { navlog: { ...navlog, points: [{ ...navlog.points[0], latitude: "INVALID" }] } },

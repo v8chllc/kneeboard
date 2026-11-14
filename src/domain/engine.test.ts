@@ -528,8 +528,8 @@ describe("untrusted commands", () => {
   }
 
   it("rejects an unrecognized command type instead of throwing", () => {
-    // Section 8 decodes commands from request payloads and persisted JSON, so a
-    // malformed command must return a rejection like any other failure.
+    // Commands can come from untrusted input, so an unrecognized or malformed
+    // command must return a domain rejection rather than throw.
     const command = { type: "teleport", expectedVersion: 0 };
 
     expect(() => applyCommand(navlog, createInitialSnapshot(navlog), command as TrackerCommand))
